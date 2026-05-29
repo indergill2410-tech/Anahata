@@ -10,13 +10,10 @@ jobs:
   test:
     name: Test & Lint
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -28,9 +25,8 @@ jobs:
         run: npm test
         env:
           NODE_ENV: test
-          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-secret' }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-anon-key' }}
+          JWT_SECRET: ci-test-secret
+          POCKETBASE_URL: http://localhost:8090
 
       - name: Install client dependencies
         run: cd client && npm ci
@@ -38,7 +34,7 @@ jobs:
       - name: Build client
         run: cd client && npm run build
         env:
-          VITE_WS_URL: wss://anahata.onrender.com/ws
+          VITE_WS_URL: wss://anahata-backend.fly.dev/ws
 
   security:
     name: Security Audit
@@ -51,3 +47,33 @@ jobs:
           cache: 'npm'
       - run: npm audit --audit-level=high
       - run: cd client && npm ci && npm audit --audit-level=high
+
+  deploy-backend:
+    name: Deploy Backend to Fly.io
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy backend
+        run: flyctl deploy -a anahata-backend --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-pocketbase:
+    name: Deploy PocketBase to Fly.io
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy PocketBase
+        run: flyctl deploy -a anahata-pocketbase --remote-only
+        working-directory: pocketbase
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -15,7 +15,7 @@ const authRoutes       = require('./routes/auth');
 const sessionRoutes    = require('./routes/session');
 const meditationRoutes = require('./routes/meditation');
 const libraryRoutes    = require('./routes/library');
-const supabase         = require('./services/supabaseClient');
+const pb               = require('./services/pbClient');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -102,15 +102,10 @@ app.get('/health', async (req, res) => {
   const checks = { api: 'ok', db: 'unconfigured', uptime: process.uptime() };
   let status = 200;
 
-  if (supabase) {
+  if (pb) {
     try {
-      // Lightweight DB probe — count 1 row
-      const { error } = await supabase
-        .from('meditation_sessions')
-        .select('id', { count: 'exact', head: true })
-        .limit(1);
-      checks.db = error ? 'error' : 'ok';
-      if (error) { checks.db_error = error.message; status = 503; }
+      await pb.health.check();
+      checks.db = 'ok';
     } catch (e) {
       checks.db = 'error';
       checks.db_error = e.message;

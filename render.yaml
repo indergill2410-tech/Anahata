@@ -1,4 +1,18 @@
 services:
+  # ── PocketBase database ────────────────────────────────────────────────────
+  - type: web
+    name: anahata-pocketbase
+    env: docker
+    dockerfilePath: ./pocketbase/Dockerfile
+    region: singapore
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: pb-data
+      mountPath: /pb/pb_data
+      sizeGB: 1
+
   # ── Backend API + WebSocket server ─────────────────────────────────────────
   - type: web
     name: anahata-backend
@@ -18,23 +32,16 @@ services:
       - key: NODE_OPTIONS
         value: --max-old-space-size=460
 
-      # ── Supabase (set these in Render dashboard > Environment)
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-      - key: SUPABASE_SERVICE_KEY
-        sync: false
+      # PocketBase hosted on Fly.io: https://anahata-pocketbase.fly.dev
+      - key: POCKETBASE_URL
+        value: https://anahata-pocketbase.fly.dev
 
-      # ── Auth
       - key: JWT_SECRET
         sync: false
 
-      # ── Observability (optional but recommended)
       - key: SENTRY_DSN
         sync: false
 
-      # ── AI Music API (future)
       - key: AI_MUSIC_API_KEY
         sync: false
       - key: AI_MUSIC_API_URL
