@@ -1,57 +1,68 @@
-import React, { useState, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from 'react';
+import HeroMetrics from '../components/HeroMetrics';
+import MetricsGrid from '../components/MetricsGrid';
+import AudioPlayerCard from '../components/AudioPlayerCard';
+import BluetoothPanel from '../components/BluetoothPanel';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useBluetooth } from '../hooks/useBluetooth';
 import { useSimulator } from '../hooks/useSimulator';
-import BluetoothPanel from '../components/BluetoothPanel';
-import HeroMetrics from '../components/HeroMetrics';
-import AudioPlayerCard from '../components/AudioPlayerCard';
-import MetricsGrid from '../components/MetricsGrid';
+import { useToast } from '../context/ToastContext';
 
 export default function DashboardPage() {
-  const { token } = useAuth();
-  const [heartRate, setHeartRate] = useState(null);
-  const [isDemo, setIsDemo] = useState(false);
+  const ws  = useWebSocket();
+  const ble = useBluetooth();
+  const sim = useSimulator();
+  const { info } = useToast();
 
-  const { status: wsStatus, lastAudio, lastMusicParams, send } = useWebSocket(token);
+  const [meditation, setMeditation] = useState(null);
+  const [demoMode, setDemoMode]     = useState(false);
 
-  const handleHR = useCallback((bpm) => {
-    setHeartRate(bpm);
-    send({ type: 'biometrics', heartRate: bpm });
-  }, [send]);
+  // Heart rate source priority: BLE > Simulator > WS
+  const heartRate = ble.status === 'connected' ? ble.heartRate
+                  : demoMode                   ? sim.heartRate
+                  : ws.lastMessage?.heartRate  || null;
 
-  const { status: bleStatus, deviceName, error: bleError, connect, disconnect } = useBluetooth(handleHR);
-  const { running: simRunning, start: startSim, stop: stopSim } = useSimulator(handleHR);
+  // Send HR to server when available
+  useEffect(() => {
+    if (heartRate && ws.status === 'connected') {
+      ws.send({ type: 'biometric', heartRate });
+    }
+  }, [heartRate, ws.status]);
+
+  // Receive meditation response from WS
+  useEffect(() => {
+    if (ws.lastMessage?.type === 'meditation') {
+      setMeditation(ws.lastMessage);
+    }
+  }, [ws.lastMessage]);
 
   function toggleDemo() {
-    if (simRunning) { stopSim(); setIsDemo(false); setHeartRate(null); }
-    else { setIsDemo(true); startSim(); }
+    if (demoMode) { sim.stop(); setDemoMode(false); }
+    else          { sim.start(); setDemoMode(true); info('Demo mode on — simulating HR data 🎭'); }
   }
 
   return (
     <div className="dashboard fade-in">
-      {isDemo && (
-        <div className="demo-banner">
-          <span>⚠</span>
-          Demo mode — simulating heart rate data
-          <button className="btn btn-ghost" style={{ marginLeft: 'auto', height: 28, padding: '0 10px', fontSize: 11 }} onClick={toggleDemo}>Stop</button>
-        </div>
-      )}
-
-      <HeroMetrics heartRate={heartRate} musicParams={lastMusicParams} wsStatus={wsStatus} />
-
+      <HeroMetrics
+        heartRate={heartRate}
+        brainwaveState={meditation?.brainwaveState}
+        wsStatus={ws.status}
+      />
+      <MetricsGrid
+        targetHR={meditation?.targetHeartRate}
+        tempo={meditation?.musicalTempo}
+        binauralHz={meditation?.binauralHz}
+        brainwaveState={meditation?.brainwaveState}
+      />
+      <AudioPlayerCard
+        audioUrl={meditation?.audioUrl}
+        isLoading={!meditation}
+      />
       <BluetoothPanel
-        bleStatus={bleStatus}
-        deviceName={deviceName}
-        error={bleError}
-        onConnect={connect}
-        onDisconnect={disconnect}
-        isDemo={isDemo}
+        ble={ble}
+        demoMode={demoMode}
         onToggleDemo={toggleDemo}
       />
-
-      {lastMusicParams && <MetricsGrid params={lastMusicParams} />}
-      {lastAudio && <AudioPlayerCard audioData={lastAudio} musicParams={lastMusicParams} />}
     </div>
   );
 }

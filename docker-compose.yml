@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV:           development
+      PORT:               3001
+      JWT_SECRET:         ${JWT_SECRET:-anahata-dev-secret}
+      SUPABASE_URL:       ${SUPABASE_URL}
+      SUPABASE_ANON_KEY:  ${SUPABASE_ANON_KEY}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: node server/index.js
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  client:
+    image: node:20-alpine
+    working_dir: /app/client
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_WS_URL: ws://localhost:3001/ws
+    volumes:
+      - ./client:/app/client
+      - /app/client/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - server

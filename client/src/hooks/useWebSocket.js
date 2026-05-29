@@ -1,37 +1,48 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-const WS_URL = import.meta.env.PROD
-  ? `wss://${window.location.host}/ws`
-  : 'ws://localhost:3000/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`;
 
-export function useWebSocket(token) {
+/**
+ * useWebSocket — manages WebSocket lifecycle for biometric streaming
+ * @returns {{ status, lastMessage, send }}
+ */
+export function useWebSocket() {
   const wsRef = useRef(null);
-  const [status, setStatus] = useState('disconnected'); // disconnected | connecting | connected
-  const [lastAudio, setLastAudio] = useState(null);
-  const [lastMusicParams, setLastMusicParams] = useState(null);
+  const [status, setStatus]           = useState('disconnected'); // connecting | connected | disconnected | error
+  const [lastMessage, setLastMessage] = useState(null);
+  const reconnectTimer = useRef(null);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    const url = token ? `${WS_URL}?token=${token}` : WS_URL;
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
     setStatus('connecting');
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
-    ws.onopen  = () => setStatus('connected');
-    ws.onclose = () => setStatus('disconnected');
-    ws.onerror = () => setStatus('disconnected');
-
+    ws.onopen = () => { if (mountedRef.current) setStatus('connected'); };
     ws.onmessage = (e) => {
       try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'audio_update') {
-          setLastAudio({ url: msg.audioUrl, duration: msg.duration });
-          setLastMusicParams(msg.musicParams);
-        }
+        const data = JSON.parse(e.data);
+        if (mountedRef.current) setLastMessage(data);
       } catch {}
     };
+    ws.onerror = () => { if (mountedRef.current) setStatus('error'); };
+    ws.onclose = () => {
+      if (!mountedRef.current) return;
+      setStatus('disconnected');
+      reconnectTimer.current = setTimeout(connect, 3000);
+    };
+  }, []);
 
-    return () => ws.close();
-  }, [token]);
+  useEffect(() => {
+    mountedRef.current = true;
+    connect();
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
+    };
+  }, [connect]);
 
   const send = useCallback((data) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -39,5 +50,5 @@ export function useWebSocket(token) {
     }
   }, []);
 
-  return { status, lastAudio, lastMusicParams, send };
+  return { status, lastMessage, send };
 }

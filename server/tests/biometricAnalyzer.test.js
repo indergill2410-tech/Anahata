@@ -1,42 +1,62 @@
-const { analyzeMetrics } = require('../services/biometricAnalyzer');
+const { analyzeBiometrics, hrvBinauralOffset, selectBinauralTone } = require('../utils/biometricAnalyzer');
 
-describe('analyzeMetrics', () => {
-  test('high HR (>100) maps to Alpha state', () => {
-    const result = analyzeMetrics({ heartRate: 110 });
-    expect(result.desiredBrainwaveState).toBe('Alpha');
-    expect(result.binauralHz).toBe(10);
-    expect(result.targetHeartRate).toBe(75);
+describe('analyzeBiometrics', () => {
+  test('maps high HR to Beta state', () => {
+    const r = analyzeBiometrics(85);
+    expect(r.brainwaveState).toBe('Beta');
+    expect(r.stressLevel).toBe('elevated');
   });
 
-  test('mid HR (81-100) maps to Theta state', () => {
-    const result = analyzeMetrics({ heartRate: 85 });
-    expect(result.desiredBrainwaveState).toBe('Theta');
-    expect(result.binauralHz).toBe(6);
+  test('maps resting HR to Theta state', () => {
+    const r = analyzeBiometrics(62);
+    expect(r.brainwaveState).toBe('Theta');
+    expect(r.stressLevel).toBe('calm');
   });
 
-  test('low HR (<=65) maps to Delta state', () => {
-    const result = analyzeMetrics({ heartRate: 60 });
-    expect(result.desiredBrainwaveState).toBe('Delta');
-    expect(result.binauralHz).toBe(2);
+  test('maps very low HR to Delta state', () => {
+    const r = analyzeBiometrics(48);
+    expect(r.brainwaveState).toBe('Delta');
   });
 
-  test('binaural channels are correctly offset', () => {
-    const result = analyzeMetrics({ heartRate: 85 });
-    expect(result.rightEarHz - result.leftEarHz).toBe(result.binauralHz);
+  test('maps Alpha HR correctly', () => {
+    const r = analyzeBiometrics(73);
+    expect(r.brainwaveState).toBe('Alpha');
   });
 
-  test('HRV tone: above 60ms returns uplifting tone', () => {
-    const result = analyzeMetrics({ heartRate: 70, hrv: 65 });
-    expect(result.emotionalTone).toContain('uplifting');
+  test('throws on invalid HR', () => {
+    expect(() => analyzeBiometrics(0)).toThrow();
+    expect(() => analyzeBiometrics(null)).toThrow();
+    expect(() => analyzeBiometrics(250)).toThrow();
   });
 
-  test('HRV tone: below 40ms returns deeply soothing tone', () => {
-    const result = analyzeMetrics({ heartRate: 70, hrv: 30 });
-    expect(result.emotionalTone).toContain('deeply soothing');
+  test('targetHeartRate is <= input HR when HR > 68', () => {
+    const r = analyzeBiometrics(80);
+    expect(r.targetHeartRate).toBeLessThanOrEqual(80);
   });
 
-  test('musicalTempo never drops below 50', () => {
-    const result = analyzeMetrics({ heartRate: 40 });
-    expect(result.musicalTempo).toBeGreaterThanOrEqual(50);
+  test('musicalTempo is slower than HR', () => {
+    const r = analyzeBiometrics(75);
+    expect(r.musicalTempo).toBeLessThan(75);
+  });
+});
+
+describe('hrvBinauralOffset', () => {
+  test('returns negative offset for low HRV', () => {
+    expect(hrvBinauralOffset(15)).toBe(-1.5);
+  });
+  test('returns 0 for moderate HRV', () => {
+    expect(hrvBinauralOffset(35)).toBe(0);
+  });
+  test('returns positive offset for high HRV', () => {
+    expect(hrvBinauralOffset(70)).toBe(1);
+  });
+});
+
+describe('selectBinauralTone', () => {
+  test('returns positive Hz value', () => {
+    expect(selectBinauralTone('Theta', 40)).toBeGreaterThan(0);
+  });
+  test('stays at minimum 0.5 Hz', () => {
+    expect(selectBinauralTone('Delta', 5)).toBeGreaterThanOrEqual(0.5);
   });
 });

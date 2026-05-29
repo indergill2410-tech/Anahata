@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
@@ -11,19 +13,19 @@ import TopBar from './components/TopBar';
 
 function Inner() {
   const { isAuthenticated, loading } = useAuth();
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab]       = useState('dashboard');
   const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
 
   if (loading) {
     return (
-      <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-0)' }}>
         <div className="spinner" style={{ width:28, height:28 }} />
       </div>
     );
   }
 
   if (!isAuthenticated) return <AuthPage />;
-  if (!onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
+  if (!onboarded)       return <OnboardingPage onComplete={() => setOnboarded(true)} />;
 
   const PAGES = { dashboard: DashboardPage, library: LibraryPage, sessions: SessionsPage, profile: ProfilePage };
   const Page = PAGES[tab] || DashboardPage;
@@ -31,12 +33,22 @@ function Inner() {
   return (
     <div className="page">
       <TopBar tab={tab} />
-      <Page />
+      <ErrorBoundary>
+        <Page />
+      </ErrorBoundary>
       <BottomNav active={tab} onChange={setTab} />
     </div>
   );
 }
 
 export default function App() {
-  return <AuthProvider><Inner /></AuthProvider>;
+  return (
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <Inner />
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
+  );
 }

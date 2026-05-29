@@ -2,56 +2,72 @@ import React, { useState } from 'react';
 
 const STEPS = [
   {
-    icon: '♡',
-    title: 'Music that listens to your body',
-    body: 'Anahata reads your live heart rate from your smartwatch and generates personalised Mozart-inspired music in real time — tuned to guide your nervous system toward calm.'
-  },
-  {
-    icon: '◎',
-    title: 'Binaural beats embedded in the sound',
-    body: 'Beneath every note, binaural frequencies gently shift your brain into Theta or Alpha states. No effort required — just listen through headphones and breathe.'
+    icon: '🪷',
+    title: 'Welcome to Anahata',
+    body: 'Your heart rate guides the music. The deeper you breathe, the more the music adapts to bring you into stillness.'
   },
   {
     icon: '⌚',
-    title: 'Connect your smartwatch',
-    body: 'Use the Bluetooth button to pair any heart rate monitor. No smartwatch? No problem — use Demo Mode and experience the full app with a simulated session.'
+    title: 'Connect Your Smartwatch',
+    body: 'Pair any Bluetooth heart rate monitor — Apple Watch, Galaxy Watch, Polar, Garmin, or any Wear OS device.'
+  },
+  {
+    icon: '🎵',
+    title: '111 Meditation Tracks',
+    body: 'Explore our library of binaural beats fused with Indian classical instruments — sitar, bansuri, tanpura and more.'
   }
 ];
 
 export default function OnboardingPage({ onComplete }) {
   const [step, setStep] = useState(0);
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
 
-  function next() {
-    if (isLast) {
-      localStorage.setItem('anahata_onboarded', '1');
-      onComplete();
-    } else {
-      setStep(s => s + 1);
-    }
+  function finish() {
+    localStorage.setItem('anahata_onboarded', '1');
+    onComplete();
   }
 
+  const { icon, title, body } = STEPS[step];
+  const isLast = step === STEPS.length - 1;
+
   return (
-    <div className="onboard-page fade-in">
-      <div className="onboard-step-dots">
-        {STEPS.map((_, i) => (
-          <div key={i} className={`step-dot${i === step ? ' active' : ''}`} />
-        ))}
-      </div>
+    <div style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: 'var(--bg-0)', padding: 32
+    }}>
+      <div style={{ width: '100%', maxWidth: 340, textAlign: 'center' }}>
+        <div style={{ fontSize: 64, marginBottom: 28, animation: 'fadeIn 0.4s ease' }} key={step}>
+          {icon}
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 500, color: 'var(--t1)', marginBottom: 14, letterSpacing: '-0.02em' }}>
+          {title}
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.7, marginBottom: 44 }}>
+          {body}
+        </p>
 
-      <div className="onboard-icon">{current.icon}</div>
-      <h1 className="onboard-title">{current.title}</h1>
-      <p className="onboard-body">{current.body}</p>
+        {/* Step dots */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 32 }}>
+          {STEPS.map((_, i) => (
+            <div key={i} style={{
+              width: i === step ? 20 : 7, height: 7,
+              borderRadius: 4,
+              background: i === step ? 'var(--accent)' : 'var(--bg-3)',
+              transition: 'all 0.35s var(--ease)'
+            }} />
+          ))}
+        </div>
 
-      <div className="onboard-actions">
-        <button className="btn btn-primary btn-full" onClick={next}>
-          {isLast ? 'Get started' : 'Continue'}
+        <button className="btn btn-primary" style={{ width: '100%', height: 46, fontSize: 14 }}
+          onClick={isLast ? finish : () => setStep(s => s + 1)}>
+          {isLast ? 'Start Meditating' : 'Next'}
         </button>
+
         {!isLast && (
-          <button className="btn btn-ghost btn-full" onClick={() => { localStorage.setItem('anahata_onboarded', '1'); onComplete(); }}>
-            Skip
-          </button>
+          <button onClick={finish} style={{
+            marginTop: 14, fontSize: 12, color: 'var(--t3)', background: 'none',
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit'
+          }}>Skip</button>
         )}
       </div>
     </div>
