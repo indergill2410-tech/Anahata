@@ -1,59 +1,159 @@
 /**
- * Anahata — Express App Configuration
+ * Anahata — Express App
  */
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
-const path = require('path');
+const express    = require('express');
+const cors       = require('cors');
+const helmet     = require('helmet');
+const morgan     = require('morgan');
+const rateLimit  = require('express-rate-limit');
+const path       = require('path');
+const logger     = require('./utils/logger');
+const { captureException, getSentry } = require('./utils/sentry');
 
 const authRoutes       = require('./routes/auth');
 const sessionRoutes    = require('./routes/session');
 const meditationRoutes = require('./routes/meditation');
 const libraryRoutes    = require('./routes/library');
+const supabase         = require('./services/supabaseClient');
 
 const app = express();
+const isProd = process.env.NODE_ENV === 'production';
 
-app.use(helmet());
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://anahata.onrender.com']
-    : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+// ── Sentry request handler (must be first middleware) ──────────────────────
+const Sentry = getSentry();
+if (Sentry) app.use(Sentry.Handlers.requestHandler());
+
+// ── Security headers ───────────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: isProd ? {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'"],
+      styleSrc:    ["'self'", "'unsafe-inline'"],
+      mediaSrc:    ["'self'", 'blob:', 'https:'],
+      connectSrc:  ["'self'", 'wss:', 'https:'],
+      imgSrc:      ["'self'", 'data:', 'blob:']
+    }
+  } : false
 }));
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Too many requests.' } });
-app.use('/api/', limiter);
+// ── CORS ───────────────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = isProd
+  ? (process.env.ALLOWED_ORIGINS || 'https://anahata.onrender.com').split(',')
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
 
-if (process.env.NODE_ENV !== 'test') app.use(morgan('combined'));
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true }));
+// ── Rate limiting ──────────────────────────────────────────────────────────
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' }
+}));
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
+// ── HTTP request logging ───────────────────────────────────────────────────
+if (!isProd) {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined', {
+    stream: { write: msg => logger.info(msg.trim(), { type: 'http' }) }
+  }));
 }
 
+// ── Body parsing ───────────────────────────────────────────────────────────
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// ── Static client (production) ─────────────────────────────────────────────
+if (isProd) {
+  const distPath = path.join(__dirname, '../client/dist');
+  app.use(express.static(distPath, {
+    maxAge: '1y',
+    etag: true,
+    setHeaders(res, filePath) {
+      // HTML must never be cached — always fresh for SPA routing
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+    }
+  }));
+}
+
+// ── API Routes ─────────────────────────────────────────────────────────────
 app.use('/api/auth',       authRoutes);
 app.use('/api/sessions',   sessionRoutes);
 app.use('/api/meditation', meditationRoutes);
 app.use('/api/library',    libraryRoutes);
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', app: 'Anahata', version: '1.0.0', timestamp: new Date().toISOString() });
+// ── Health check (deep) ────────────────────────────────────────────────────
+app.get('/health', async (req, res) => {
+  const checks = { api: 'ok', db: 'unconfigured', uptime: process.uptime() };
+  let status = 200;
+
+  if (supabase) {
+    try {
+      // Lightweight DB probe — count 1 row
+      const { error } = await supabase
+        .from('meditation_sessions')
+        .select('id', { count: 'exact', head: true })
+        .limit(1);
+      checks.db = error ? 'error' : 'ok';
+      if (error) { checks.db_error = error.message; status = 503; }
+    } catch (e) {
+      checks.db = 'error';
+      checks.db_error = e.message;
+      status = 503;
+    }
+  }
+
+  res.status(status).json({
+    status:  status === 200 ? 'healthy' : 'degraded',
+    app:     'Anahata',
+    version: '1.0.0',
+    ts:      new Date().toISOString(),
+    checks
+  });
 });
 
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
+// ── SPA fallback (production) ──────────────────────────────────────────────
+if (isProd) {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
 }
 
+// ── Sentry error handler (must be before generic error handler) ───────────
+if (Sentry) app.use(Sentry.Handlers.errorHandler());
+
+// ── Global error handler ───────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('[Error]', err.stack);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+  const statusCode = err.status || err.statusCode || 500;
+  const message    = isProd && statusCode === 500
+    ? 'Internal server error'
+    : err.message;
+
+  logger.error('Unhandled error', {
+    message:  err.message,
+    url:      req.originalUrl,
+    method:   req.method,
+    status:   statusCode
   });
+
+  captureException(err, { url: req.originalUrl, method: req.method });
+
+  res.status(statusCode).json({ error: message });
 });
 
 module.exports = app;

@@ -2,14 +2,15 @@
 node_modules/
 client/node_modules/
 
-# Environment
+# Build output
+client/dist/
+client/.vite/
+
+# Environment — NEVER commit secrets
 .env
 .env.local
 .env.production
-
-# Build
-client/dist/
-client/build/
+.env.*.local
 
 # Logs
 logs/
@@ -23,6 +24,15 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+*.swp
 
-# Test Coverage
+# Coverage
 coverage/
+.nyc_output/
+
+# Render
+.render-buildpacks.json
+
+# PWA
+client/public/sw.js
+client/public/workbox-*.js

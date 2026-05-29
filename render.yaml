@@ -1,26 +1,41 @@
 services:
+  # ── Backend API + WebSocket server ─────────────────────────────────────────
   - type: web
     name: anahata-backend
     env: node
     region: singapore
     plan: starter
-    buildCommand: "npm install"
+    rootDir: .
+    buildCommand: "npm ci && cd client && npm ci && npm run build"
     startCommand: "node server/index.js"
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=460
+
+      # ── Supabase (set these in Render dashboard > Environment)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+      # ── Auth
+      - key: JWT_SECRET
+        sync: false
+
+      # ── Observability (optional but recommended)
+      - key: SENTRY_DSN
+        sync: false
+
+      # ── AI Music API (future)
       - key: AI_MUSIC_API_KEY
         sync: false
       - key: AI_MUSIC_API_URL
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: DIRECT_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: JWT_SECRET
         sync: false
