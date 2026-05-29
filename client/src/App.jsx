@@ -35,6 +35,10 @@ function Inner() {
 
   const [showAuth, setShowAuth] = useState(false);
 
+  React.useEffect(() => {
+    if (isAuthenticated) setShowAuth(false);
+  }, [isAuthenticated]);
+
   if (loading) {
     return (
       <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-0)' }}>

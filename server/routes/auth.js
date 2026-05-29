@@ -69,7 +69,9 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
     let authData;
     try {
-      authData = await pb.collection('users').authWithPassword(email, String(password));
+      const PocketBase = require('pocketbase/cjs');
+      const tempPb = new PocketBase(process.env.POCKETBASE_URL);
+      authData = await tempPb.collection('users').authWithPassword(email, String(password));
     } catch {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }

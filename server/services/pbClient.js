@@ -11,4 +11,10 @@ if (!POCKETBASE_URL) {
 
 const pb = POCKETBASE_URL ? new PocketBase(POCKETBASE_URL) : null;
 
+if (pb && process.env.POCKETBASE_ADMIN_EMAIL && process.env.POCKETBASE_ADMIN_PASSWORD) {
+  pb.admins.authWithPassword(process.env.POCKETBASE_ADMIN_EMAIL, process.env.POCKETBASE_ADMIN_PASSWORD)
+    .then(() => console.log('[PocketBase] Authenticated as admin.'))
+    .catch(err => console.error('[PocketBase] Admin auth failed:', err.message));
+}
+
 module.exports = pb;

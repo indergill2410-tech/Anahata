@@ -45,6 +45,7 @@ async function run() {
 
   if (userExtraFields.length > 0) {
     await pb.collections.update('users', {
+      ...usersCol,
       schema: [...usersCol.schema, ...userExtraFields]
     });
     console.log('  Added fields to users:', userExtraFields.map(f => f.name).join(', '));
