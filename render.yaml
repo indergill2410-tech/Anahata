@@ -32,10 +32,9 @@ services:
       - key: NODE_OPTIONS
         value: --max-old-space-size=460
 
-      # Set this to your PocketBase service URL after first deploy
-      # e.g. https://anahata-pocketbase.onrender.com
+      # PocketBase hosted on Fly.io: https://anahata-pocketbase.fly.dev
       - key: POCKETBASE_URL
-        sync: false
+        value: https://anahata-pocketbase.fly.dev
 
       - key: JWT_SECRET
         sync: false
