@@ -86,4 +86,9 @@ router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
+// POST /api/auth/logout — client should discard token; this endpoint confirms
+router.post('/logout', requireAuth, (req, res) => {
+  res.json({ message: 'Logged out successfully.' });
+});
+
 module.exports = router;

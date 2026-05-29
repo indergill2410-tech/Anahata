@@ -15,6 +15,7 @@ const authRoutes       = require('./routes/auth');
 const sessionRoutes    = require('./routes/session');
 const meditationRoutes = require('./routes/meditation');
 const libraryRoutes    = require('./routes/library');
+const profileRoutes    = require('./routes/profile');
 const pb               = require('./services/pbClient');
 
 const app = express();
@@ -41,7 +42,7 @@ app.use(helmet({
 
 // ── CORS ───────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = isProd
-  ? (process.env.ALLOWED_ORIGINS || 'https://anahata.onrender.com').split(',')
+  ? (process.env.ALLOWED_ORIGINS || 'https://anahata-backend.fly.dev,https://anahata.onrender.com').split(',')
   : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
 
 app.use(cors({
@@ -96,10 +97,11 @@ app.use('/api/auth',       authRoutes);
 app.use('/api/sessions',   sessionRoutes);
 app.use('/api/meditation', meditationRoutes);
 app.use('/api/library',    libraryRoutes);
+app.use('/api/profile',    profileRoutes);
 
 // ── Health check (deep) ────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
-  const checks = { api: 'ok', db: 'unconfigured', uptime: process.uptime() };
+  const checks = { api: 'ok', db: process.env.POCKETBASE_URL ? 'checking' : 'not_configured', uptime: process.uptime() };
   let status = 200;
 
   if (pb) {
@@ -111,6 +113,8 @@ app.get('/health', async (req, res) => {
       checks.db_error = e.message;
       status = 503;
     }
+  } else {
+    checks.db_hint = 'Set POCKETBASE_URL environment variable to enable database';
   }
 
   res.status(status).json({
@@ -134,10 +138,11 @@ if (Sentry) app.use(Sentry.Handlers.errorHandler());
 
 // ── Global error handler ───────────────────────────────────────────────────
 app.use((err, req, res, next) => {
+  // Normalize PocketBase ClientResponseError
   const statusCode = err.status || err.statusCode || 500;
-  const message    = isProd && statusCode === 500
+  const message = isProd && statusCode === 500
     ? 'Internal server error'
-    : err.message;
+    : (err.data?.message || err.message || 'Unknown error');
 
   logger.error('Unhandled error', {
     message:  err.message,

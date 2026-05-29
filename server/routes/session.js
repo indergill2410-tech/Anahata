@@ -56,6 +56,30 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/sessions/stats
+router.get('/stats', async (req, res, next) => {
+  try {
+    if (!pb) return res.json({ stats: {} });
+    const result = await pb.collection('meditation_sessions').getList(1, 500, {
+      filter: `user_id = "${req.user.userId}"`,
+      sort: '-created'
+    });
+    const sessions = result.items;
+    if (!sessions.length) return res.json({ stats: { total: 0 } });
+
+    const total = sessions.length;
+    const avgHeartRate = Math.round(sessions.reduce((s, x) => s + (x.heart_rate || 0), 0) / total);
+    const totalDuration = sessions.reduce((s, x) => s + (x.duration_seconds || 0), 0);
+    const stateCounts = {};
+    sessions.forEach(s => {
+      if (s.brainwave_state) stateCounts[s.brainwave_state] = (stateCounts[s.brainwave_state] || 0) + 1;
+    });
+    const topState = Object.entries(stateCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+    res.json({ stats: { total, avgHeartRate, totalDuration, topBrainwaveState: topState, stateCounts } });
+  } catch (err) { next(err); }
+});
+
 // GET /api/sessions/:id
 router.get('/:id', async (req, res, next) => {
   try {

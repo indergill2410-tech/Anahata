@@ -1,13 +1,22 @@
 const { generateMeditation } = require('../services/musicEngine');
+const { verifyToken } = require('../utils/jwtHelper');
 
-/**
- * WebSocket handler — processes biometric streams from connected clients
- * Attach to an existing ws.Server instance from index.js
- */
 function setupWebSocket(wss) {
   wss.on('connection', (ws, req) => {
-    console.log('[WS] Client connected:', req.socket.remoteAddress);
+    // Optional JWT auth via ?token= query param
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    let userId = null;
+    if (token) {
+      try {
+        const payload = verifyToken(token);
+        userId = payload.userId;
+      } catch {
+        // Invalid/expired token — continue as guest
+      }
+    }
 
+    ws.userId = userId;
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
 
@@ -18,14 +27,12 @@ function setupWebSocket(wss) {
       if (msg.type === 'biometric') {
         const { heartRate, hrv, spo2 } = msg;
         if (!heartRate) return;
-
         try {
           const result = await generateMeditation({ heartRate, hrv, spo2 });
           if (ws.readyState === ws.OPEN) {
-            ws.send(JSON.stringify({ type: 'meditation', ...result }));
+            ws.send(JSON.stringify({ type: 'meditation', userId, ...result }));
           }
-        } catch (err) {
-          console.error('[WS] generateMeditation error:', err.message);
+        } catch {
           if (ws.readyState === ws.OPEN) {
             ws.send(JSON.stringify({ type: 'error', message: 'Analysis failed.' }));
           }
@@ -37,7 +44,7 @@ function setupWebSocket(wss) {
       }
     });
 
-    ws.on('close', () => console.log('[WS] Client disconnected'));
+    ws.on('close', () => {});
     ws.on('error', (err) => console.error('[WS] Error:', err.message));
   });
 
@@ -51,7 +58,6 @@ function setupWebSocket(wss) {
   }, 30000);
 
   wss.on('close', () => clearInterval(heartbeat));
-  console.log('[WS] Server ready');
 }
 
 module.exports = { setupWebSocket };
