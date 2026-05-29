@@ -5,17 +5,37 @@ function fmtTime(s) {
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
-export default function AudioPlayerCard({ audioData, musicParams }) {
+export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
-  const [duration, setDuration] = useState(audioData.duration || 120);
+  const [duration, setDuration] = useState(120);
 
   useEffect(() => {
-    if (!audioRef.current || !audioData.url) return;
-    audioRef.current.src = audioData.url;
-    audioRef.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
-  }, [audioData.url]);
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!audioUrl) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    audio.src = audioUrl;
+
+    const handleLoadedMetadata = () => {
+      if (audio.duration) setDuration(audio.duration);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.play()
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false));
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [audioUrl]);
 
   function togglePlay() {
     if (!audioRef.current) return;
@@ -33,8 +53,8 @@ export default function AudioPlayerCard({ audioData, musicParams }) {
     <div className="card audio-card">
       <div className="card-header">
         <span className="card-label">Now Playing</span>
-        {audioData.isFallback && (
-          <span style={{ fontSize: 10, color: 'var(--amber)', fontWeight: 500 }}>FALLBACK TRACK</span>
+        {isLoading && (
+          <span style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 500 }}>WAITING FOR DATA</span>
         )}
       </div>
 
@@ -66,7 +86,6 @@ export default function AudioPlayerCard({ audioData, musicParams }) {
         loop
         preload="none"
         onTimeUpdate={(e) => setCurrent(e.target.currentTime)}
-        onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />
