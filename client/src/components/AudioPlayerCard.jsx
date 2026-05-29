@@ -12,9 +12,29 @@ export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }) {
   const [duration, setDuration] = useState(120);
 
   useEffect(() => {
-    if (!audioRef.current || !audioUrl) return;
-    audioRef.current.src = audioUrl;
-    audioRef.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!audioUrl) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    audio.src = audioUrl;
+
+    const handleLoadedMetadata = () => {
+      if (audio.duration) setDuration(audio.duration);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.play()
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false));
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
   }, [audioUrl]);
 
   function togglePlay() {
@@ -66,7 +86,6 @@ export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }) {
         loop
         preload="none"
         onTimeUpdate={(e) => setCurrent(e.target.currentTime)}
-        onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />
