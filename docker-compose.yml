@@ -21,10 +21,12 @@ services:
     ports:
       - '3001:3001'
     environment:
-      NODE_ENV:         development
-      PORT:             3001
-      JWT_SECRET:       ${JWT_SECRET:-anahata-dev-secret}
-      POCKETBASE_URL:   http://pocketbase:8090
+      NODE_ENV:                 development
+      PORT:                     3001
+      JWT_SECRET:               ${JWT_SECRET:-anahata-dev-secret}
+      POCKETBASE_URL:           http://pocketbase:8090
+      POCKETBASE_ADMIN_EMAIL:   ${POCKETBASE_ADMIN_EMAIL}
+      POCKETBASE_ADMIN_PASSWORD: ${POCKETBASE_ADMIN_PASSWORD}
     volumes:
       - .:/app
       - /app/node_modules

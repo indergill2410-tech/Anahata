@@ -26,7 +26,6 @@ jobs:
         env:
           NODE_ENV: test
           JWT_SECRET: ci-test-secret
-          POCKETBASE_URL: http://localhost:8090
 
       - name: Install client dependencies
         run: cd client && npm ci

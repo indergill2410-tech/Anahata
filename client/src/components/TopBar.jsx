@@ -3,14 +3,14 @@ import { useAuth } from '../context/AuthContext';
 
 const TITLES = { dashboard: 'Anahata', library: 'Library', sessions: 'History', profile: 'Profile' };
 
-export default function TopBar({ tab }) {
+export default function TopBar({ tab, onSignIn }) {
   const { user } = useAuth();
   return (
     <div className="topbar">
       <span className="topbar-logo">
         {tab === 'dashboard' ? <>Ana<span>hata</span></> : TITLES[tab]}
       </span>
-      {user && (
+      {user ? (
         <span style={{
           width:30, height:30, borderRadius:'50%',
           background:'var(--accent-low)', border:'1px solid rgba(109,74,255,0.3)',
@@ -19,6 +19,14 @@ export default function TopBar({ tab }) {
         }}>
           {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
         </span>
+      ) : (
+        <button onClick={onSignIn} style={{
+          fontSize:12, fontWeight:600, color:'var(--accent-hi)',
+          background:'var(--accent-low)', border:'1px solid rgba(109,74,255,0.3)',
+          borderRadius:20, padding:'5px 14px', cursor:'pointer'
+        }}>
+          Sign In
+        </button>
       )}
     </div>
   );
