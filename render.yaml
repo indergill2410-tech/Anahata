@@ -1,4 +1,18 @@
 services:
+  # ── PocketBase database ────────────────────────────────────────────────────
+  - type: web
+    name: anahata-pocketbase
+    env: docker
+    dockerfilePath: ./pocketbase/Dockerfile
+    region: singapore
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: pb-data
+      mountPath: /pb/pb_data
+      sizeGB: 1
+
   # ── Backend API + WebSocket server ─────────────────────────────────────────
   - type: web
     name: anahata-backend
@@ -18,19 +32,17 @@ services:
       - key: NODE_OPTIONS
         value: --max-old-space-size=460
 
-      # ── PocketBase (set in Render dashboard > Environment)
+      # Set this to your PocketBase service URL after first deploy
+      # e.g. https://anahata-pocketbase.onrender.com
       - key: POCKETBASE_URL
         sync: false
 
-      # ── Auth
       - key: JWT_SECRET
         sync: false
 
-      # ── Observability (optional but recommended)
       - key: SENTRY_DSN
         sync: false
 
-      # ── AI Music API (future)
       - key: AI_MUSIC_API_KEY
         sync: false
       - key: AI_MUSIC_API_URL
