@@ -2,18 +2,16 @@
  * Anahata — Auth Routes
  * POST /api/auth/register
  * POST /api/auth/login
- * POST /api/auth/logout
  * GET  /api/auth/me
  */
 
-const express     = require('express');
-const rateLimit   = require('express-rate-limit');
-const router      = express.Router();
-const supabase    = require('../services/supabaseClient');
-const { signToken } = require('../utils/jwtHelper');
+const express   = require('express');
+const rateLimit = require('express-rate-limit');
+const router    = express.Router();
+const pb        = require('../services/pbClient');
+const { signToken }   = require('../utils/jwtHelper');
 const { requireAuth } = require('../middleware/auth');
 
-// Stricter rate limit for auth endpoints — 10 attempts per 15 min
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -27,7 +25,6 @@ router.post('/register', authLimiter, async (req, res, next) => {
   try {
     let { email, password, name } = req.body;
 
-    // Validation
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email and password are required.' });
     }
@@ -39,28 +36,25 @@ router.post('/register', authLimiter, async (req, res, next) => {
     if (String(password).length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     }
-    if (!supabase) return res.status(503).json({ error: 'Database not configured.' });
+    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
 
-    const { data, error } = await supabase.auth.admin.createUser({
+    const user = await pb.collection('users').create({
       email,
       password,
-      user_metadata: { name },
-      email_confirm: true
+      passwordConfirm: password,
+      name,
+      emailVisibility: true
     });
 
-    if (error) {
-      if (error.message?.includes('already registered')) {
-        return res.status(409).json({ error: 'An account with this email already exists.' });
-      }
-      return res.status(400).json({ error: error.message });
+    const token = signToken({ userId: user.id, email: user.email, name: user.name });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (err) {
+    // PocketBase returns 400 with data.email when email already exists
+    if (err.status === 400 && err.data?.data?.email) {
+      return res.status(409).json({ error: 'An account with this email already exists.' });
     }
-
-    // Upsert profile row
-    await supabase.from('user_profiles').upsert({ id: data.user.id, name });
-
-    const token = signToken({ userId: data.user.id, email, name });
-    res.status(201).json({ token, user: { id: data.user.id, email, name } });
-  } catch (err) { next(err); }
+    next(err);
+  }
 });
 
 // POST /api/auth/login
@@ -71,26 +65,24 @@ router.post('/login', authLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
     email = String(email).trim().toLowerCase().slice(0, 254);
-    if (!supabase) return res.status(503).json({ error: 'Database not configured.' });
+    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: String(password) });
-    if (error) return res.status(401).json({ error: 'Invalid email or password.' });
+    let authData;
+    try {
+      authData = await pb.collection('users').authWithPassword(email, String(password));
+    } catch {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
 
-    // Fetch profile name
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('name')
-      .eq('id', data.user.id)
-      .single();
-
-    const name = profile?.name || data.user.user_metadata?.name || '';
-    const token = signToken({ userId: data.user.id, email, name });
-    res.json({ token, user: { id: data.user.id, email, name } });
+    const { record } = authData;
+    const name  = record.name || '';
+    const token = signToken({ userId: record.id, email: record.email, name });
+    res.json({ token, user: { id: record.id, email: record.email, name } });
   } catch (err) { next(err); }
 });
 
 // GET /api/auth/me
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 

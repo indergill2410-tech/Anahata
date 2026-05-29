@@ -18,12 +18,8 @@ services:
       - key: NODE_OPTIONS
         value: --max-old-space-size=460
 
-      # ── Supabase (set these in Render dashboard > Environment)
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-      - key: SUPABASE_SERVICE_KEY
+      # ── PocketBase (set in Render dashboard > Environment)
+      - key: POCKETBASE_URL
         sync: false
 
       # ── Auth

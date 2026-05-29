@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+.env
+.env.local
+.env.*.local
+*.log
+.git
+.gitignore
+client/dist
+README.md
+CHANGELOG.md
+SECURITY.md
+pb-migrations
+supabase

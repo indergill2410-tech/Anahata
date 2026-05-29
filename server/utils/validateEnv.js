@@ -5,12 +5,10 @@
 
 const REQUIRED = [
   'JWT_SECRET',
-  'SUPABASE_URL',
+  'POCKETBASE_URL',
 ];
 
 const RECOMMENDED = [
-  'SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_KEY',
   'SENTRY_DSN',
 ];
 
@@ -25,13 +23,12 @@ function validateEnv() {
     process.exit(1);
   }
 
-  const missing_recommended = RECOMMENDED.filter(k => !process.env[k]);
-  if (missing_recommended.length > 0) {
+  const missingRecommended = RECOMMENDED.filter(k => !process.env[k]);
+  if (missingRecommended.length > 0) {
     console.warn('[Anahata] ⚠️  Recommended env vars not set (some features may be limited):');
-    missing_recommended.forEach(k => console.warn(`  • ${k}`));
+    missingRecommended.forEach(k => console.warn(`  • ${k}`));
   }
 
-  // Security check — warn if using default dev secret in production
   if (
     process.env.NODE_ENV === 'production' &&
     process.env.JWT_SECRET?.includes('change-me')
