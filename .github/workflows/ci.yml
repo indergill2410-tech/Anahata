@@ -34,7 +34,7 @@ jobs:
       - name: Build client
         run: cd client && npm run build
         env:
-          VITE_WS_URL: wss://anahata-backend.fly.dev/ws
+          VITE_WS_URL: wss://anahata-backend.onrender.com/ws
 
   security:
     name: Security Audit
@@ -48,32 +48,13 @@ jobs:
       - run: npm audit --audit-level=high
       - run: cd client && npm install && npm audit --audit-level=high
 
-  deploy-backend:
-    name: Deploy Backend to Fly.io
+  deploy:
+    name: Deploy to Render
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy backend
-        run: flyctl deploy -a anahata-backend --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  deploy-pocketbase:
-    name: Deploy PocketBase to Fly.io
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy PocketBase
-        run: flyctl deploy -a anahata-pocketbase --remote-only
-        working-directory: pocketbase
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Trigger Render deploy
+        run: |
+          curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}" | \
+            python3 -c "import sys,json; r=json.load(sys.stdin); print('Backend deploy triggered:', r.get('deploy',{}).get('id','ok'))"

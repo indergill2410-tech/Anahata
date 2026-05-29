@@ -32,9 +32,9 @@ services:
       - key: NODE_OPTIONS
         value: --max-old-space-size=460
 
-      # PocketBase hosted on Fly.io: https://anahata-pocketbase.fly.dev
+      # PocketBase on Render (set after first deploy)
       - key: POCKETBASE_URL
-        value: https://anahata-pocketbase.fly.dev
+        value: https://anahata-pocketbase.onrender.com
 
       - key: JWT_SECRET
         sync: false
