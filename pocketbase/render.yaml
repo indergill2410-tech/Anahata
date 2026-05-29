@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: anahata-pocketbase
+    env: docker
+    dockerfilePath: ./pocketbase/Dockerfile
+    region: singapore
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: pb-data
+      mountPath: /pb/pb_data
+      sizeGB: 1
