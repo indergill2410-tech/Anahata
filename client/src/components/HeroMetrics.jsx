@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function HeroMetrics({ heartRate, musicParams, wsStatus }) {
+export default function HeroMetrics({ heartRate, brainwaveState, wsStatus }) {
   return (
     <div style={{ paddingTop: 8 }}>
       <div className="hero-section">
@@ -18,9 +18,7 @@ export default function HeroMetrics({ heartRate, musicParams, wsStatus }) {
         </div>
 
         <span className="hero-state">
-          {musicParams?.desiredBrainwaveState
-            ? `${musicParams.desiredBrainwaveState} state`
-            : 'Awaiting heart rate…'}
+          {brainwaveState ? `${brainwaveState} state` : 'Awaiting heart rate…'}
         </span>
         <span className="hero-sub">
           Server 

@@ -1,11 +1,11 @@
 import React from 'react';
 
-export default function MetricsGrid({ params }) {
+export default function MetricsGrid({ targetHR, tempo, binauralHz, brainwaveState }) {
   const tiles = [
-    { label: 'Target HR',   value: `${params.targetHeartRate}`, unit: 'BPM' },
-    { label: 'Tempo',       value: `${params.musicalTempo}`,    unit: 'BPM' },
-    { label: 'Binaural',    value: `${params.binauralHz}`,      unit: 'Hz'  },
-    { label: 'Brainwave',   value: params.desiredBrainwaveState, unit: ''   },
+    { label: 'Target HR',  value: targetHR    ?? '–', unit: 'BPM' },
+    { label: 'Tempo',      value: tempo       ?? '–', unit: 'BPM' },
+    { label: 'Binaural',   value: binauralHz  ?? '–', unit: 'Hz'  },
+    { label: 'Brainwave',  value: brainwaveState ?? '–', unit: '' },
   ];
 
   return (
