@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-export default function AuthPage() {
+export default function AuthPage({ onBack }) {
   const { login, register } = useAuth();
   const { success, error }  = useToast();
   const [mode, setMode]     = useState('login');   // login | register
@@ -62,6 +62,12 @@ export default function AuthPage() {
       background: 'var(--bg-0)', padding: 24
     }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
+        {onBack && (
+          <button onClick={onBack} style={{
+            background:'none', border:'none', color:'var(--t3)', cursor:'pointer',
+            fontSize:13, marginBottom:16, padding:0, display:'flex', alignItems:'center', gap:4
+          }}>← Continue without signing in</button>
+        )}
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🪷</div>
