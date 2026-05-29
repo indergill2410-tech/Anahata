@@ -1,24 +1,11 @@
 /**
- * Anahata — JWT Authentication Middleware
+ * authenticate.js — legacy alias for backward compatibility
+ * Routes that still import '../middleware/authenticate' will work correctly.
+ * New code should import from '../middleware/auth' directly.
  */
+const { requireAuth, optionalAuth } = require('./auth');
 
-const { verifyToken } = require('../utils/auth');
+// authenticate is an alias for requireAuth
+const authenticate = requireAuth;
 
-function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorisation required.' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = verifyToken(token);
-    req.userId = decoded.userId;
-    req.userEmail = decoded.email;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token.' });
-  }
-}
-
-module.exports = { authenticate };
+module.exports = { authenticate, requireAuth, optionalAuth };

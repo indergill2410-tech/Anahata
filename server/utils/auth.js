@@ -1,17 +1,8 @@
 /**
- * Anahata — JWT Utilities
+ * utils/auth.js — legacy alias for backward compatibility
+ * Routes that still import '../utils/auth' will resolve correctly.
+ * New code should import from '../utils/jwtHelper' directly.
  */
-
-const jwt = require('jsonwebtoken');
-
-const SECRET = process.env.JWT_SECRET || 'anahata_dev_secret_change_in_production';
-
-function signToken(payload, expiresIn = '7d') {
-  return jwt.sign(payload, SECRET, { expiresIn });
-}
-
-function verifyToken(token) {
-  return jwt.verify(token, SECRET);
-}
+const { signToken, verifyToken } = require('./jwtHelper');
 
 module.exports = { signToken, verifyToken };
