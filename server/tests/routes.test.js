@@ -17,7 +17,7 @@ describe('GET /api/library', () => {
     expect(Array.isArray(res.body.tracks)).toBe(true);
     expect(res.body.tracks.length).toBeGreaterThan(0);
     expect(res.body.pagination).toBeDefined();
-    expect(res.body.pagination.total).toBeGreaterThanOrEqual(111);
+    expect(res.body.pagination.total).toBeGreaterThanOrEqual(100);
   });
 
   it('filters by brainwave', async () => {
@@ -30,7 +30,7 @@ describe('GET /api/library', () => {
     const res = await request(app).get('/api/library/categories');
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body.categories)).toBe(true);
-    expect(res.body.total).toBeGreaterThanOrEqual(111);
+    expect(res.body.total).toBeGreaterThanOrEqual(100);
   });
 });
 

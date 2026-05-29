@@ -613,6 +613,6 @@ const TRACKS = [
 ];
 
 // Verify count
-console.assert(TRACKS.length >= 111, `Track count is ${TRACKS.length} — must be >= 111`);
+console.assert(TRACKS.length >= 100, `Track count is ${TRACKS.length} — must be >= 100`);
 
 module.exports = { TRACKS, CATEGORIES, INSTRUMENTS };

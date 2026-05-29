@@ -46,7 +46,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm audit --audit-level=high
-      - run: cd client && npm ci && npm audit --audit-level=high
+      - run: cd client && npm install && npm audit --audit-level=high
 
   deploy-backend:
     name: Deploy Backend to Fly.io
