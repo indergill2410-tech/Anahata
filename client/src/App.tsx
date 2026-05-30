@@ -63,20 +63,22 @@ function Inner() {
   React.useEffect(() => { if (isAuthenticated) setShowAuth(false); }, [isAuthenticated]);
 
   const isPopState = React.useRef(false);
+  const isInitialTab = React.useRef(true);
 
   React.useEffect(() => {
+    if (!seenLanding) return;
     window.history.replaceState({ tab }, '', window.location.pathname);
-  }, []);
+  }, [seenLanding]);
 
   React.useEffect(() => {
-    if (isPopState.current) {
-      isPopState.current = false;
-      return;
-    }
+    if (!seenLanding) return;
+    if (isInitialTab.current) { isInitialTab.current = false; return; }
+    if (isPopState.current) { isPopState.current = false; return; }
     window.history.pushState({ tab }, '', window.location.pathname);
-  }, [tab]);
+  }, [tab, seenLanding]);
 
   React.useEffect(() => {
+    if (!seenLanding) return;
     const onPop = (e: PopStateEvent) => {
       const prev = (e.state as { tab?: Tab } | null)?.tab;
       if (prev && prev !== tab) {
@@ -87,7 +89,7 @@ function Inner() {
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [tab]);
+  }, [tab, seenLanding]);
 
   const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
   const handleBack = () => { setTab(prevTab === tab ? 'journey' : prevTab); setPrevTab('journey'); };
