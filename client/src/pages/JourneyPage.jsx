@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import OrbVisualizer from '../components/OrbVisualizer';
 import BreathingGuide from '../components/BreathingGuide';
-import { useSoundEngine, BW_FOR_HZ } from '../context/SoundEngineContext';
+import NowPlayingBar from '../components/NowPlayingBar';
+import { useSoundEngine, INTENTIONS, BW_FOR_HZ } from '../context/SoundEngineContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useBluetooth } from '../hooks/useBluetooth';
 import { useSimulator } from '../hooks/useSimulator';
 import { useToast } from '../context/ToastContext';
 
-const BW_COLOUR = {
-  Delta: '#818cf8', Theta: '#a78bfa', Alpha: '#34d399', Beta: '#60a5fa', Gamma: '#fbbf24',
-};
+const BW_COLOR = { Delta:'#4A7FA5', Theta:'#9B6B9A', Alpha:'#7B8B5E', Beta:'#4A7FA5', Gamma:'#D4A853' };
 
 function fmtElapsed(s) {
   const m = Math.floor(s / 60);
@@ -34,28 +33,21 @@ export default function JourneyPage() {
                   : demoMode                   ? sim.heartRate
                   : wsMsg?.heartRate || null;
 
-  // Send HR to WS
   useEffect(() => {
-    if (heartRate && ws.status === 'connected') {
-      ws.send({ type: 'biometric', heartRate });
-    }
+    if (heartRate && ws.status === 'connected') ws.send({ type:'biometric', heartRate });
   }, [heartRate, ws.status]);
 
   useEffect(() => {
     if (ws.lastMessage?.type === 'meditation') setWsMsg(ws.lastMessage);
   }, [ws.lastMessage]);
 
-  // Phase 4: live adaptation
   useEffect(() => {
     if (heartRate && engine.isPlaying) engine.adaptFromHeartRate(heartRate);
   }, [heartRate]);
 
   function handleOrbTap() {
-    if (!started) {
-      setShowBreath(true);
-    } else {
-      engine.togglePlay();
-    }
+    if (!started) setShowBreath(true);
+    else engine.togglePlay();
   }
 
   function onBreathingComplete() {
@@ -66,34 +58,30 @@ export default function JourneyPage() {
 
   function toggleDemo() {
     if (demoMode) { sim.stop(); setDemoMode(false); }
-    else { sim.start(); setDemoMode(true); info('Demo mode — simulating biometrics 🎭'); }
+    else { sim.start(); setDemoMode(true); info('Demo mode — simulating biometrics'); }
   }
 
-  const bwColour = BW_COLOUR[engine.brainwave] || '#8b6fff';
+  const bwColor = BW_COLOR[engine.brainwave] || '#9B6B9A';
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', paddingBottom: 80 }}>
+    <div className="journey-root">
       {showBreath && <BreathingGuide onComplete={onBreathingComplete} cycles={2} />}
 
       {/* Brainwave label */}
-      <div style={{ marginTop: 8, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase',
-          color: bwColour, padding: '4px 10px', borderRadius: 20,
-          background: `${bwColour}18`, border: `1px solid ${bwColour}30`,
-        }}>
+      <div style={{ marginTop:12, marginBottom:8, display:'flex', alignItems:'center', gap:8 }}>
+        <span className="bw-chip" style={{ background:`${bwColor}12`, color:bwColor, borderColor:`${bwColor}40`, fontSize:11 }}>
           {engine.brainwave} · {engine.settings.binaural.hz}Hz
         </span>
         {engine.isPlaying && (
-          <span style={{ fontSize: 10, color: 'var(--t3)' }}>{fmtElapsed(engine.elapsed)}</span>
+          <span style={{ fontSize:10, color:'var(--t3)' }}>{fmtElapsed(engine.elapsed)}</span>
+        )}
+        {engine.ragaName && (
+          <span style={{ fontSize:10, color:'var(--t4)', fontStyle:'italic', fontFamily:'Lora, serif' }}>{engine.ragaName}</span>
         )}
       </div>
 
       {/* Orb */}
-      <div
-        onClick={handleOrbTap}
-        style={{ position: 'relative', marginTop: 8, cursor: 'pointer', userSelect: 'none' }}
-      >
+      <div onClick={handleOrbTap} style={{ position:'relative', marginTop:8, cursor:'pointer', userSelect:'none' }}>
         <OrbVisualizer
           brainwave={engine.brainwave}
           isPlaying={engine.isPlaying}
@@ -101,81 +89,87 @@ export default function JourneyPage() {
           binauralHz={engine.settings.binaural.hz}
           size={260}
         />
-
-        {/* Play/pause overlay hint */}
         {!engine.isPlaying && started && (
-          <div style={{
-            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', pointerEvents: 'none',
-          }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: 'rgba(109,74,255,0.25)', backdropFilter: 'blur(8px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '1px solid rgba(139,111,255,0.4)',
-            }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+          <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
+            <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(196,97,58,0.15)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid rgba(196,97,58,0.35)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--accent)"><path d="M8 5v14l11-7z"/></svg>
             </div>
           </div>
         )}
       </div>
 
-      {/* Start label */}
-      {!started && (
-        <p style={{ fontSize: 13, color: 'var(--t3)', marginTop: 16, letterSpacing: '0.04em' }}>
-          Tap to begin your journey
+      {/* Intention label */}
+      {engine.intention && (
+        <p style={{ fontSize:12, color:'var(--t3)', marginTop:10, fontStyle:'italic', fontFamily:'Lora, serif' }}>
+          {INTENTIONS[engine.intention]?.label} session
         </p>
       )}
 
-      {/* Intention label */}
-      {engine.intention && (
-        <p style={{ fontSize: 12, color: 'var(--t3)', marginTop: 6 }}>
-          {['sleep','focus','heal','energize','meditate'].find(k => k === engine.intention)
-            ? `${engine.intention.charAt(0).toUpperCase() + engine.intention.slice(1)} session`
-            : 'Custom mix'}
-        </p>
+      {/* Quick intention selector */}
+      {!engine.isPlaying && (
+        <div style={{ display:'flex', gap:8, marginTop:16, flexWrap:'wrap', justifyContent:'center', padding:'0 24px' }}>
+          {Object.entries(INTENTIONS).map(([key, p]) => (
+            <button
+              key={key}
+              onClick={() => engine.applyIntention(key)}
+              style={{
+                padding:'6px 14px', borderRadius:'var(--r-full)', fontSize:11, fontFamily:'inherit',
+                border:`1px solid ${engine.intention === key ? bwColor : 'var(--border)'}`,
+                background: engine.intention === key ? `${bwColor}12` : '#fff',
+                color: engine.intention === key ? bwColor : 'var(--t3)',
+                cursor:'pointer', transition:'all 0.15s',
+              }}
+            >
+              {p.emoji} {p.label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Bottom controls */}
-      <div style={{ position: 'absolute', bottom: 88, left: 0, right: 0, padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-        {/* BLE / Demo */}
+      <div style={{ position:'absolute', bottom:108, left:0, right:0, padding:'0 24px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <button
           onClick={ble.status === 'connected' ? ble.disconnect : ble.status === 'disconnected' ? ble.connect : undefined}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
-            borderRadius: 20, border: `1px solid ${ble.status === 'connected' ? 'rgba(34,197,94,0.35)' : 'var(--border)'}`,
-            background: 'var(--bg-2)', color: ble.status === 'connected' ? 'var(--green)' : 'var(--t3)',
-            fontSize: 11, fontWeight: 500, cursor: 'pointer',
+            display:'flex', alignItems:'center', gap:6, padding:'6px 12px',
+            borderRadius:20, border:`1px solid ${ble.status === 'connected' ? 'rgba(123,139,94,0.4)' : 'var(--border)'}`,
+            background:'#fff', color: ble.status === 'connected' ? 'var(--green)' : 'var(--t3)',
+            fontSize:11, fontWeight:500, cursor:'pointer', fontFamily:'inherit',
           }}
         >
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: ble.status === 'connected' ? 'var(--green)' : ble.status === 'connecting' ? 'var(--amber)' : 'var(--t3)',
-          }} />
-          {ble.status === 'connected' ? `${ble.heartRate || '–'} BPM` : ble.status === 'connecting' ? 'Connecting…' : 'Connect HR'}
+          <span style={{ width:6, height:6, borderRadius:'50%', background: ble.status === 'connected' ? 'var(--green)' : ble.status === 'connecting' ? 'var(--amber)' : 'var(--bg-3)' }} />
+          {ble.status === 'connected' ? `${ble.heartRate || '–'} BPM` : ble.status === 'connecting' ? 'Connecting…' : 'Heart Rate'}
         </button>
 
-        {/* Demo mode */}
         <button
           onClick={toggleDemo}
           style={{
-            padding: '6px 12px', borderRadius: 20,
-            border: `1px solid ${demoMode ? 'rgba(245,158,11,0.35)' : 'var(--border)'}`,
-            background: demoMode ? 'rgba(245,158,11,0.08)' : 'var(--bg-2)',
-            color: demoMode ? 'var(--amber)' : 'var(--t3)',
-            fontSize: 11, fontWeight: 500, cursor: 'pointer',
+            padding:'6px 12px', borderRadius:20,
+            border:`1px solid ${demoMode ? 'rgba(212,168,83,0.4)' : 'var(--border)'}`,
+            background: demoMode ? 'rgba(212,168,83,0.08)' : '#fff',
+            color: demoMode ? 'var(--gold)' : 'var(--t3)',
+            fontSize:11, fontWeight:500, cursor:'pointer', fontFamily:'inherit',
           }}
         >
           {demoMode ? '🎭 Demo On' : 'Demo'}
         </button>
 
-        {/* WS status */}
-        <div style={{ fontSize: 10, color: ws.status === 'connected' ? 'var(--green)' : 'var(--t3)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: ws.status === 'connected' ? 'var(--green)' : 'var(--t3)' }} />
+        <div style={{ fontSize:10, color: ws.status === 'connected' ? 'var(--green)' : 'var(--t4)', display:'flex', alignItems:'center', gap:4 }}>
+          <span style={{ width:5, height:5, borderRadius:'50%', background: ws.status === 'connected' ? 'var(--green)' : 'var(--bg-3)' }} />
           {ws.status}
         </div>
       </div>
+
+      {/* Now Playing Bar */}
+      <NowPlayingBar
+        isPlaying={engine.isPlaying}
+        intention={engine.intention}
+        elapsed={engine.elapsed}
+        brainwave={engine.brainwave}
+        bpm={engine.bpm}
+        analyser={engine.analyser}
+        onTogglePlay={engine.togglePlay}
+      />
     </div>
   );
 }

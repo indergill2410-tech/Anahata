@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
+import { PhraseEngine } from '../utils/PhraseEngine';
 
-// ── Intention presets ──────────────────────────────────────────────────────
+// ── Intention presets ────────────────────────────────────────────────────────
 export const INTENTIONS = {
   sleep:    { label: 'Sleep',    emoji: '😴', binauralHz: 2,  carrierHz: 180, drone: 'tanpura',  instrument: null,      nature: 'rain',   solfeggio: 528  },
   focus:    { label: 'Focus',    emoji: '🎯', binauralHz: 18, carrierHz: 200, drone: 'shruti',   instrument: 'bansuri', nature: null,     solfeggio: 741  },
@@ -14,11 +15,11 @@ export const INSTRUMENT_OPTIONS = ['bansuri','sitar','tabla','sarod'];
 export const NATURE_OPTIONS     = ['rain','ocean','river','wind','forest'];
 export const SOLFEGGIO_OPTIONS  = [174, 285, 396, 417, 528, 639, 741, 852, 963];
 export const BINAURAL_PRESETS   = [
-  { label: 'Delta 2Hz', hz: 2,  carrier: 180 },
-  { label: 'Theta 6Hz', hz: 6,  carrier: 200 },
-  { label: 'Alpha 10Hz',hz: 10, carrier: 220 },
-  { label: 'Beta 18Hz', hz: 18, carrier: 200 },
-  { label: 'Gamma 40Hz',hz: 40, carrier: 200 },
+  { label: 'Delta 2Hz',  hz: 2,  carrier: 180 },
+  { label: 'Theta 6Hz',  hz: 6,  carrier: 200 },
+  { label: 'Alpha 10Hz', hz: 10, carrier: 220 },
+  { label: 'Beta 18Hz',  hz: 18, carrier: 200 },
+  { label: 'Gamma 40Hz', hz: 40, carrier: 200 },
 ];
 
 export const BW_FOR_HZ = (hz) => {
@@ -29,479 +30,662 @@ export const BW_FOR_HZ = (hz) => {
   return 'Gamma';
 };
 
-// ── Noise buffer helper ────────────────────────────────────────────────────
-function noiseBuffer(ctx, secs = 3) {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function noiseBuffer(ctx, secs = 4) {
   const buf = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate);
   const d   = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   return buf;
 }
 
-function loopNoise(ctx, destination) {
-  const src = ctx.createBufferSource();
-  src.buffer = noiseBuffer(ctx);
-  src.loop = true;
-  src.connect(destination);
-  src.start();
-  return src;
+function createReverb(ctx, decay = 2.5) {
+  const len = ctx.sampleRate * decay;
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  }
+  const conv = ctx.createConvolver();
+  conv.buffer = buf;
+  return conv;
 }
 
-// ── Layer builders ─────────────────────────────────────────────────────────
+// ── Layer builders ────────────────────────────────────────────────────────────
+
 function buildBinaural(ctx, dst, hz, carrier) {
-  const nodes = [];
+  const nodes  = [];
   const merger = ctx.createChannelMerger(2);
   merger.connect(dst);
 
-  const left  = ctx.createOscillator(); left.type = 'sine';  left.frequency.value  = carrier;
+  const left  = ctx.createOscillator(); left.type  = 'sine'; left.frequency.value  = carrier;
   const right = ctx.createOscillator(); right.type = 'sine'; right.frequency.value = carrier + hz;
-  const lg = ctx.createGain(); lg.gain.value = 0.5;
-  const rg = ctx.createGain(); rg.gain.value = 0.5;
+  const lg = ctx.createGain(); lg.gain.value = 0.45;
+  const rg = ctx.createGain(); rg.gain.value = 0.45;
+
+  const noiseGain   = ctx.createGain();    noiseGain.gain.value = 0.03;
+  const noiseFilter = ctx.createBiquadFilter(); noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 400;
+  const noiseSrc    = ctx.createBufferSource(); noiseSrc.buffer = noiseBuffer(ctx, 6); noiseSrc.loop = true;
+  noiseSrc.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(dst);
+  noiseSrc.start(); nodes.push(noiseSrc);
+
   left.connect(lg);  lg.connect(merger, 0, 0);
   right.connect(rg); rg.connect(merger, 0, 1);
-  left.start(); right.start();
-  nodes.push(left, right);
+  left.start(); right.start(); nodes.push(left, right);
   return { nodes, leftOsc: left, rightOsc: right };
 }
 
 function buildDrone(ctx, dst, type) {
-  const nodes = [];
-  const g = ctx.createGain(); g.gain.value = 1; g.connect(dst);
+  const nodes  = [];
+  const timers = [];
+  const master = ctx.createGain(); master.gain.value = 0.85; master.connect(dst);
 
   if (type === 'tanpura') {
-    // Sa Pa Sa SA — A2: 110, 165, 220, 440 Hz
-    [110, 165, 220, 440].forEach((f, i) => {
-      const osc = ctx.createOscillator();
-      const og  = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = f;
-      osc.detune.value = (i % 2 === 0 ? 1 : -1) * (i + 1) * 2;
-      og.gain.value = 0.35 / (i * 0.6 + 1);
-      osc.connect(og); og.connect(g); osc.start(); nodes.push(osc);
+    const STRINGS = [
+      { freq: 130.81, period: 3.2, gain: 0.45 },
+      { freq: 196.00, period: 2.4, gain: 0.35 },
+      { freq: 261.63, period: 2.8, gain: 0.30 },
+      { freq: 523.25, period: 3.6, gain: 0.25 },
+    ];
+    STRINGS.forEach(({ freq, period, gain: g }, idx) => {
+      const strike = () => {
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const og  = ctx.createGain();
+        const c1  = ctx.createOscillator();
+        const c2  = ctx.createOscillator();
+        const cg  = ctx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.value = freq;
+        c1.type  = 'sine';    c1.frequency.value   = freq * 1.0015;
+        c2.type  = 'sine';    c2.frequency.value   = freq * 0.9985;
+        cg.gain.value = g * 0.3;
+        og.gain.setValueAtTime(0, now);
+        og.gain.linearRampToValueAtTime(g, now + 0.04);
+        og.gain.exponentialRampToValueAtTime(0.001, now + period * 0.9);
+        const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = freq * 4;
+        osc.connect(filt); c1.connect(cg); c2.connect(cg); cg.connect(og);
+        filt.connect(og); og.connect(master);
+        osc.start(now); c1.start(now); c2.start(now);
+        osc.stop(now + period); c1.stop(now + period); c2.stop(now + period);
+        nodes.push(osc, c1, c2);
+      };
+      const t = setInterval(strike, period * 1000);
+      setTimeout(strike, idx * 400);
+      timers.push(t);
     });
+
   } else if (type === 'shruti') {
-    // Harmonium-like: C3 chord with harmonics
-    [130.8, 196, 261.6, 392, 523].forEach((f, i) => {
-      const osc = ctx.createOscillator();
-      const og  = ctx.createGain();
-      osc.type = i < 2 ? 'sawtooth' : 'sine';
-      osc.frequency.value = f;
-      og.gain.value = 0.2 / (i + 1);
-      osc.connect(og); og.connect(g); osc.start(); nodes.push(osc);
+    const lfo  = ctx.createOscillator(); lfo.frequency.value = 4.8; lfo.type = 'sine';
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.012;
+    lfo.connect(lfoG); lfoG.connect(master.gain); lfo.start(); nodes.push(lfo);
+    [130.81, 164.81, 196.00, 261.63, 329.63].forEach((freq, i) => {
+      const osc = ctx.createOscillator(); const og = ctx.createGain();
+      osc.type = i < 2 ? 'sawtooth' : 'triangle'; osc.frequency.value = freq;
+      osc.detune.value = (i % 2 === 0 ? 1 : -1) * i * 3;
+      og.gain.value = 0.28 / (i * 0.5 + 1);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq * 3.5;
+      osc.connect(f); f.connect(og); og.connect(master); osc.start(); nodes.push(osc);
     });
+
   } else if (type === 'bowl') {
-    // Tibetan bowl: 200Hz with AM tremolo + harmonics
-    const baseFreq = 200;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.8; lfo.type = 'sine';
-    const lfoG = ctx.createGain(); lfoG.gain.value = 0.15;
-    lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start(); nodes.push(lfo);
-    [1, 2.76, 5.4].forEach((ratio, i) => {
-      const osc = ctx.createOscillator();
-      const og  = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = baseFreq * ratio;
-      og.gain.value = 0.4 / (i + 1);
-      osc.connect(og); og.connect(g); osc.start(); nodes.push(osc);
-    });
+    const OVERTONES = [
+      { ratio: 1,    gain: 0.50, decay: 6.0 },
+      { ratio: 2.76, gain: 0.30, decay: 4.5 },
+      { ratio: 5.4,  gain: 0.18, decay: 3.0 },
+      { ratio: 10.5, gain: 0.08, decay: 2.0 },
+    ];
+    const strike = () => {
+      const now = ctx.currentTime;
+      OVERTONES.forEach(({ ratio, gain: g, decay }) => {
+        const osc = ctx.createOscillator(); const og = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = 220 * ratio;
+        og.gain.setValueAtTime(0, now);
+        og.gain.linearRampToValueAtTime(g, now + 0.01);
+        og.gain.exponentialRampToValueAtTime(0.001, now + decay);
+        osc.connect(og); og.connect(master);
+        osc.start(now); osc.stop(now + decay + 0.1); nodes.push(osc);
+      });
+    };
+    strike();
+    const t = setInterval(strike, 7000); timers.push(t);
+
   } else if (type === 'om') {
-    // G2 (98Hz) low drone with vowel formant filter sweep
-    const base = 98;
+    const lfo  = ctx.createOscillator(); lfo.frequency.value = 0.12; lfo.type = 'sine';
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.08;
+    lfo.connect(lfoG); lfoG.connect(master.gain); lfo.start(); nodes.push(lfo);
     [1, 2, 3, 4, 6].forEach((h, i) => {
-      const osc = ctx.createOscillator();
-      const og  = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = base * h;
-      og.gain.value = 0.35 / (i + 1);
-      osc.connect(og); og.connect(g); osc.start(); nodes.push(osc);
+      const osc = ctx.createOscillator(); const og = ctx.createGain();
+      const f   = ctx.createBiquadFilter(); f.type = 'bandpass';
+      f.frequency.value = [250,700,2700,3500,4000][i] || 1000; f.Q.value = 8;
+      osc.type = 'sawtooth'; osc.frequency.value = 98 * h; og.gain.value = 0.35 / (i + 1);
+      osc.connect(f); f.connect(og); og.connect(master); osc.start(); nodes.push(osc);
     });
-    // Slow LFO filter for the "mmm" quality
-    const filt = ctx.createBiquadFilter();
-    filt.type = 'bandpass'; filt.frequency.value = 300; filt.Q.value = 2;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.15;
-    const lfoG = ctx.createGain(); lfoG.gain.value = 150;
-    lfo.connect(lfoG); lfoG.connect(filt.frequency); lfo.start(); nodes.push(lfo);
   }
-  return nodes;
+
+  return { nodes, timers };
 }
 
-function buildInstrument(ctx, dst, type, bpm = 60) {
-  const nodes = [];
-  const g = ctx.createGain(); g.gain.value = 1; g.connect(dst);
+function buildInstrument(ctx, dst, type, phraseEngine) {
+  const nodes  = [];
+  const timers = [];
+  const g      = ctx.createGain(); g.gain.value = 0.9; g.connect(dst);
 
   if (type === 'bansuri') {
-    // Breathy flute: sine + noise blend + vibrato
-    const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 392; // G4
-    const vibrato = ctx.createOscillator(); vibrato.frequency.value = 5; vibrato.type = 'sine';
-    const vibratoG = ctx.createGain(); vibratoG.gain.value = 8;
-    vibrato.connect(vibratoG); vibratoG.connect(osc.frequency);
-    const noiseG = ctx.createGain(); noiseG.gain.value = 0.08;
-    const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 400; filt.Q.value = 3;
-    const ns = loopNoise(ctx, filt); filt.connect(noiseG); noiseG.connect(g);
-    osc.connect(g); osc.start(); vibrato.start();
-    nodes.push(osc, vibrato, ns);
+    const breathG = ctx.createGain(); breathG.gain.value = 0.04;
+    const breathF = ctx.createBiquadFilter(); breathF.type = 'bandpass'; breathF.frequency.value = 1200; breathF.Q.value = 0.5;
+    const bSrc    = ctx.createBufferSource(); bSrc.buffer = noiseBuffer(ctx, 5); bSrc.loop = true;
+    bSrc.connect(breathF); breathF.connect(breathG); breathG.connect(g); bSrc.start(); nodes.push(bSrc);
+
+    const playPhrase = () => {
+      const phrase = phraseEngine.nextPhrase(6);
+      const beat   = phraseEngine.beatSeconds();
+      let t = ctx.currentTime + 0.05;
+      phrase.forEach(({ freq, duration, rest }) => {
+        if (!rest) {
+          const osc  = ctx.createOscillator(); const og = ctx.createGain();
+          const vLFO = ctx.createOscillator(); const vG  = ctx.createGain();
+          osc.type = 'sine'; osc.frequency.value = freq;
+          vLFO.frequency.value = 5.5; vLFO.type = 'sine'; vG.gain.value = freq * 0.008;
+          vLFO.connect(vG); vG.connect(osc.frequency);
+          og.gain.setValueAtTime(0, t);
+          og.gain.linearRampToValueAtTime(0.35, t + 0.05);
+          og.gain.setValueAtTime(0.35, t + beat * duration - 0.08);
+          og.gain.linearRampToValueAtTime(0, t + beat * duration);
+          osc.connect(og); og.connect(g);
+          osc.start(t); vLFO.start(t);
+          osc.stop(t + beat * duration + 0.1); vLFO.stop(t + beat * duration + 0.1);
+          nodes.push(osc, vLFO);
+        }
+        t += beat * duration;
+      });
+    };
+    playPhrase();
+    const dur = phraseEngine.nextPhrase(6).reduce((s, n) => s + n.duration, 0) * phraseEngine.beatSeconds() * 1000 + 300;
+    timers.push(setInterval(playPhrase, dur));
+
   } else if (type === 'sitar') {
-    // Periodic plucked string: fast attack + slow exponential decay, re-trigger
-    const interval = (60 / bpm) * 1000;
-    function pluck() {
-      if (!ctx || ctx.state === 'closed') return;
-      const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 261.6;
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0.4, ctx.currentTime);
-      env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.8);
-      // Sympathetic resonance filter
-      const filt = ctx.createBiquadFilter(); filt.type = 'peaking'; filt.frequency.value = 523; filt.gain.value = 6;
-      osc.connect(filt); filt.connect(env); env.connect(g);
-      osc.start(); osc.stop(ctx.currentTime + 2);
-    }
-    pluck();
-    const id = setInterval(pluck, interval);
-    nodes._sitarInterval = id;
-    nodes.push({ _isSitar: true, id });
+    const playNote = (freq, when, dur) => {
+      const bufLen = Math.round(ctx.sampleRate / freq);
+      const buf    = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const d      = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); const lp = ctx.createBiquadFilter(); const og = ctx.createGain();
+      src.buffer = buf; src.loop = true;
+      lp.type = 'lowpass'; lp.frequency.value = freq * 4; lp.Q.value = 2;
+      og.gain.setValueAtTime(0.4, when); og.gain.exponentialRampToValueAtTime(0.001, when + dur);
+      src.connect(lp); lp.connect(og); og.connect(g);
+      src.start(when); src.stop(when + dur + 0.1); nodes.push(src);
+      [2,3,4,5].forEach(h => {
+        const sOsc = ctx.createOscillator(); const sOg = ctx.createGain();
+        sOsc.type = 'sine'; sOsc.frequency.value = freq * h;
+        sOg.gain.setValueAtTime(0.025/h, when); sOg.gain.exponentialRampToValueAtTime(0.001, when + dur*0.6);
+        sOsc.connect(sOg); sOg.connect(g); sOsc.start(when); sOsc.stop(when + dur*0.7); nodes.push(sOsc);
+      });
+    };
+    const playPhrase = () => {
+      const phrase = phraseEngine.nextPhrase(5); const beat = phraseEngine.beatSeconds();
+      let t = ctx.currentTime + 0.1;
+      phrase.forEach(({ freq, duration, rest }) => { if (!rest) playNote(freq, t, beat*duration*0.9); t += beat*duration; });
+    };
+    playPhrase();
+    timers.push(setInterval(playPhrase, phraseEngine.beatSeconds() * 10 * 1000));
+
   } else if (type === 'tabla') {
-    const interval = (60 / bpm) * 500; // 2 beats per bar
-    function hit(freq = 220, decay = 0.25) {
-      if (!ctx || ctx.state === 'closed') return;
-      const osc = ctx.createOscillator(); osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq * 2.5, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(freq, ctx.currentTime + 0.04);
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0.6, ctx.currentTime);
-      env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
-      osc.connect(env); env.connect(g);
-      osc.start(); osc.stop(ctx.currentTime + decay + 0.05);
-    }
-    let beat = 0;
-    const rhythmPattern = [1, 0, 0.6, 0, 1, 0, 0.7, 0]; // simple keherwa
-    hit(220, 0.3);
-    const id = setInterval(() => {
-      const v = rhythmPattern[beat % rhythmPattern.length];
-      if (v > 0) hit(v > 0.8 ? 220 : 150, v > 0.8 ? 0.3 : 0.2);
-      beat++;
-    }, interval);
-    nodes._tablaInterval = id;
-    nodes.push({ _isTick: true, id });
+    const TAAL   = [1,0,0,1, 1,0,1,0, 1,0,0,1, 1,0,1,1];
+    const BAYAN  = new Set([0,8]);
+    const beat   = phraseEngine.beatSeconds() * 0.5;
+    const playB  = (when) => {
+      const osc = ctx.createOscillator(); const og = ctx.createGain();
+      const lp  = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=120;
+      osc.type='sine'; osc.frequency.setValueAtTime(80,when); osc.frequency.exponentialRampToValueAtTime(45,when+0.08);
+      og.gain.setValueAtTime(0.5,when); og.gain.exponentialRampToValueAtTime(0.001,when+0.18);
+      osc.connect(lp); lp.connect(og); og.connect(g); osc.start(when); osc.stop(when+0.2); nodes.push(osc);
+    };
+    const playD  = (when) => {
+      const osc = ctx.createOscillator(); const og = ctx.createGain();
+      osc.type='sine'; osc.frequency.setValueAtTime(310,when); osc.frequency.exponentialRampToValueAtTime(240,when+0.04);
+      og.gain.setValueAtTime(0.38,when); og.gain.exponentialRampToValueAtTime(0.001,when+0.12);
+      osc.connect(og); og.connect(g); osc.start(when); osc.stop(when+0.14); nodes.push(osc);
+    };
+    const playPattern = () => {
+      let t = ctx.currentTime + 0.05;
+      TAAL.forEach((hit, i) => { if (BAYAN.has(i)) playB(t); else if (hit) playD(t); t += beat; });
+    };
+    playPattern();
+    timers.push(setInterval(playPattern, beat * 16 * 1000));
+
   } else if (type === 'sarod') {
-    // Similar to sitar but lower register, slightly different timbre
-    const interval = (60 / bpm) * 2000;
-    function pluckSarod() {
-      if (!ctx || ctx.state === 'closed') return;
-      const osc = ctx.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 130.8;
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0.5, ctx.currentTime);
-      env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3);
-      osc.connect(env); env.connect(g);
-      osc.start(); osc.stop(ctx.currentTime + 3.1);
-    }
-    pluckSarod();
-    const id = setInterval(pluckSarod, interval);
-    nodes._sarodInterval = id;
-    nodes.push({ _isTick: true, id });
+    const playNote = (freq, when, dur) => {
+      const osc = ctx.createOscillator(); const bpf = ctx.createBiquadFilter(); const og = ctx.createGain();
+      osc.type = 'sawtooth'; osc.frequency.value = freq;
+      bpf.type = 'bandpass'; bpf.frequency.value = freq * 1.8; bpf.Q.value = 35;
+      og.gain.setValueAtTime(0, when); og.gain.linearRampToValueAtTime(0.30, when+0.02);
+      og.gain.exponentialRampToValueAtTime(0.001, when+dur);
+      osc.connect(bpf); bpf.connect(og); og.connect(g); osc.start(when); osc.stop(when+dur+0.05); nodes.push(osc);
+    };
+    const playPhrase = () => {
+      const phrase = phraseEngine.nextPhrase(7); const beat = phraseEngine.beatSeconds();
+      let t = ctx.currentTime + 0.1;
+      phrase.forEach(({ freq, duration, rest }) => { if (!rest) playNote(freq, t, beat*duration*0.85); t += beat*duration; });
+    };
+    playPhrase();
+    timers.push(setInterval(playPhrase, phraseEngine.beatSeconds() * 12 * 1000));
   }
-  return nodes;
+
+  return { nodes, timers };
 }
 
 function buildNature(ctx, dst, type) {
-  const nodes = [];
-  const g = ctx.createGain(); g.gain.value = 1; g.connect(dst);
+  const nodes  = [];
+  const timers = [];
+  const g      = ctx.createGain(); g.gain.value = 0.9; g.connect(dst);
 
   if (type === 'rain') {
-    const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 2500; filt.Q.value = 0.5;
-    filt.connect(g);
-    const ns = loopNoise(ctx, filt); nodes.push(ns);
-    // Occasional heavier drops
-    const dropFilt = ctx.createBiquadFilter(); dropFilt.type = 'bandpass'; dropFilt.frequency.value = 800; dropFilt.Q.value = 1;
-    const dropG = ctx.createGain(); dropG.gain.value = 0.4;
-    dropFilt.connect(dropG); dropG.connect(g);
-    const ns2 = loopNoise(ctx, dropFilt); nodes.push(ns2);
+    [{ f:600,Q:0.8,g:0.35,l:0.18 },{ f:1200,Q:1.0,g:0.28,l:0.27 },{ f:2500,Q:0.7,g:0.22,l:0.13 },{ f:4000,Q:1.2,g:0.15,l:0.22 }]
+      .forEach(({ f, Q, g: bG, l }) => {
+        const src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx,5); src.loop=true;
+        const bp  = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=Q;
+        const og  = ctx.createGain(); og.gain.value=bG;
+        const lfo = ctx.createOscillator(); lfo.frequency.value=l; lfo.type='sine';
+        const lg  = ctx.createGain(); lg.gain.value=bG*0.3;
+        lfo.connect(lg); lg.connect(og.gain);
+        src.connect(bp); bp.connect(og); og.connect(g);
+        src.start(); lfo.start(); nodes.push(src, lfo);
+      });
+
   } else if (type === 'ocean') {
-    const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 500;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.08; lfo.type = 'sine';
-    const lfoG = ctx.createGain(); lfoG.gain.value = 0.4;
-    lfo.connect(lfoG); lfoG.connect(g.gain);
-    filt.connect(g); lfo.start(); nodes.push(lfo);
-    const ns = loopNoise(ctx, filt); nodes.push(ns);
+    const lp   = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=250;
+    const bp   = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=700; bp.Q.value=0.5;
+    const s1   = ctx.createBufferSource(); s1.buffer=noiseBuffer(ctx,6); s1.loop=true;
+    const s2   = ctx.createBufferSource(); s2.buffer=noiseBuffer(ctx,6); s2.loop=true;
+    const g1   = ctx.createGain(); g1.gain.value=0.45;
+    const g2   = ctx.createGain(); g2.gain.value=0.30;
+    const wLFO = ctx.createOscillator(); wLFO.frequency.value=0.07; wLFO.type='sine';
+    const wG   = ctx.createGain(); wG.gain.value=0.25;
+    wLFO.connect(wG); wG.connect(g.gain); wLFO.start(); nodes.push(wLFO);
+    s1.connect(lp); lp.connect(g1); g1.connect(g);
+    s2.connect(bp); bp.connect(g2); g2.connect(g);
+    s1.start(); s2.start(); nodes.push(s1,s2);
+
   } else if (type === 'river') {
-    const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 800; filt.Q.value = 0.8;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.3; lfo.type = 'sine';
-    const lfoG = ctx.createGain(); lfoG.gain.value = 200;
-    lfo.connect(lfoG); lfoG.connect(filt.frequency);
-    filt.connect(g); lfo.start(); nodes.push(lfo);
-    const ns = loopNoise(ctx, filt); nodes.push(ns);
+    const src = ctx.createBufferSource(); src.buffer=noiseBuffer(ctx,5); src.loop=true;
+    const bp1 = ctx.createBiquadFilter(); bp1.type='bandpass'; bp1.frequency.value=900;  bp1.Q.value=0.6;
+    const bp2 = ctx.createBiquadFilter(); bp2.type='bandpass'; bp2.frequency.value=1800; bp2.Q.value=0.8;
+    const og  = ctx.createGain(); og.gain.value=0.5;
+    const lfo = ctx.createOscillator(); lfo.frequency.value=0.15; lfo.type='sine';
+    const lg  = ctx.createGain(); lg.gain.value=200;
+    lfo.connect(lg); lg.connect(bp1.frequency);
+    src.connect(bp1); bp1.connect(bp2); bp2.connect(og); og.connect(g);
+    src.start(); lfo.start(); nodes.push(src,lfo);
+
   } else if (type === 'wind') {
-    const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.12; lfo.type = 'sine';
-    const lfoG = ctx.createGain(); lfoG.gain.value = 200;
-    lfo.connect(lfoG); lfoG.connect(filt.frequency);
-    filt.connect(g); lfo.start(); nodes.push(lfo);
-    const ns = loopNoise(ctx, filt); nodes.push(ns);
+    const src  = ctx.createBufferSource(); src.buffer=noiseBuffer(ctx,6); src.loop=true;
+    const lp   = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500;
+    const og   = ctx.createGain(); og.gain.value=0.55;
+    const lfo  = ctx.createOscillator(); lfo.frequency.value=0.02; lfo.type='sine';
+    const lfoG = ctx.createGain(); lfoG.gain.value=300;
+    lfo.connect(lfoG); lfoG.connect(lp.frequency);
+    src.connect(lp); lp.connect(og); og.connect(g);
+    src.start(); lfo.start(); nodes.push(src,lfo);
+
   } else if (type === 'forest') {
-    // Base noise (quiet)
-    const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 2000; filt.Q.value = 0.3;
-    const baseG = ctx.createGain(); baseG.gain.value = 0.3;
-    filt.connect(baseG); baseG.connect(g);
-    const ns = loopNoise(ctx, filt); nodes.push(ns);
-    // Sparse bird chirps
-    function chirp() {
-      if (!ctx || ctx.state === 'closed') return;
-      const osc = ctx.createOscillator(); osc.type = 'sine';
-      const freq = 2000 + Math.random() * 2000;
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(freq * 1.3, ctx.currentTime + 0.08);
-      const env = ctx.createGain();
-      env.gain.setValueAtTime(0.15, ctx.currentTime);
-      env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(env); env.connect(g);
-      osc.start(); osc.stop(ctx.currentTime + 0.2);
-    }
-    chirp();
-    const id = setInterval(chirp, 2000 + Math.random() * 4000);
-    nodes._chirpInterval = id;
-    nodes.push({ _isTick: true, id });
+    const wSrc = ctx.createBufferSource(); wSrc.buffer=noiseBuffer(ctx,6); wSrc.loop=true;
+    const wLp  = ctx.createBiquadFilter(); wLp.type='lowpass'; wLp.frequency.value=400;
+    const wG   = ctx.createGain(); wG.gain.value=0.22;
+    wSrc.connect(wLp); wLp.connect(wG); wG.connect(g); wSrc.start(); nodes.push(wSrc);
+
+    const scheduleChirp = () => {
+      const t = setTimeout(() => {
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator(); const og = ctx.createGain();
+        const f1  = 1800 + Math.random() * 1200;
+        osc.type='sine'; osc.frequency.setValueAtTime(f1,now); osc.frequency.linearRampToValueAtTime(f1*1.4,now+0.18);
+        og.gain.setValueAtTime(0,now); og.gain.linearRampToValueAtTime(0.18,now+0.04); og.gain.linearRampToValueAtTime(0,now+0.22);
+        osc.connect(og); og.connect(g); osc.start(now); osc.stop(now+0.25); nodes.push(osc);
+        scheduleChirp();
+      }, (6 + Math.random() * 10) * 1000);
+      timers.push(t);
+    };
+    scheduleChirp();
   }
-  return nodes;
+
+  return { nodes, timers };
 }
 
 function buildSolfeggio(ctx, dst, hz) {
-  const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = hz;
-  // Add slight harmonics for warmth
-  const osc2 = ctx.createOscillator(); osc2.type = 'sine'; osc2.frequency.value = hz * 2;
-  const g1 = ctx.createGain(); g1.gain.value = 0.7;
-  const g2 = ctx.createGain(); g2.gain.value = 0.15;
-  osc.connect(g1); g1.connect(dst);
-  osc2.connect(g2); g2.connect(dst);
-  osc.start(); osc2.start();
-  return [osc, osc2];
-}
+  const nodes   = [];
+  const conv    = createReverb(ctx, 3);
+  const dryG    = ctx.createGain(); dryG.gain.value = 0.7;
+  const wetG    = ctx.createGain(); wetG.gain.value = 0.3;
+  conv.connect(wetG); wetG.connect(dst); dryG.connect(dst);
 
-function stopNodes(nodes) {
-  (nodes || []).forEach(n => {
-    if (n._isTick || n._isSitar || n._isSarod) { clearInterval(n.id); return; }
-    if (n._chirpInterval) { clearInterval(n._chirpInterval); return; }
-    if (n._sitarInterval) { clearInterval(n._sitarInterval); return; }
-    if (n._tablaInterval) { clearInterval(n._tablaInterval); return; }
-    if (n._sarodInterval) { clearInterval(n._sarodInterval); return; }
-    try { n.stop(); } catch {}
+  [hz, hz*2, hz*3].forEach((f, i) => {
+    const osc = ctx.createOscillator(); const og = ctx.createGain();
+    const c1  = ctx.createOscillator(); const c2 = ctx.createOscillator(); const cg = ctx.createGain();
+    osc.type='sine'; osc.frequency.value=f;
+    c1.type='sine'; c1.frequency.value=f*1.003;
+    c2.type='sine'; c2.frequency.value=f*0.997;
+    cg.gain.value=0.08; og.gain.value=0.35/(i+1);
+    c1.connect(cg); c2.connect(cg); cg.connect(og);
+    osc.connect(og); og.connect(dryG); og.connect(conv);
+    osc.start(); c1.start(); c2.start(); nodes.push(osc,c1,c2);
   });
+
+  return { nodes, timers: [] };
 }
 
-// ── Context ────────────────────────────────────────────────────────────────
-const SoundEngineContext = createContext(null);
+// ── Default state ─────────────────────────────────────────────────────────────
+const DEFAULT_LAYERS = {
+  binaural:   { volume: 0.7, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.10, active: true  },
+  drone:      { volume: 0.5, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.20, active: false },
+  instrument: { volume: 0.4, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.30, active: false },
+  nature:     { volume: 0.5, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.15, active: false },
+  solfeggio:  { volume: 0.3, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.40, active: false },
+};
 
-const DEFAULT_VOLUMES = { binaural: 0.5, drone: 0.6, instrument: 0.0, nature: 0.0, solfeggio: 0.3 };
 const DEFAULT_SETTINGS = {
-  binaural:   { hz: 7, carrier: 200 },
+  binaural:   { hz: 6, carrierHz: 200 },
   drone:      { type: 'tanpura' },
   instrument: { type: 'bansuri' },
   nature:     { type: 'rain' },
   solfeggio:  { hz: 528 },
 };
 
+const SoundEngineContext = createContext(null);
+
 export function SoundEngineProvider({ children }) {
-  const ctxRef     = useRef(null);
-  const masterRef  = useRef(null);
-  const gainRefs   = useRef({});   // gainNode per layer
-  const nodeRefs   = useRef({});   // active nodes per layer
-  const binauralRef = useRef(null); // { leftOsc, rightOsc } for live adaptation
-  const tickRef    = useRef(null);
-  const startRef   = useRef(0);
-  const offsetRef  = useRef(0);
+  const [isPlaying,    setIsPlaying]    = useState(false);
+  const [layers,       setLayers]       = useState(DEFAULT_LAYERS);
+  const [settings,     setSettings]     = useState(DEFAULT_SETTINGS);
+  const [intention,    setIntention]    = useState(null);
+  const [elapsed,      setElapsed]      = useState(0);
+  const [bpm,          setBpmState]     = useState(60);
+  const [chaos,        setChaosState]   = useState(0.3);
+  const [masterVol,    setMasterVol]    = useState(0.85);
+  const [masterReverb, setMasterReverb] = useState(0.15);
 
-  const [isPlaying,  setIsPlaying]  = useState(false);
-  const [elapsed,    setElapsed]    = useState(0);
-  const [intention,  setIntention]  = useState(null);
-  const [volumes,    setVolumes]    = useState(DEFAULT_VOLUMES);
-  const [settings,   setSettings]   = useState(DEFAULT_SETTINGS);
-  const [brainwave,  setBrainwave]  = useState('Theta');
+  const ctxRef          = useRef(null);
+  const nodesRef        = useRef({});
+  const gainNodesRef    = useRef({});
+  const panNodesRef     = useRef({});
+  const eqNodesRef      = useRef({});
+  const reverbSendRef   = useRef({});
+  const masterGainRef   = useRef(null);
+  const masterRevRef    = useRef(null);
+  const analyserRef     = useRef(null);
+  const phraseRef       = useRef(new PhraseEngine('meditate', 0.3));
+  const timerRef        = useRef(null);
+  const settingsRef     = useRef(DEFAULT_SETTINGS);
+  const layersRef       = useRef(DEFAULT_LAYERS);
 
-  function getCtx() {
-    if (!ctxRef.current || ctxRef.current.state === 'closed') {
-      ctxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return ctxRef.current;
-  }
+  // Keep refs in sync for use inside callbacks without stale closures
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+  useEffect(() => { layersRef.current   = layers;   }, [layers]);
 
-  function buildLayer(ctx, layerName, layerSettings, layerVolume) {
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, ctx.currentTime);
-    g.gain.linearRampToValueAtTime(layerVolume, ctx.currentTime + 2);
-    g.connect(masterRef.current);
-    gainRefs.current[layerName] = g;
+  const brainwave = BW_FOR_HZ(settings.binaural.hz);
 
-    let nodes = [];
-    let binRef = null;
+  // ── Build one layer into ctx ────────────────────────────────────────────────
+  const buildLayer = useCallback((ctx, name, masterIn) => {
+    const s = settingsRef.current;
+    const l = layersRef.current[name];
 
-    if (layerName === 'binaural') {
-      const result = buildBinaural(ctx, g, layerSettings.hz, layerSettings.carrier);
-      nodes = result.nodes;
-      binRef = result;
-    } else if (layerName === 'drone' && layerSettings.type) {
-      nodes = buildDrone(ctx, g, layerSettings.type);
-    } else if (layerName === 'instrument' && layerSettings.type) {
-      nodes = buildInstrument(ctx, g, layerSettings.type);
-    } else if (layerName === 'nature' && layerSettings.type) {
-      nodes = buildNature(ctx, g, layerSettings.type);
-    } else if (layerName === 'solfeggio' && layerSettings.hz) {
-      nodes = buildSolfeggio(ctx, g, layerSettings.hz);
-    }
+    const gainNode = ctx.createGain();
+    const panNode  = ctx.createStereoPanner();
+    const bassEQ   = ctx.createBiquadFilter(); bassEQ.type   = 'lowshelf';  bassEQ.frequency.value = 80;   bassEQ.gain.value = l.eq.bass;
+    const midEQ    = ctx.createBiquadFilter(); midEQ.type    = 'peaking';   midEQ.frequency.value  = 800;  midEQ.gain.value  = l.eq.mid;  midEQ.Q.value = 1;
+    const trebleEQ = ctx.createBiquadFilter(); trebleEQ.type = 'highshelf'; trebleEQ.frequency.value = 8000; trebleEQ.gain.value = l.eq.treble;
+    const revSend  = ctx.createGain(); revSend.gain.value  = l.reverb;
+    const dryGain  = ctx.createGain(); dryGain.gain.value  = 1 - l.reverb * 0.5;
 
-    nodeRefs.current[layerName] = nodes;
-    if (binRef) binauralRef.current = binRef;
-  }
+    bassEQ.connect(midEQ); midEQ.connect(trebleEQ); trebleEQ.connect(gainNode);
+    gainNode.connect(panNode);
+    panNode.connect(dryGain);   dryGain.connect(masterIn);
+    panNode.connect(revSend);   revSend.connect(masterRevRef.current);
 
-  const start = useCallback((overrideSettings, overrideVolumes) => {
-    // Stop existing audio
-    Object.values(nodeRefs.current).forEach(stopNodes);
-    nodeRefs.current = {};
-    clearInterval(tickRef.current);
+    gainNode.gain.value = l.mute ? 0 : l.volume;
+    panNode.pan.value   = l.pan;
 
-    const ctx = getCtx();
-    if (ctx.state === 'suspended') ctx.resume();
+    gainNodesRef.current[name]  = gainNode;
+    panNodesRef.current[name]   = panNode;
+    eqNodesRef.current[name]    = { bassEQ, midEQ, trebleEQ };
+    reverbSendRef.current[name] = revSend;
 
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(0.85, ctx.currentTime + 1.5);
-    master.connect(ctx.destination);
-    masterRef.current = master;
+    let result;
+    if (name === 'binaural')   result = buildBinaural(ctx,   bassEQ, s.binaural.hz, s.binaural.carrierHz);
+    if (name === 'drone')      result = buildDrone(ctx,      bassEQ, s.drone.type);
+    if (name === 'instrument') result = buildInstrument(ctx, bassEQ, s.instrument.type, phraseRef.current);
+    if (name === 'nature')     result = buildNature(ctx,     bassEQ, s.nature.type);
+    if (name === 'solfeggio')  result = buildSolfeggio(ctx,  bassEQ, s.solfeggio.hz);
+    if (result) nodesRef.current[name] = result;
+  }, []);
 
-    const s = overrideSettings || settings;
-    const v = overrideVolumes  || volumes;
+  const stopLayer = useCallback((name) => {
+    const { nodes = [], timers = [] } = nodesRef.current[name] || {};
+    timers.forEach(t => { clearInterval(t); clearTimeout(t); });
+    nodes.forEach(n => { try { n.stop?.(); n.disconnect?.(); } catch {} });
+    gainNodesRef.current[name]?.disconnect?.();
+    panNodesRef.current[name]?.disconnect?.();
+    delete nodesRef.current[name];
+    delete gainNodesRef.current[name];
+    delete panNodesRef.current[name];
+  }, []);
 
-    ['binaural', 'drone', 'instrument', 'nature', 'solfeggio'].forEach(layer => {
-      buildLayer(ctx, layer, s[layer], v[layer]);
-    });
+  // ── Start ───────────────────────────────────────────────────────────────────
+  const start = useCallback(() => {
+    if (ctxRef.current) { try { ctxRef.current.close(); } catch {} }
+    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    ctxRef.current = ctx;
 
-    setBrainwave(BW_FOR_HZ(s.binaural.hz));
-    offsetRef.current = 0;
-    startRef.current  = ctx.currentTime;
-    setElapsed(0);
+    const masterGain = ctx.createGain(); masterGain.gain.value = masterVol;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value=-24; comp.knee.value=10; comp.ratio.value=4; comp.attack.value=0.003; comp.release.value=0.25;
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 256;
+    const reverb   = createReverb(ctx, 2.8);
+    const revGain  = ctx.createGain(); revGain.gain.value = masterReverb;
+
+    masterGain.connect(comp); comp.connect(analyser); analyser.connect(ctx.destination);
+    reverb.connect(revGain); revGain.connect(analyser);
+
+    masterGainRef.current = masterGain;
+    masterRevRef.current  = reverb;
+    analyserRef.current   = analyser;
+
+    const toBuild = new Set(['binaural']);
+    Object.entries(layersRef.current).forEach(([name, l]) => { if (l.active) toBuild.add(name); });
+    toBuild.forEach(name => buildLayer(ctx, name, masterGain));
+
     setIsPlaying(true);
-
-    tickRef.current = setInterval(() => {
-      if (ctxRef.current?.state === 'running') {
-        setElapsed(Math.floor(offsetRef.current + (ctxRef.current.currentTime - startRef.current)));
-      }
-    }, 1000);
-  }, [settings, volumes]);
-
-  const stop = useCallback(() => {
-    if (masterRef.current && ctxRef.current) {
-      masterRef.current.gain.setTargetAtTime(0, ctxRef.current.currentTime, 0.4);
-    }
-    setTimeout(() => {
-      Object.values(nodeRefs.current).forEach(stopNodes);
-      nodeRefs.current = {};
-      ctxRef.current?.suspend();
-    }, 800);
-    clearInterval(tickRef.current);
-    offsetRef.current = 0;
     setElapsed(0);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+  }, [masterVol, masterReverb, buildLayer]);
+
+  // ── Stop ────────────────────────────────────────────────────────────────────
+  const stop = useCallback(() => {
+    clearInterval(timerRef.current);
+    Object.keys(nodesRef.current).forEach(stopLayer);
+    nodesRef.current = {}; gainNodesRef.current = {}; panNodesRef.current = {};
+    eqNodesRef.current = {}; reverbSendRef.current = {};
+    try { ctxRef.current?.close(); } catch {}
+    ctxRef.current = null;
     setIsPlaying(false);
-  }, []);
+  }, [stopLayer]);
 
-  const togglePlay = useCallback(() => {
-    const ctx = ctxRef.current;
-    if (!ctx || !isPlaying) { start(); return; }
-    if (ctx.state === 'running') {
-      masterRef.current?.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
-      setTimeout(() => ctx.suspend(), 700);
-      offsetRef.current += ctx.currentTime - startRef.current;
-      clearInterval(tickRef.current);
-      setIsPlaying(false);
-    } else {
-      ctx.resume().then(() => {
-        masterRef.current?.gain.setTargetAtTime(volumes.binaural > 0 ? 0.85 : 0.5, ctx.currentTime, 0.3);
-        startRef.current = ctx.currentTime;
-        tickRef.current = setInterval(() => {
-          setElapsed(Math.floor(offsetRef.current + (ctx.currentTime - startRef.current)));
-        }, 1000);
-        setIsPlaying(true);
-      });
-    }
-  }, [isPlaying, start, volumes]);
+  const togglePlay = useCallback(() => { isPlaying ? stop() : start(); }, [isPlaying, start, stop]);
 
-  const setLayerVolume = useCallback((layer, vol) => {
-    setVolumes(v => {
-      const next = { ...v, [layer]: vol };
-      if (gainRefs.current[layer] && ctxRef.current) {
-        gainRefs.current[layer].gain.setTargetAtTime(vol, ctxRef.current.currentTime, 0.1);
+  // ── Layer controls ──────────────────────────────────────────────────────────
+  const setLayerVolume = useCallback((name, vol) => {
+    setLayers(prev => {
+      const next    = { ...prev, [name]: { ...prev[name], volume: vol } };
+      const gn      = gainNodesRef.current[name];
+      const anySolo = Object.values(next).some(l => l.solo);
+      if (gn && ctxRef.current) {
+        const hearable = !next[name].mute && (!anySolo || next[name].solo);
+        gn.gain.setTargetAtTime(hearable ? vol : 0, ctxRef.current.currentTime, 0.02);
       }
       return next;
     });
   }, []);
 
-  const updateLayerSetting = useCallback((layer, newSettings) => {
-    setSettings(s => {
-      const next = { ...s, [layer]: { ...s[layer], ...newSettings } };
-      if (isPlaying && ctxRef.current) {
-        // Rebuild just this layer
-        stopNodes(nodeRefs.current[layer] || []);
-        nodeRefs.current[layer] = [];
-        if (gainRefs.current[layer]) {
-          try { gainRefs.current[layer].disconnect(); } catch {}
+  const setLayerPan = useCallback((name, pan) => {
+    setLayers(prev => {
+      const pn = panNodesRef.current[name];
+      if (pn && ctxRef.current) pn.pan.setTargetAtTime(pan, ctxRef.current.currentTime, 0.02);
+      return { ...prev, [name]: { ...prev[name], pan } };
+    });
+  }, []);
+
+  const toggleMute = useCallback((name) => {
+    setLayers(prev => {
+      const mute    = !prev[name].mute;
+      const next    = { ...prev, [name]: { ...prev[name], mute } };
+      const gn      = gainNodesRef.current[name];
+      const anySolo = Object.values(next).some(l => l.solo);
+      if (gn && ctxRef.current) {
+        const hearable = !mute && (!anySolo || next[name].solo);
+        gn.gain.setTargetAtTime(hearable ? next[name].volume : 0, ctxRef.current.currentTime, 0.02);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSolo = useCallback((name) => {
+    setLayers(prev => {
+      const solo    = !prev[name].solo;
+      const next    = { ...prev, [name]: { ...prev[name], solo } };
+      const anySolo = Object.values(next).some(l => l.solo);
+      Object.entries(next).forEach(([n, l]) => {
+        const gn = gainNodesRef.current[n];
+        if (gn && ctxRef.current) {
+          const hearable = !l.mute && (!anySolo || l.solo);
+          gn.gain.setTargetAtTime(hearable ? l.volume : 0, ctxRef.current.currentTime, 0.02);
         }
-        buildLayer(ctxRef.current, layer, next[layer], volumes[layer]);
-        if (layer === 'binaural') setBrainwave(BW_FOR_HZ(next.binaural.hz));
-      }
+      });
       return next;
     });
-  }, [isPlaying, volumes]);
+  }, []);
 
-  // Phase 4: live binaural adaptation from heart rate
-  const adaptFromHeartRate = useCallback((hr) => {
-    if (!hr || !isPlaying) return;
-    let targetHz;
-    if (hr > 100) targetHz = 10;      // Alpha — calm down
-    else if (hr > 85) targetHz = 12;  // Alpha
-    else if (hr > 70) targetHz = 7;   // Theta — meditative
-    else if (hr < 55) targetHz = 18;  // Beta — energise
-    else targetHz = settings.binaural.hz; // keep current
+  const setLayerEQ = useCallback((name, band, value) => {
+    setLayers(prev => {
+      const eq = eqNodesRef.current[name];
+      if (eq && ctxRef.current) {
+        const t = ctxRef.current.currentTime;
+        if (band === 'bass')   eq.bassEQ.gain.setTargetAtTime(value, t, 0.05);
+        if (band === 'mid')    eq.midEQ.gain.setTargetAtTime(value,  t, 0.05);
+        if (band === 'treble') eq.trebleEQ.gain.setTargetAtTime(value, t, 0.05);
+      }
+      return { ...prev, [name]: { ...prev[name], eq: { ...prev[name].eq, [band]: value } } };
+    });
+  }, []);
 
-    const bin = binauralRef.current;
-    const ctx = ctxRef.current;
-    if (bin && ctx && Math.abs(targetHz - settings.binaural.hz) > 1) {
-      const carrier = settings.binaural.carrier;
-      bin.rightOsc.frequency.setTargetAtTime(carrier + targetHz, ctx.currentTime, 3);
-      setSettings(s => ({ ...s, binaural: { ...s.binaural, hz: targetHz } }));
-      setBrainwave(BW_FOR_HZ(targetHz));
+  const setLayerReverb = useCallback((name, val) => {
+    setLayers(prev => {
+      const rs = reverbSendRef.current[name];
+      if (rs && ctxRef.current) rs.gain.setTargetAtTime(val, ctxRef.current.currentTime, 0.05);
+      return { ...prev, [name]: { ...prev[name], reverb: val } };
+    });
+  }, []);
+
+  const setLayerActive = useCallback((name, active) => {
+    setLayers(prev => ({ ...prev, [name]: { ...prev[name], active } }));
+    if (!isPlaying || !ctxRef.current) return;
+    if (active && !nodesRef.current[name]) {
+      buildLayer(ctxRef.current, name, masterGainRef.current);
+    } else if (!active) {
+      stopLayer(name);
     }
-  }, [isPlaying, settings]);
+  }, [isPlaying, buildLayer, stopLayer]);
 
-  const applyIntention = useCallback((name) => {
-    const p = INTENTIONS[name];
-    if (!p) return;
+  const updateLayerSetting = useCallback((layer, key, value) => {
+    setSettings(prev => {
+      const next = { ...prev, [layer]: { ...prev[layer], [key]: value } };
+      settingsRef.current = next;
+      return next;
+    });
+    if (isPlaying && ctxRef.current) {
+      stopLayer(layer);
+      setTimeout(() => {
+        if (ctxRef.current && masterGainRef.current) buildLayer(ctxRef.current, layer, masterGainRef.current);
+      }, 60);
+    }
+  }, [isPlaying, buildLayer, stopLayer]);
+
+  const applyIntention = useCallback((key) => {
+    const preset = INTENTIONS[key];
+    if (!preset) return;
+    setIntention(key);
+    phraseRef.current.setIntention(key, phraseRef.current.chaos);
+    setBpmState(phraseRef.current.getBpm());
+
     const newSettings = {
-      binaural:   { hz: p.binauralHz, carrier: p.carrierHz },
-      drone:      { type: p.drone },
-      instrument: { type: p.instrument },
-      nature:     { type: p.nature },
-      solfeggio:  { hz: p.solfeggio },
-    };
-    const newVolumes = {
-      binaural:   0.5,
-      drone:      p.drone      ? 0.65 : 0,
-      instrument: p.instrument ? 0.4  : 0,
-      nature:     p.nature     ? 0.45 : 0,
-      solfeggio:  p.solfeggio  ? 0.3  : 0,
+      binaural:   { hz: preset.binauralHz, carrierHz: preset.carrierHz },
+      drone:      { type: preset.drone      || settingsRef.current.drone.type },
+      instrument: { type: preset.instrument || settingsRef.current.instrument.type },
+      nature:     { type: preset.nature     || settingsRef.current.nature.type },
+      solfeggio:  { hz: preset.solfeggio },
     };
     setSettings(newSettings);
-    setVolumes(newVolumes);
-    setIntention(name);
-    start(newSettings, newVolumes);
-  }, [start]);
+    settingsRef.current = newSettings;
 
-  useEffect(() => () => {
-    Object.values(nodeRefs.current).forEach(stopNodes);
-    clearInterval(tickRef.current);
-    ctxRef.current?.close();
+    setLayers(prev => ({
+      ...prev,
+      binaural:   { ...prev.binaural,   active: true },
+      drone:      { ...prev.drone,      active: !!preset.drone },
+      instrument: { ...prev.instrument, active: !!preset.instrument },
+      nature:     { ...prev.nature,     active: !!preset.nature },
+      solfeggio:  { ...prev.solfeggio,  active: true },
+    }));
+
+    if (isPlaying) { stop(); setTimeout(start, 120); }
+  }, [isPlaying, stop, start]);
+
+  const applyMix = useCallback((mixData) => {
+    if (mixData.settings) { setSettings(s => ({ ...s, ...mixData.settings })); settingsRef.current = { ...settingsRef.current, ...mixData.settings }; }
+    if (mixData.layers)   setLayers(l  => ({ ...l,  ...mixData.layers  }));
+    if (mixData.bpm)      setBpmState(mixData.bpm);
+    if (mixData.chaos !== undefined) setChaosState(mixData.chaos);
+    if (mixData.intention) setIntention(mixData.intention);
+    if (isPlaying) { stop(); setTimeout(start, 150); }
+  }, [isPlaying, stop, start]);
+
+  const setBpm = useCallback((val) => { setBpmState(val); phraseRef.current.setBpm(val); }, []);
+  const setChaos = useCallback((val) => { setChaosState(val); phraseRef.current.setChaos(val); }, []);
+
+  const setMasterVolume = useCallback((val) => {
+    setMasterVol(val);
+    if (masterGainRef.current && ctxRef.current) masterGainRef.current.gain.setTargetAtTime(val, ctxRef.current.currentTime, 0.05);
   }, []);
 
-  return (
-    <SoundEngineContext.Provider value={{
-      isPlaying, elapsed, intention, volumes, settings, brainwave,
-      start, stop, togglePlay, setLayerVolume, updateLayerSetting,
-      applyIntention, adaptFromHeartRate,
-    }}>
-      {children}
-    </SoundEngineContext.Provider>
-  );
+  const adaptFromHeartRate = useCallback((hr) => {
+    if (!ctxRef.current) return;
+    const { leftOsc, rightOsc } = nodesRef.current.binaural || {};
+    if (!leftOsc || !rightOsc) return;
+    const curHz = settingsRef.current.binaural.hz;
+    const targetHz = hr > 90 ? Math.max(2, curHz - 1) : hr < 60 ? Math.min(40, curHz + 1) : curHz;
+    const carrier  = settingsRef.current.binaural.carrierHz;
+    const t        = ctxRef.current.currentTime;
+    leftOsc.frequency.setTargetAtTime(carrier,             t, 2);
+    rightOsc.frequency.setTargetAtTime(carrier + targetHz, t, 2);
+  }, []);
+
+  useEffect(() => () => stop(), []);
+
+  const value = {
+    isPlaying, layers, settings, intention, elapsed, bpm, chaos, masterVol,
+    brainwave, analyser: analyserRef.current,
+    start, stop, togglePlay,
+    setLayerVolume, setLayerPan, toggleMute, toggleSolo,
+    setLayerEQ, setLayerReverb, setLayerActive,
+    updateLayerSetting, applyIntention, applyMix,
+    setBpm, setChaos, setMasterVolume,
+    adaptFromHeartRate,
+    ragaName: phraseRef.current.getRagaName(),
+  };
+
+  return <SoundEngineContext.Provider value={value}>{children}</SoundEngineContext.Provider>;
 }
 
 export function useSoundEngine() {
-  return useContext(SoundEngineContext);
+  const ctx = useContext(SoundEngineContext);
+  if (!ctx) throw new Error('useSoundEngine must be used inside SoundEngineProvider');
+  return ctx;
 }

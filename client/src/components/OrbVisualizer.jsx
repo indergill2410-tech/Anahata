@@ -1,33 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const BW_PALETTE = {
-  Delta:   { core: '#1a0550', mid: '#4c1e96', outer: '#6d4aff', particle: '#8b6fff' },
-  Theta:   { core: '#1a0535', mid: '#7c1faa', outer: '#a855f7', particle: '#c084fc' },
-  Alpha:   { core: '#0a2a1a', mid: '#0a7a45', outer: '#22c55e', particle: '#86efac' },
-  Beta:    { core: '#0a1f35', mid: '#0a5fa0', outer: '#3b82f6', particle: '#93c5fd' },
-  Gamma:   { core: '#1a1505', mid: '#7a6400', outer: '#eab308', particle: '#fde047' },
-  default: { core: '#0e0e20', mid: '#2d1f6e', outer: '#6d4aff', particle: '#8b6fff' },
+  Delta:  { core: '#4A7FA5', mid: '#7AABCC', glow: 'rgba(74,127,165,0.18)'  },
+  Theta:  { core: '#9B6B9A', mid: '#C49BC3', glow: 'rgba(155,107,154,0.18)' },
+  Alpha:  { core: '#7B8B5E', mid: '#A8BA7F', glow: 'rgba(123,139,94,0.18)'  },
+  Beta:   { core: '#4A7FA5', mid: '#82B4D4', glow: 'rgba(74,127,165,0.18)'  },
+  Gamma:  { core: '#D4A853', mid: '#EFD08A', glow: 'rgba(212,168,83,0.22)'  },
 };
 
-function initParticles(count, cx, cy, maxR) {
-  return Array.from({ length: count }, (_, i) => ({
-    angle:  (i / count) * Math.PI * 2,
-    radius: maxR * (0.55 + Math.random() * 0.45),
-    speed:  (0.0003 + Math.random() * 0.0006) * (Math.random() < 0.5 ? 1 : -1),
-    size:   1 + Math.random() * 2.5,
-    opacity: 0.3 + Math.random() * 0.6,
-    drift:  Math.random() * Math.PI * 2,
-  }));
-}
+const PARTICLE_COUNT = 48;
 
-export default function OrbVisualizer({ brainwave = 'Theta', isPlaying = false, heartRate = null, binauralHz = 7, size = 280 }) {
-  const canvasRef  = useRef(null);
-  const frameRef   = useRef(null);
-  const stateRef   = useRef({ t: 0, particles: null, brainwave, isPlaying, heartRate, binauralHz });
-
-  useEffect(() => {
-    stateRef.current = { ...stateRef.current, brainwave, isPlaying, heartRate, binauralHz };
-  }, [brainwave, isPlaying, heartRate, binauralHz]);
+export default function OrbVisualizer({ brainwave = 'Theta', isPlaying, heartRate, binauralHz = 6, size = 260 }) {
+  const canvasRef = useRef(null);
+  const rafRef    = useRef(null);
+  const stateRef  = useRef({ particles: [], t: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -40,100 +26,95 @@ export default function OrbVisualizer({ brainwave = 'Theta', isPlaying = false, 
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
+    stateRef.current.particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+      angle:  (i / PARTICLE_COUNT) * Math.PI * 2,
+      radius: size * 0.22 + Math.random() * size * 0.14,
+      speed:  0.003 + Math.random() * 0.006,
+      size:   1 + Math.random() * 2.5,
+      phase:  Math.random() * Math.PI * 2,
+      drift:  (Math.random() - 0.5) * 0.002,
+    }));
+
     const cx = size / 2, cy = size / 2;
-    const baseR = size * 0.28;
-    stateRef.current.particles = initParticles(48, cx, cy, size * 0.46);
+    const baseR = size * 0.22;
 
-    function draw(timestamp) {
-      const s = stateRef.current;
-      s.t = timestamp / 1000;
-      const pal = BW_PALETTE[s.brainwave] || BW_PALETTE.default;
-
-      // Breathing: cap visual frequency at 0.4Hz so it's always visible
-      const breathFreq = Math.min(s.binauralHz, 0.5);
-      const breathAmp  = s.isPlaying ? 0.07 : 0.02;
-      const breathScale = 1 + breathAmp * Math.sin(2 * Math.PI * breathFreq * s.t);
-      const r = baseR * breathScale;
+    const draw = () => {
+      rafRef.current = requestAnimationFrame(draw);
+      stateRef.current.t += 0.012;
+      const t = stateRef.current.t;
 
       ctx.clearRect(0, 0, size, size);
 
-      // ── Outer glow rings ──────────────────────────────────────────────
+      const pal       = BW_PALETTE[brainwave] || BW_PALETTE.Theta;
+      const breathHz  = Math.min(binauralHz, 0.5);
+      const breathAmp = isPlaying ? 0.06 : 0.02;
+      const scale     = 1 + breathAmp * Math.sin(2 * Math.PI * breathHz * t);
+      const orbR      = baseR * scale;
+
+      // Outer glow rings
       for (let i = 3; i >= 1; i--) {
-        const ringR = r * (1 + i * 0.22);
-        const alpha = s.isPlaying ? (0.06 / i) * breathScale : 0.02 / i;
-        const grad = ctx.createRadialGradient(cx, cy, ringR * 0.85, cx, cy, ringR);
-        grad.addColorStop(0, `${pal.outer}${Math.round(alpha * 255).toString(16).padStart(2,'0')}`);
-        grad.addColorStop(1, 'transparent');
+        const grd = ctx.createRadialGradient(cx, cy, orbR * 0.5, cx, cy, orbR * (1 + i * 0.45));
+        const alpha = (0.12 / i).toFixed(2);
+        grd.addColorStop(0, pal.glow.replace(/[\d.]+\)$/, `${alpha})`));
+        grd.addColorStop(1, 'rgba(250,247,242,0)');
         ctx.beginPath();
-        ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
+        ctx.arc(cx, cy, orbR * (1 + i * 0.45), 0, Math.PI * 2);
+        ctx.fillStyle = grd;
         ctx.fill();
       }
 
-      // ── Core orb ──────────────────────────────────────────────────────
-      const orbGrad = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.25, 0, cx, cy, r * 1.1);
-      orbGrad.addColorStop(0,   `${pal.mid}ff`);
-      orbGrad.addColorStop(0.4, `${pal.core}ee`);
-      orbGrad.addColorStop(0.8, `${pal.core}99`);
-      orbGrad.addColorStop(1,   `${pal.core}00`);
+      // Watercolour orb body
+      const bodyGrad = ctx.createRadialGradient(cx - orbR * 0.2, cy - orbR * 0.2, orbR * 0.05, cx, cy, orbR);
+      bodyGrad.addColorStop(0, `${pal.mid}CC`);
+      bodyGrad.addColorStop(0.5, `${pal.core}99`);
+      bodyGrad.addColorStop(1, `${pal.core}44`);
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = orbGrad;
+      ctx.arc(cx, cy, orbR, 0, Math.PI * 2);
+      ctx.fillStyle = bodyGrad;
       ctx.fill();
 
-      // ── Inner shimmer ─────────────────────────────────────────────────
-      if (s.isPlaying) {
-        const shimmer = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, 0, cx, cy, r * 0.6);
-        const shimAlpha = (0.12 + 0.08 * Math.sin(s.t * 2.5)).toString(16).padStart(2,'0').slice(0,2);
-        shimmer.addColorStop(0, `${pal.outer}${shimAlpha}`);
-        shimmer.addColorStop(1, 'transparent');
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = shimmer;
-        ctx.fill();
-      }
+      // Shimmer highlight
+      const hiGrad = ctx.createRadialGradient(cx - orbR * 0.3, cy - orbR * 0.35, 0, cx - orbR * 0.3, cy - orbR * 0.35, orbR * 0.6);
+      hiGrad.addColorStop(0, 'rgba(255,252,248,0.55)');
+      hiGrad.addColorStop(1, 'rgba(255,252,248,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, orbR, 0, Math.PI * 2);
+      ctx.fillStyle = hiGrad;
+      ctx.fill();
 
-      // ── Particles ─────────────────────────────────────────────────────
-      (s.particles || []).forEach(p => {
-        p.angle += p.speed * (s.isPlaying ? 1.4 : 0.3);
-        const drift = Math.sin(s.t * 0.4 + p.drift) * (size * 0.025);
-        const pr = p.radius + drift;
-        const px = cx + pr * Math.cos(p.angle);
-        const py = cy + pr * Math.sin(p.angle);
-        const alpha = s.isPlaying ? p.opacity : p.opacity * 0.3;
+      // Particles
+      stateRef.current.particles.forEach(p => {
+        p.angle += p.speed * (isPlaying ? 1 : 0.2) + p.drift;
+        const wobble = Math.sin(t * 1.5 + p.phase) * size * 0.025;
+        const px     = cx + Math.cos(p.angle) * (p.radius + wobble);
+        const py     = cy + Math.sin(p.angle) * (p.radius + wobble);
+        const alpha  = isPlaying ? (0.4 + 0.4 * Math.sin(t * 2 + p.phase)) : 0.15;
         ctx.beginPath();
         ctx.arc(px, py, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `${pal.particle}${Math.round(alpha * 255).toString(16).padStart(2,'0')}`;
+        ctx.fillStyle = `${pal.core}${Math.round(alpha * 255).toString(16).padStart(2,'0')}`;
         ctx.fill();
       });
 
-      // ── Heart rate text ───────────────────────────────────────────────
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      if (s.heartRate) {
-        ctx.font = `300 ${Math.round(r * 0.6)}px Inter, system-ui`;
-        ctx.fillStyle = '#f0eeff';
-        ctx.fillText(s.heartRate, cx, cy - r * 0.06);
-        ctx.font = `600 ${Math.round(r * 0.18)}px Inter, system-ui`;
-        ctx.fillStyle = 'rgba(240,238,255,0.5)';
-        ctx.fillText('BPM', cx, cy + r * 0.38);
-      } else {
-        ctx.font = `300 ${Math.round(r * 0.28)}px Inter, system-ui`;
-        ctx.fillStyle = s.isPlaying ? 'rgba(240,238,255,0.7)' : 'rgba(240,238,255,0.25)';
-        ctx.fillText(s.isPlaying ? s.brainwave : '✦', cx, cy);
+      // Centre text
+      ctx.textAlign     = 'center';
+      ctx.textBaseline  = 'middle';
+      if (heartRate && isPlaying) {
+        ctx.font      = `bold ${Math.round(size * 0.12)}px Inter, sans-serif`;
+        ctx.fillStyle = `${pal.core}EE`;
+        ctx.fillText(`${heartRate}`, cx, cy - size * 0.045);
+        ctx.font      = `${Math.round(size * 0.055)}px Inter, sans-serif`;
+        ctx.fillStyle = `${pal.core}99`;
+        ctx.fillText('BPM', cx, cy + size * 0.055);
+      } else if (!isPlaying) {
+        ctx.font      = `${Math.round(size * 0.065)}px Inter, sans-serif`;
+        ctx.fillStyle = `${pal.core}BB`;
+        ctx.fillText('Tap to begin', cx, cy);
       }
+    };
 
-      frameRef.current = requestAnimationFrame(draw);
-    }
+    draw();
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [brainwave, isPlaying, heartRate, binauralHz, size]);
 
-    frameRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [size]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ display: 'block', cursor: 'pointer', borderRadius: '50%' }}
-    />
-  );
+  return <canvas ref={canvasRef} style={{ borderRadius: '50%', display: 'block' }} />;
 }
