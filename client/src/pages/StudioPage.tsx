@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   useSoundEngine,
   INTENTIONS,
@@ -8,61 +8,188 @@ import {
   SOLFEGGIO_OPTIONS,
   BINAURAL_PRESETS,
 } from '../context/SoundEngineContext';
-import LayerChannel from '../components/LayerChannel';
-import MasterBus from '../components/MasterBus';
 import SpectrumAnalyser from '../components/SpectrumAnalyser';
-import AIMusicAssistant from '../components/AIMusicAssistant';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-const BW_COLOR: Record<string, string> = { Delta:'#3B5BDB', Theta:'#7048E8', Alpha:'#0CA678', Beta:'#3B5BDB', Gamma:'#F59F00' };
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-interface SavedMix { id: string; name: string; created: string; settings?: string; volumes?: string; }
+const BW_COLOR: Record<string, string> = {
+  Delta: '#3B5BDB', Theta: '#7048E8', Alpha: '#0CA678', Beta: '#4A7FA5', Gamma: '#F59F00',
+};
+const BW_DESC: Record<string, string> = {
+  Delta: 'Deep sleep  ·  0.5–4 Hz',
+  Theta: 'Meditation  ·  4–8 Hz',
+  Alpha: 'Relaxed focus  ·  8–14 Hz',
+  Beta:  'Active mind  ·  14–30 Hz',
+  Gamma: 'Peak awareness  ·  30+ Hz',
+};
 
-// ── Fallback generation presets (same keyword logic as AI dialog) ─────────────
+const LAYER_META: Record<string, { label: string; emoji: string; color: string; desc: string }> = {
+  binaural:   { label: 'Binaural',    emoji: '🧠', color: '#4A7FA5', desc: 'Brainwave entrainment' },
+  drone:      { label: 'Drone',       emoji: '🎵', color: '#9B6B9A', desc: 'Harmonic foundation'   },
+  instrument: { label: 'Instrument',  emoji: '🎸', color: '#C4613A', desc: 'Melodic texture'        },
+  nature:     { label: 'Nature',      emoji: '🌿', color: '#7B8B5E', desc: 'Ambient soundscape'     },
+  solfeggio:  { label: 'Solfeggio',   emoji: '✨', color: '#D4A853', desc: 'Sacred frequencies'     },
+};
+
 const GEN_PRESETS = [
-  { key:'sleep',    label:'Deep Sleep',      desc:'Delta waves · Tanpura · Ocean',    color:'#3B5BDB', mix:{ intention:'sleep',    settings:{ binaural:{hz:2,carrierHz:180},  drone:{type:'tanpura'}, instrument:{type:'bansuri'}, nature:{type:'ocean'},  solfeggio:{hz:396} }, layers:{ binaural:{active:true,volume:0.8}, drone:{active:true,volume:0.55}, instrument:{active:true,volume:0.3}, nature:{active:true,volume:0.55}, solfeggio:{active:true,volume:0.28} } } },
-  { key:'focus',    label:'Deep Focus',      desc:'Alpha waves · Shruti · Forest',    color:'#0CA678', mix:{ intention:'focus',    settings:{ binaural:{hz:10,carrierHz:220}, drone:{type:'shruti'},  instrument:{type:'sitar'},   nature:{type:'forest'}, solfeggio:{hz:528} }, layers:{ binaural:{active:true,volume:0.75},drone:{active:true,volume:0.45},instrument:{active:false,volume:0},  nature:{active:true,volume:0.4},  solfeggio:{active:true,volume:0.3}  } } },
-  { key:'heal',     label:'Healing 528Hz',   desc:'Theta waves · Bowl · Rain',        color:'#E64980', mix:{ intention:'heal',     settings:{ binaural:{hz:6,carrierHz:200},  drone:{type:'bowl'},    instrument:{type:'bansuri'}, nature:{type:'rain'},   solfeggio:{hz:528} }, layers:{ binaural:{active:true,volume:0.75},drone:{active:true,volume:0.6}, instrument:{active:true,volume:0.35},nature:{active:true,volume:0.5},  solfeggio:{active:true,volume:0.4}  } } },
-  { key:'energize', label:'Morning Energy',  desc:'Beta waves · Shruti · Wind',       color:'#F59F00', mix:{ intention:'energize', settings:{ binaural:{hz:16,carrierHz:250}, drone:{type:'shruti'},  instrument:{type:'tabla'},   nature:{type:'wind'},   solfeggio:{hz:417} }, layers:{ binaural:{active:true,volume:0.7}, drone:{active:true,volume:0.4}, instrument:{active:true,volume:0.5}, nature:{active:true,volume:0.45}, solfeggio:{active:false,volume:0}   } } },
-  { key:'meditate', label:'Deep Meditation', desc:'Theta waves · Om · River',         color:'#7048E8', mix:{ intention:'meditate', settings:{ binaural:{hz:7,carrierHz:210},  drone:{type:'om'},      instrument:{type:'sarod'},   nature:{type:'river'},  solfeggio:{hz:852} }, layers:{ binaural:{active:true,volume:0.7}, drone:{active:true,volume:0.65},instrument:{active:true,volume:0.3}, nature:{active:true,volume:0.45}, solfeggio:{active:true,volume:0.35} } } },
+  { key: 'sleep',    label: 'Deep Sleep',  emoji: '🌙', desc: 'Delta · 2Hz',  color: '#3B5BDB',
+    mix: { intention: 'sleep',    settings: { binaural: { hz: 2,  carrierHz: 180 }, drone: { type: 'tanpura' }, instrument: { type: 'bansuri' }, nature: { type: 'ocean'  }, solfeggio: { hz: 396 } }, layers: { binaural: { active: true,  volume: 0.80 }, drone: { active: true,  volume: 0.55 }, instrument: { active: true,  volume: 0.30 }, nature: { active: true,  volume: 0.55 }, solfeggio: { active: true,  volume: 0.28 } } } },
+  { key: 'focus',    label: 'Deep Focus',  emoji: '🎯', desc: 'Alpha · 10Hz', color: '#0CA678',
+    mix: { intention: 'focus',    settings: { binaural: { hz: 10, carrierHz: 220 }, drone: { type: 'shruti'  }, instrument: { type: 'sitar'   }, nature: { type: 'forest' }, solfeggio: { hz: 528 } }, layers: { binaural: { active: true,  volume: 0.75 }, drone: { active: true,  volume: 0.45 }, instrument: { active: false, volume: 0    }, nature: { active: true,  volume: 0.40 }, solfeggio: { active: true,  volume: 0.30 } } } },
+  { key: 'heal',     label: 'Healing',     emoji: '💚', desc: 'Theta · 6Hz',  color: '#E64980',
+    mix: { intention: 'heal',     settings: { binaural: { hz: 6,  carrierHz: 200 }, drone: { type: 'bowl'    }, instrument: { type: 'bansuri' }, nature: { type: 'rain'   }, solfeggio: { hz: 528 } }, layers: { binaural: { active: true,  volume: 0.75 }, drone: { active: true,  volume: 0.60 }, instrument: { active: true,  volume: 0.35 }, nature: { active: true,  volume: 0.50 }, solfeggio: { active: true,  volume: 0.40 } } } },
+  { key: 'energize', label: 'Morning',     emoji: '☀️', desc: 'Beta · 16Hz',  color: '#F59F00',
+    mix: { intention: 'energize', settings: { binaural: { hz: 16, carrierHz: 250 }, drone: { type: 'shruti'  }, instrument: { type: 'tabla'   }, nature: { type: 'wind'   }, solfeggio: { hz: 417 } }, layers: { binaural: { active: true,  volume: 0.70 }, drone: { active: true,  volume: 0.40 }, instrument: { active: true,  volume: 0.50 }, nature: { active: true,  volume: 0.45 }, solfeggio: { active: false, volume: 0    } } } },
+  { key: 'meditate', label: 'Meditation',  emoji: '🧘', desc: 'Theta · 7Hz',  color: '#7048E8',
+    mix: { intention: 'meditate', settings: { binaural: { hz: 7,  carrierHz: 210 }, drone: { type: 'om'      }, instrument: { type: 'sarod'   }, nature: { type: 'river'  }, solfeggio: { hz: 852 } }, layers: { binaural: { active: true,  volume: 0.70 }, drone: { active: true,  volume: 0.65 }, instrument: { active: true,  volume: 0.30 }, nature: { active: true,  volume: 0.45 }, solfeggio: { active: true,  volume: 0.35 } } } },
 ];
 
-// Orbiting particle ring used during generation animation
-function GenerateOrb({ color, size=72 }: { color:string; size?:number }) {
+const SOLFEGGIO_GROUPS = [
+  { label: 'Grounding',  freqs: [{ hz: 174, name: 'Pain relief'    }, { hz: 285, name: 'Tissue healing' }, { hz: 396, name: 'Release fear'  }] },
+  { label: 'Healing',    freqs: [{ hz: 417, name: 'Embrace change' }, { hz: 528, name: 'DNA repair'     }, { hz: 639, name: 'Relationships' }] },
+  { label: 'Awakening',  freqs: [{ hz: 741, name: 'Intuition'      }, { hz: 852, name: 'Spiritual'      }, { hz: 963, name: 'Crown chakra'  }] },
+];
+
+interface SavedMix { id: string; name: string; created: string; settings?: string; volumes?: string; }
+interface LayerState { volume: number; pan: number; mute: boolean; solo: boolean; eq: { bass: number; mid: number; treble: number }; reverb: number; active: boolean; }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function GenerateOrb({ color, size = 100 }: { color: string; size?: number }) {
   return (
-    <div style={{ width:size, height:size, position:'relative', flexShrink:0 }}>
-      <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:`radial-gradient(circle at 38% 35%, ${color}44, ${color}11 60%, transparent)`, boxShadow:`0 0 24px ${color}55`, animation:'genPulse 1.6s ease-in-out infinite' }}/>
-      <div style={{ position:'absolute', inset:6, borderRadius:'50%', border:`1.5px solid ${color}50`, animation:'genSpin 3s linear infinite' }}/>
-      <div style={{ position:'absolute', inset:14, borderRadius:'50%', border:`1px solid ${color}30`, animation:'genSpin 5s linear infinite reverse' }}/>
-      <div style={{ position:'absolute', inset:'50%', transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:color, boxShadow:`0 0 8px ${color}` }}/>
+    <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `radial-gradient(circle at 38% 35%, ${color}55, ${color}11 60%, transparent)`, boxShadow: `0 0 48px ${color}55`, animation: 'stGenPulse 1.6s ease-in-out infinite' }} />
+      <div style={{ position: 'absolute', inset: 8,  borderRadius: '50%', border: `1.5px solid ${color}55`, animation: 'stGenSpin 3s linear infinite' }} />
+      <div style={{ position: 'absolute', inset: 18, borderRadius: '50%', border: `1px solid ${color}30`,   animation: 'stGenSpin 5s linear infinite reverse' }} />
+      <div style={{ position: 'absolute', inset: '50%', transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: color, boxShadow: `0 0 14px ${color}` }} />
     </div>
   );
 }
 
+function LayerCard({
+  name, layer, onVolume, onMute, onActive, onReverb,
+  options, currentOption, onOption,
+}: {
+  name: string; layer: LayerState;
+  onVolume?: (v: number) => void; onMute?: () => void;
+  onActive?: (v: boolean) => void; onReverb?: (v: number) => void;
+  options?: (string | number)[]; currentOption?: string | number;
+  onOption?: (v: string) => void;
+}) {
+  const meta = LAYER_META[name] || { label: name, emoji: '🎛', color: '#7048E8', desc: '' };
+  const volPct = `${layer.volume * 100}%`;
+  const verbPct = `${layer.reverb * 100}%`;
+
+  return (
+    <div
+      className={`lc-card ${layer.active ? 'active' : ''} ${layer.mute ? 'muted' : ''}`}
+      style={{ '--lc': meta.color } as React.CSSProperties}
+    >
+      {/* Active accent bar */}
+      <div className="lc-bar" />
+
+      {/* Header */}
+      <div className="lc-head">
+        <span className="lc-emoji">{meta.emoji}</span>
+        <div className="lc-info">
+          <div className="lc-name">{meta.label}</div>
+          <div className="lc-desc">{meta.desc}</div>
+        </div>
+        <button className={`lc-power ${layer.active ? 'on' : ''}`} onClick={() => onActive?.(!layer.active)}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+            <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64"/><line x1="12" y1="2" x2="12" y2="12"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Volume */}
+      <div className="lc-vol-row">
+        <input
+          type="range" min="0" max="1" step="0.01"
+          value={layer.volume}
+          onChange={e => onVolume?.(parseFloat(e.target.value))}
+          className="lc-range"
+          style={{ '--rp': volPct, '--rc': meta.color } as React.CSSProperties}
+          disabled={!layer.active}
+        />
+        <span className="lc-vol-num">{Math.round(layer.volume * 100)}</span>
+      </div>
+
+      {/* Sound type + mute */}
+      <div className="lc-foot">
+        {options && options.length > 0 && (
+          <select
+            className="lc-select"
+            value={currentOption}
+            onChange={e => onOption?.(e.target.value)}
+          >
+            {options.map(o => (
+              <option key={o} value={o}>
+                {typeof o === 'number' ? `${o}Hz` : o.charAt(0).toUpperCase() + o.slice(1)}
+              </option>
+            ))}
+          </select>
+        )}
+        <button className={`lc-mute ${layer.mute ? 'on' : ''}`} onClick={() => onMute?.()}>M</button>
+      </div>
+
+      {/* Reverb send */}
+      <div className="lc-verb-row">
+        <span className="lc-verb-lbl">Reverb</span>
+        <input
+          type="range" min="0" max="1" step="0.01"
+          value={layer.reverb}
+          onChange={e => onReverb?.(parseFloat(e.target.value))}
+          className="lc-range lc-range-sm"
+          style={{ '--rp': verbPct, '--rc': `${meta.color}99` } as React.CSSProperties}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function StudioPage() {
   const engine = useSoundEngine();
   const { isAuthenticated, token } = useAuth();
-  const { success, error }         = useToast();
+  const { success, error } = useToast();
 
-  const [showSave,    setShowSave]    = useState(false);
-  const [showLoad,    setShowLoad]    = useState(false);
-  const [mixName,     setMixName]     = useState('');
-  const [savedMixes,  setSavedMixes]  = useState<SavedMix[]>([]);
-  const [saving,      setSaving]      = useState(false);
-  const [generating,  setGenerating]  = useState(false);
-  const [genPreset,   setGenPreset]   = useState<typeof GEN_PRESETS[0] | null>(null);
-  const [genDone,     setGenDone]     = useState(false);
+  const [generating,   setGenerating]   = useState(false);
+  const [genPreset,    setGenPreset]    = useState<typeof GEN_PRESETS[0] | null>(null);
+  const [genDone,      setGenDone]      = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [showSave,     setShowSave]     = useState(false);
+  const [mixName,      setMixName]      = useState('');
+  const [savedMixes,   setSavedMixes]   = useState<SavedMix[]>([]);
+  const [saving,       setSaving]       = useState(false);
+  const [showLib,      setShowLib]      = useState(false);
 
-  const bwColor = BW_COLOR[engine.brainwave] || 'var(--violet)';
+  const tapTimesRef = useRef<number[]>([]);
+  const bwColor = BW_COLOR[engine.brainwave] || '#7048E8';
 
-  // ── Generate ───────────────────────────────────────────────────────────────
+  // ── Tap tempo ───────────────────────────────────────────────────────────────
+  const handleTapTempo = () => {
+    const now = Date.now();
+    const taps = tapTimesRef.current;
+    taps.push(now);
+    if (taps.length > 4) taps.shift();
+    if (taps.length >= 2) {
+      const gaps = taps.slice(1).map((t, i) => t - taps[i]);
+      const avg  = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+      const bpmVal = Math.round(60000 / avg);
+      if (bpmVal >= 30 && bpmVal <= 200) engine.setBpm(bpmVal);
+    }
+  };
+
+  // ── Generate ────────────────────────────────────────────────────────────────
   const handleGenerate = async (preset: typeof GEN_PRESETS[0]) => {
     setGenPreset(preset);
     setGenerating(true);
     setGenDone(false);
 
-    // Try AI first, fall back to preset
     let mix: Record<string, unknown> = preset.mix as Record<string, unknown>;
     try {
       const res = await fetch('/api/ai/mix', {
@@ -70,19 +197,14 @@ export default function StudioPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: preset.key === 'custom' ? preset.desc : `Generate a ${preset.label} meditation soundscape` }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.mix) mix = data.mix;
-      }
+      if (res.ok) { const d = await res.json(); if (d.mix) mix = d.mix; }
     } catch { /* use preset */ }
 
-    // Animate for at least 2s so it feels deliberate
     await new Promise(r => setTimeout(r, 2000));
 
     const mergedLayers = Object.fromEntries(
-      Object.entries(engine.layers).map(([name, currentLayer]) => [
-        name,
-        { ...currentLayer, ...((mix.layers as Record<string, any>)?.[name] || {}) }
+      Object.entries(engine.layers).map(([n, cur]) => [
+        n, { ...cur, ...((mix.layers as Record<string, unknown>)?.[n] as object || {}) },
       ])
     );
     engine.applyMix({ ...mix, layers: mergedLayers });
@@ -94,13 +216,20 @@ export default function StudioPage() {
     success(`${preset.label} soundscape generated ✨`);
   };
 
-  // ── Layer options ──────────────────────────────────────────────────────────
+  const handleCustomGenerate = () => {
+    if (!customPrompt.trim() || generating) return;
+    handleGenerate({
+      key: 'custom', label: 'Custom', emoji: '✦', desc: customPrompt, color: '#7048E8',
+      mix: { intention: 'meditate', settings: { binaural: { hz: 7, carrierHz: 210 }, drone: { type: 'om' }, instrument: { type: 'sarod' }, nature: { type: 'river' }, solfeggio: { hz: 528 } }, layers: { binaural: { active: true, volume: 0.7 }, drone: { active: true, volume: 0.6 }, instrument: { active: true, volume: 0.3 }, nature: { active: true, volume: 0.45 }, solfeggio: { active: true, volume: 0.35 } } },
+    });
+    setCustomPrompt('');
+  };
+
+  // ── Layer helpers ───────────────────────────────────────────────────────────
   const LAYER_OPTIONS = {
-    binaural:   BINAURAL_PRESETS.map(p => p.hz),
-    drone:      DRONE_OPTIONS,
-    instrument: INSTRUMENT_OPTIONS,
-    nature:     NATURE_OPTIONS,
-    solfeggio:  SOLFEGGIO_OPTIONS,
+    binaural: BINAURAL_PRESETS.map(p => p.hz),
+    drone: DRONE_OPTIONS, instrument: INSTRUMENT_OPTIONS,
+    nature: NATURE_OPTIONS, solfeggio: SOLFEGGIO_OPTIONS,
   };
   const currentOption = (name: string) => {
     if (name === 'binaural')   return engine.settings.binaural.hz;
@@ -112,9 +241,9 @@ export default function StudioPage() {
   const handleOption = (name: string, val: string) => {
     const v = isNaN(Number(val)) ? val : Number(val);
     if (name === 'binaural') {
-      const preset = BINAURAL_PRESETS.find(p => p.hz === v) || BINAURAL_PRESETS[1];
-      engine.updateLayerSetting('binaural', 'hz',        preset.hz);
-      engine.updateLayerSetting('binaural', 'carrierHz', preset.carrier);
+      const p = BINAURAL_PRESETS.find(p => p.hz === v) || BINAURAL_PRESETS[1];
+      engine.updateLayerSetting('binaural', 'hz', p.hz);
+      engine.updateLayerSetting('binaural', 'carrierHz', p.carrier);
     } else if (name === 'solfeggio') {
       engine.updateLayerSetting('solfeggio', 'hz', v);
     } else {
@@ -122,18 +251,17 @@ export default function StudioPage() {
     }
   };
 
-  // ── Save mix ───────────────────────────────────────────────────────────────
+  // ── Save / Load ─────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!mixName.trim()) return;
     setSaving(true);
     try {
       const res = await fetch('/api/mixes', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          name:     mixName.trim(),
-          settings: engine.settings,
-          layers:   Object.fromEntries(Object.entries(engine.layers).map(([k,v]) => [k, { volume:v.volume, active:v.active, reverb:v.reverb, pan:v.pan }])),
+          name: mixName.trim(), settings: engine.settings,
+          layers: Object.fromEntries(Object.entries(engine.layers).map(([k, v]) => [k, { volume: v.volume, active: v.active, reverb: v.reverb, pan: v.pan }])),
         }),
       });
       if (!res.ok) throw new Error();
@@ -143,252 +271,363 @@ export default function StudioPage() {
     finally { setSaving(false); }
   };
 
-  const handleOpenLoad = async () => {
+  const handleOpenLib = async () => {
     try {
-      const res = await fetch('/api/mixes', { headers: { 'Authorization':`Bearer ${token}` } });
+      const res = await fetch('/api/mixes', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setSavedMixes(data.mixes || []);
-      setShowLoad(true);
+      setShowLib(true);
     } catch { error('Could not load mixes.'); }
   };
 
   const handleLoadMix = (mix: SavedMix) => {
-    const loadedLayers = JSON.parse(mix.volumes || "{}");
-    const mergedLayers = Object.fromEntries(
-      Object.entries(engine.layers).map(([name, currentLayer]) => [
-        name,
-        { ...currentLayer, ...(loadedLayers[name] || {}) }
-      ])
-    );
-    engine.applyMix({ settings: JSON.parse(mix.settings || "{}"), layers: mergedLayers });
+    const ll = JSON.parse(mix.volumes || '{}');
+    const merged = Object.fromEntries(Object.entries(engine.layers).map(([n, cur]) => [n, { ...cur, ...(ll[n] || {}) }]));
+    engine.applyMix({ settings: JSON.parse(mix.settings || '{}'), layers: merged });
     success(`Loaded: ${mix.name}`);
-    setShowLoad(false);
+    setShowLib(false);
   };
 
   const handleDeleteMix = async (id: string) => {
-    await fetch(`/api/mixes/${id}`, { method:'DELETE', headers:{ 'Authorization':`Bearer ${token}` } });
+    await fetch(`/api/mixes/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setSavedMixes(m => m.filter(x => x.id !== id));
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
-    <style>{`
-      @keyframes genPulse { 0%,100%{opacity:0.7;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
-      @keyframes genSpin  { to{transform:rotate(360deg)} }
-      @keyframes genSlide { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-    `}</style>
+      <style>{`
+        @keyframes stGenPulse { 0%,100%{opacity:.7;transform:scale(1)}  50%{opacity:1;transform:scale(1.1)}  }
+        @keyframes stGenSpin  { to{transform:rotate(360deg)} }
+        @keyframes stGenSlide { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes stOrbPulse { 0%{box-shadow:0 0 0 0 var(--orb-c,rgba(112,72,232,.5))} 70%{box-shadow:0 0 0 22px rgba(0,0,0,0)} 100%{box-shadow:0 0 0 0 rgba(0,0,0,0)} }
 
-    <div className="dashboard">
+        .lc-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;outline:none;cursor:pointer;
+          background:linear-gradient(to right,var(--rc,#7048E8) var(--rp,0%),var(--bg2) var(--rp,0%));}
+        .lc-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--rc,#7048E8);box-shadow:0 0 6px var(--rc,#7048E8);cursor:pointer;}
+        .lc-range:disabled{opacity:.28;cursor:default;}
+        .lc-range-sm{height:3px;}
+        .lc-range-sm::-webkit-slider-thumb{width:10px;height:10px;}
 
-      {/* ── Header ─────────────────────────────────────────── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <div>
-          <h2 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:20, fontWeight:700, color:'var(--ink1)', margin:0, letterSpacing:'-0.01em' }}>Sound Studio</h2>
-          <p style={{ fontSize:12, color:'var(--ink3)', margin:'2px 0 0' }}>Compose your perfect meditation</p>
+        .st-tune-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;outline:none;cursor:pointer;
+          background:linear-gradient(to right,var(--tc,#7048E8) var(--tv,0%),var(--bg2) var(--tv,0%));}
+        .st-tune-range::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--tc,#7048E8);box-shadow:0 0 8px var(--tc,rgba(112,72,232,.4));cursor:pointer;}
+
+        .st-hero-vol-range{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;outline:none;cursor:pointer;
+          background:linear-gradient(to right,var(--vc,#7048E8) var(--vp,85%),rgba(23,18,10,.12) var(--vp,85%));}
+        .st-hero-vol-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:white;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer;}
+
+        .gen-input::placeholder{color:var(--ink3);}
+        .lc-select option{background:var(--bg1);color:var(--ink1);}
+      `}</style>
+
+      <div className="dashboard">
+
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 1 · Transport / Now Playing
+        ══════════════════════════════════════════════════════════ */}
+        <div className="st-hero" style={{ '--hero-c': bwColor } as React.CSSProperties}>
+          <div className="st-hero-glow" />
+
+          {/* Brainwave label */}
+          <div className="st-bw-pill" style={{ background: `${bwColor}18`, color: bwColor, border: `1px solid ${bwColor}35` }}>
+            <span className="st-bw-dot" style={{ background: bwColor }} />
+            <span>{engine.brainwave}</span>
+          </div>
+
+          {/* Play orb */}
+          <button
+            className={`st-play-orb ${engine.isPlaying ? 'playing' : ''}`}
+            style={{
+              '--orb-c': bwColor,
+              background:   engine.isPlaying ? bwColor : 'var(--bg2)',
+              borderColor:  engine.isPlaying ? bwColor : 'var(--border)',
+              boxShadow:    engine.isPlaying ? `0 8px 32px ${bwColor}50` : 'var(--shadow)',
+            } as React.CSSProperties}
+            onClick={engine.togglePlay}
+            aria-label={engine.isPlaying ? 'Pause' : 'Play'}
+          >
+            {engine.isPlaying
+              ? <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+              : <svg width="24" height="24" viewBox="0 0 24 24" fill={engine.isPlaying ? 'white' : 'var(--ink2)'}><path d="M8 5v14l11-7z"/></svg>
+            }
+          </button>
+
+          {/* Brainwave description */}
+          <div className="st-bw-desc">{BW_DESC[engine.brainwave]}</div>
+
+          {/* Raga */}
+          {engine.ragaName && <div className="st-raga">♪ {engine.ragaName}</div>}
+
+          {/* Spectrum (only when playing) */}
+          {engine.isPlaying && (
+            <div className="st-spectrum">
+              <SpectrumAnalyser analyser={engine.analyser} isPlaying={engine.isPlaying} height={48} />
+            </div>
+          )}
+
+          {/* Master volume */}
+          <div className="st-vol-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={bwColor} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <input
+              type="range" min="0" max="1" step="0.01"
+              value={engine.masterVol}
+              onChange={e => engine.setMasterVolume(parseFloat(e.target.value))}
+              className="st-hero-vol-range"
+              style={{ '--vp': `${engine.masterVol * 100}%`, '--vc': bwColor } as React.CSSProperties}
+            />
+            <span className="st-vol-val">{Math.round(engine.masterVol * 100)}%</span>
+          </div>
         </div>
-        <span className="bw-chip" style={{ background:`${bwColor}12`, color:bwColor, borderColor:`${bwColor}40` }}>
-          {engine.brainwave} · {engine.settings.binaural.hz}Hz
-        </span>
-      </div>
 
-      {/* ── GENERATE MUSIC ─────────────────────────────────── */}
-      <div className="studio-card" style={{ padding:0, overflow:'hidden' }}>
-        {/* Hero banner */}
-        <div style={{ background:'linear-gradient(135deg,rgba(112,72,232,0.08) 0%,rgba(59,91,219,0.05) 100%)', padding:'20px 20px 16px', borderBottom:'1px solid var(--border)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-            <div style={{ width:42, height:42, borderRadius:14, background:'linear-gradient(135deg,var(--violet),var(--blue))', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(112,72,232,0.3)', flexShrink:0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round">
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 2 · Generate Soundscape
+        ══════════════════════════════════════════════════════════ */}
+        <div className="st-gen-card">
+          {/* Header */}
+          <div className="st-gen-head">
+            <div className="st-gen-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
               </svg>
             </div>
             <div>
-              <div style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:15, fontWeight:700, color:'var(--ink1)' }}>Generate Music</div>
-              <div style={{ fontSize:11, color:'var(--ink3)', marginTop:1 }}>AI-composed meditation soundscape, ready in seconds</div>
+              <div className="st-gen-title">Generate Soundscape</div>
+              <div className="st-gen-sub">AI-composed · ready in seconds</div>
             </div>
           </div>
 
-          {/* Preset grid */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          {/* Preset tiles — horizontal scroll */}
+          <div className="st-preset-row">
             {GEN_PRESETS.map(p => (
               <button
                 key={p.key}
+                className={`st-preset-tile ${engine.intention === p.key ? 'active' : ''}`}
+                style={{ '--pt-c': p.color } as React.CSSProperties}
                 onClick={() => !generating && handleGenerate(p)}
                 disabled={generating}
-                style={{
-                  display:'flex', alignItems:'center', gap:10, padding:'12px 14px',
-                  background: engine.intention===p.key ? `${p.color}12` : 'var(--bg1)',
-                  border: `1.5px solid ${engine.intention===p.key ? p.color+'50' : 'var(--border)'}`,
-                  borderRadius:12, cursor: generating ? 'not-allowed' : 'pointer',
-                  textAlign:'left', fontFamily:'inherit', opacity: generating ? 0.6 : 1,
-                  transition:'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                  boxShadow: engine.intention===p.key ? `0 4px 14px ${p.color}25` : 'var(--shadow)',
-                }}
-                onMouseEnter={e => { if(!generating){ e.currentTarget.style.borderColor=p.color+'60'; e.currentTarget.style.transform='translateY(-1px)'; }}}
-                onMouseLeave={e => { e.currentTarget.style.borderColor=engine.intention===p.key?p.color+'50':'var(--border)'; e.currentTarget.style.transform='translateY(0)'; }}
               >
-                <div style={{ width:36, height:36, borderRadius:10, background:`${p.color}15`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, border:`1px solid ${p.color}30` }}>
-                  <div style={{ width:14, height:14, borderRadius:'50%', background:p.color, boxShadow:`0 0 8px ${p.color}80` }}/>
-                </div>
-                <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:'var(--ink1)', fontFamily:"'Space Grotesk',sans-serif", lineHeight:1.2 }}>{p.label}</div>
-                  <div style={{ fontSize:10, color:'var(--ink3)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.desc}</div>
-                </div>
+                <span className="spt-emoji">{p.emoji}</span>
+                <span className="spt-label">{p.label}</span>
+                <span className="spt-desc">{p.desc}</span>
               </button>
             ))}
-            {/* Custom / AI prompt tile */}
-            <button
-              onClick={() => {
-                const prompt = window.prompt('Describe the soundscape you want:');
-                if (prompt) handleGenerate({ key:'custom', label:'Custom', desc:prompt, color:'#7048E8', mix:{ intention:'meditate', settings:{ binaural:{hz:7,carrierHz:210}, drone:{type:'om'}, instrument:{type:'sarod'}, nature:{type:'river'}, solfeggio:{hz:528} }, layers:{ binaural:{active:true,volume:0.7}, drone:{active:true,volume:0.6}, instrument:{active:true,volume:0.3}, nature:{active:true,volume:0.45}, solfeggio:{active:true,volume:0.35} } } });
-              }}
+          </div>
+
+          {/* Custom prompt */}
+          <div className="st-gen-custom">
+            <input
+              className="gen-input"
+              placeholder="Or describe your ideal soundscape…"
+              value={customPrompt}
+              onChange={e => setCustomPrompt(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCustomGenerate()}
               disabled={generating}
-              style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', background:'var(--bg1)', border:'1.5px dashed rgba(112,72,232,0.3)', borderRadius:12, cursor: generating?'not-allowed':'pointer', textAlign:'left', fontFamily:'inherit', opacity:generating?0.6:1, transition:'all 0.18s', boxShadow:'none', gridColumn:'span 2 / span 2' }}
-              onMouseEnter={e=>{ if(!generating) e.currentTarget.style.borderColor='rgba(112,72,232,0.6)'; }}
-              onMouseLeave={e=>{ e.currentTarget.style.borderColor='rgba(112,72,232,0.3)'; }}
+            />
+            <button
+              className="st-gen-send"
+              onClick={handleCustomGenerate}
+              disabled={!customPrompt.trim() || generating}
             >
-              <div style={{ width:36, height:36, borderRadius:10, background:'rgba(112,72,232,0.08)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </div>
-              <div>
-                <div style={{ fontSize:13, fontWeight:700, color:'var(--violet)', fontFamily:"'Space Grotesk',sans-serif" }}>Custom prompt…</div>
-                <div style={{ fontSize:10, color:'var(--ink3)', marginTop:2 }}>Describe your mood or goal</div>
-              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
             </button>
           </div>
         </div>
 
-        {/* Spectrum when playing */}
-        {engine.isPlaying && (
-          <div style={{ padding:'10px 16px' }}>
-            <SpectrumAnalyser analyser={engine.analyser} isPlaying={engine.isPlaying} height={48} />
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 3a · Layers (horizontal swipe cards)
+        ══════════════════════════════════════════════════════════ */}
+        <div>
+          <div className="section-title">Layers</div>
+          <div className="st-layers-row">
+            {(['binaural', 'drone', 'instrument', 'nature', 'solfeggio'] as const).map(name => (
+              <LayerCard
+                key={name}
+                name={name}
+                layer={(engine.layers as Record<string, LayerState>)[name]}
+                options={(LAYER_OPTIONS as Record<string, (string | number)[]>)[name]}
+                currentOption={currentOption(name)}
+                onOption={v  => handleOption(name, v)}
+                onVolume={v  => engine.setLayerVolume(name, v)}
+                onMute={()   => engine.toggleMute(name)}
+                onReverb={v  => engine.setLayerReverb(name, v)}
+                onActive={v  => engine.setLayerActive(name, v)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 3b · Intention
+        ══════════════════════════════════════════════════════════ */}
+        <div className="studio-card">
+          <div className="section-title">Intention</div>
+          <div className="st-intent-grid">
+            {Object.entries(INTENTIONS).map(([key, p]) => (
+              <button
+                key={key}
+                className={`st-intent-tile ${engine.intention === key ? 'active' : ''}`}
+                onClick={() => engine.applyIntention(key)}
+              >
+                <span className="sit-emoji">{p.emoji}</span>
+                <span className="sit-label">{p.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 4 · Fine Tune (BPM + Chaos)
+        ══════════════════════════════════════════════════════════ */}
+        <div className="studio-card">
+          <div className="section-title">Fine Tune</div>
+          <div className="st-tune-grid">
+
+            {/* BPM */}
+            <div className="st-tune-block">
+              <div className="st-tune-hd">
+                <span className="st-tune-lbl">BPM</span>
+                <span className="st-tune-val" style={{ color: bwColor }}>{engine.bpm}</span>
+              </div>
+              <input
+                type="range" min="40" max="180" step="1"
+                value={engine.bpm}
+                onChange={e => engine.setBpm(Number(e.target.value))}
+                className="st-tune-range"
+                style={{ '--tv': `${((engine.bpm - 40) / 140) * 100}%`, '--tc': bwColor } as React.CSSProperties}
+              />
+              <button className="st-tap-btn" onClick={handleTapTempo}>Tap Tempo</button>
+            </div>
+
+            {/* Chaos */}
+            <div className="st-tune-block">
+              <div className="st-tune-hd">
+                <span className="st-tune-lbl">Chaos</span>
+                <span className="st-tune-val" style={{ color: bwColor }}>{Math.round(engine.chaos * 100)}%</span>
+              </div>
+              <input
+                type="range" min="0" max="1" step="0.01"
+                value={engine.chaos}
+                onChange={e => engine.setChaos(parseFloat(e.target.value))}
+                className="st-tune-range"
+                style={{ '--tv': `${engine.chaos * 100}%`, '--tc': bwColor } as React.CSSProperties}
+              />
+              <div className="st-chaos-desc">
+                {engine.chaos < 0.2 ? 'Ordered · predictable' : engine.chaos < 0.5 ? 'Balanced · dynamic' : engine.chaos < 0.75 ? 'Wild · unpredictable' : 'Chaotic · raw'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 5 · Solfeggio Frequencies
+        ══════════════════════════════════════════════════════════ */}
+        <div className="studio-card">
+          <div className="section-title">Solfeggio Frequencies</div>
+          <div className="st-sol-groups">
+            {SOLFEGGIO_GROUPS.map(group => (
+              <div key={group.label} className="st-sol-group">
+                <div className="st-sol-group-lbl">{group.label}</div>
+                <div className="st-sol-row">
+                  {group.freqs.map(f => (
+                    <button
+                      key={f.hz}
+                      className={`st-sol-chip ${engine.settings.solfeggio.hz === f.hz ? 'active' : ''}`}
+                      onClick={() => engine.updateLayerSetting('solfeggio', 'hz', f.hz)}
+                    >
+                      <span className="ssc-hz">{f.hz}Hz</span>
+                      <span className="ssc-name">{f.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            ZONE 6 · Library (save / load)
+        ══════════════════════════════════════════════════════════ */}
+        {isAuthenticated && (
+          <div className="studio-card">
+            <div className="section-title">My Mixes</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowSave(true)}>Save Current</button>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={handleOpenLib}>Load Mix</button>
+            </div>
           </div>
         )}
+
       </div>
 
-      {/* ── Generation overlay ─────────────────────────────── */}
+      {/* ══ Generation overlay ══════════════════════════════════ */}
       {generating && genPreset && (
-        <div style={{ position:'fixed', inset:0, zIndex:700, background:'rgba(247,244,238,0.92)', backdropFilter:'blur(20px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:24 }}>
-          <GenerateOrb color={genPreset.color} size={96}/>
-          <div style={{ textAlign:'center', animation:'genSlide 0.4s ease both' }}>
-            <div style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:20, fontWeight:700, color:'var(--ink1)', letterSpacing:'-0.01em', marginBottom:6 }}>
+        <div className="st-gen-overlay">
+          <GenerateOrb color={genPreset.color} />
+          <div style={{ textAlign: 'center', animation: 'stGenSlide 0.4s ease both' }}>
+            <div className="st-gen-overlay-title">
               {genDone ? 'Ready ✨' : `Composing ${genPreset.label}…`}
             </div>
-            <div style={{ fontSize:13, color:'var(--ink3)', maxWidth:260, lineHeight:1.6 }}>
-              {genDone ? 'Starting playback' : 'Weaving binaural beats, drone harmonics and sacred frequencies'}
+            <div className="st-gen-overlay-sub">
+              {genDone ? 'Starting playback' : 'Weaving binaural beats, drone harmonics\nand sacred frequencies'}
             </div>
           </div>
-          {/* Progress dots */}
           {!genDone && (
-            <div style={{ display:'flex', gap:8 }}>
-              {[0,1,2,3].map(i => (
-                <div key={i} style={{ width:8, height:8, borderRadius:'50%', background:genPreset.color, opacity:0.3, animation:`genPulse 1.2s ease-in-out ${i*0.25}s infinite` }}/>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: genPreset.color, opacity: 0.35, animation: `stGenPulse 1.2s ease-in-out ${i * 0.25}s infinite` }} />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ── AI Assistant ─────────────────────────────────── */}
-      <AIMusicAssistant onApplyMix={engine.applyMix} isPlaying={engine.isPlaying} />
-
-      {/* ── Intentions ───────────────────────────────────── */}
-      <div className="studio-card">
-        <div className="section-title">Intention</div>
-        <div className="intention-row">
-          {Object.entries(INTENTIONS).map(([key, p]) => (
-            <button key={key} className={`intention-btn ${engine.intention === key ? 'active' : ''}`} onClick={() => engine.applyIntention(key)}>
-              <span>{p.emoji}</span><span>{p.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Master Bus ───────────────────────────────────── */}
-      <MasterBus bpm={engine.bpm} chaos={engine.chaos} masterVol={engine.masterVol} isPlaying={engine.isPlaying} ragaName={engine.ragaName} onBpm={engine.setBpm} onChaos={engine.setChaos} onMasterVol={engine.setMasterVolume} onTogglePlay={engine.togglePlay} />
-
-      {/* ── Mixer ────────────────────────────────────────── */}
-      <div className="studio-card">
-        <div className="section-title" style={{ marginBottom:10 }}>Mixer</div>
-        <div className="mixer-grid">
-          {['binaural','drone','instrument','nature','solfeggio'].map(name => (
-            <LayerChannel key={name} name={name}
-              layer={(engine.layers as Record<string, typeof engine.layers['binaural']>)[name]}
-              options={(LAYER_OPTIONS as Record<string, (string | number)[]>)[name]}
-              currentOption={currentOption(name)}
-              onOption={v  => handleOption(name, v)}
-              onVolume={v  => engine.setLayerVolume(name, v)}
-              onPan={v     => engine.setLayerPan(name, v)}
-              onMute={()   => engine.toggleMute(name)}
-              onSolo={()   => engine.toggleSolo(name)}
-              onReverb={v  => engine.setLayerReverb(name, v)}
-              onEQ={(b, v) => engine.setLayerEQ(name, b, v)}
-              onActive={v  => engine.setLayerActive(name, v)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Solfeggio guide ──────────────────────────────── */}
-      <div className="studio-card">
-        <div className="section-title">Solfeggio Frequencies</div>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:6 }}>
-          {[{hz:174,label:'Pain relief'},{hz:285,label:'Tissue healing'},{hz:396,label:'Release fear'},{hz:417,label:'Change'},{hz:528,label:'DNA repair'},{hz:639,label:'Relationships'},{hz:741,label:'Intuition'},{hz:852,label:'Spiritual'},{hz:963,label:'Crown'}].map(s => (
-            <button key={s.hz} onClick={() => engine.updateLayerSetting('solfeggio','hz',s.hz)}
-              style={{ padding:'5px 10px', borderRadius:'var(--rf)', fontSize:10, fontFamily:'inherit', border:`1px solid ${engine.settings.solfeggio.hz===s.hz?'var(--amber)':'var(--border)'}`, background:engine.settings.solfeggio.hz===s.hz?'rgba(245,159,0,0.08)':'var(--bg1)', color:engine.settings.solfeggio.hz===s.hz?'var(--amber)':'var(--ink3)', cursor:'pointer', transition:'all 0.15s' }}>
-              {s.hz}Hz · {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Save / Load ───────────────────────────────────── */}
-      {isAuthenticated && (
-        <div style={{ display:'flex', gap:8 }}>
-          <button className="btn-secondary" style={{ flex:1 }} onClick={() => setShowSave(true)}>Save Mix</button>
-          <button className="btn-secondary" style={{ flex:1 }} onClick={handleOpenLoad}>Load Mix</button>
-        </div>
-      )}
-
-      {/* ── Modals ────────────────────────────────────────── */}
+      {/* ══ Save modal ══════════════════════════════════════════ */}
       {showSave && (
         <div className="modal-overlay" onClick={() => setShowSave(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
-            <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:17, marginBottom:16 }}>Save Mix</h3>
+            <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 17, marginBottom: 16 }}>Save Mix</h3>
             <div className="form-group">
               <label className="form-label">Mix Name</label>
-              <input type="text" placeholder="e.g. Deep Sleep Sunday…" value={mixName} onChange={e => setMixName(e.target.value)} onKeyDown={e => e.key==='Enter'&&handleSave()} autoFocus/>
+              <input type="text" placeholder="e.g. Sunday Deep Sleep…" value={mixName} onChange={e => setMixName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSave()} autoFocus />
             </div>
-            <div style={{ display:'flex', gap:8, marginTop:16 }}>
-              <button className="btn-secondary" style={{ flex:1 }} onClick={() => setShowSave(false)}>Cancel</button>
-              <button className="btn-primary"   style={{ flex:2 }} onClick={handleSave} disabled={saving}>{saving?'Saving…':'Save'}</button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowSave(false)}>Cancel</button>
+              <button className="btn-primary"   style={{ flex: 2 }} onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>
       )}
-      {showLoad && (
-        <div className="modal-overlay" onClick={() => setShowLoad(false)}>
+
+      {/* ══ Load modal ══════════════════════════════════════════ */}
+      {showLib && (
+        <div className="modal-overlay" onClick={() => setShowLib(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
-            <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:17, marginBottom:16 }}>Saved Mixes</h3>
-            {savedMixes.length===0
-              ? <p style={{ fontSize:13, color:'var(--t3)', textAlign:'center', padding:'20px 0' }}>No saved mixes yet.</p>
+            <h3 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 17, marginBottom: 16 }}>Saved Mixes</h3>
+            {savedMixes.length === 0
+              ? <p style={{ fontSize: 13, color: 'var(--ink3)', textAlign: 'center', padding: '20px 0' }}>No saved mixes yet.</p>
               : savedMixes.map(mix => (
-                <div key={mix.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'var(--t1)' }}>{mix.name}</div>
-                    <div style={{ fontSize:10, color:'var(--t4)' }}>{new Date(mix.created).toLocaleDateString()}</div>
+                <div key={mix.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink1)' }}>{mix.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{new Date(mix.created).toLocaleDateString()}</div>
                   </div>
-                  <button className="btn-secondary" style={{ padding:'6px 14px', fontSize:12 }} onClick={() => handleLoadMix(mix)}>Load</button>
-                  <button className="btn-ghost"     style={{ padding:'6px 10px', fontSize:12, color:'var(--red)' }} onClick={() => handleDeleteMix(mix.id)}>✕</button>
+                  <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: 12 }} onClick={() => handleLoadMix(mix)}>Load</button>
+                  <button className="btn-ghost"     style={{ padding: '6px 10px', fontSize: 12, color: '#C0392B' }} onClick={() => handleDeleteMix(mix.id)}>✕</button>
                 </div>
               ))
             }
           </div>
         </div>
       )}
-    </div>
     </>
   );
 }
-
