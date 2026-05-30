@@ -189,8 +189,11 @@ export default function AIMixDialog({ onClose, onApplyMix }: Props) {
         body: JSON.stringify({ prompt: text.trim() }),
       });
       if (!res.ok) throw new Error('server');
-      const data: AIResponse = await res.json();
-      setResponse(data);
+      const data = await res.json();
+      if (!data || typeof data.message !== 'string') {
+        throw new Error('invalid response format');
+      }
+      setResponse(data as AIResponse);
     } catch {
       // Server unavailable or API key missing — use client-side fallback
       setOffline(true);
