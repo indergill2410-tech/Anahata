@@ -1,0 +1,102 @@
+import React, { useEffect, useRef, useState } from 'react';
+
+function fmtTime(s: number) {
+  const m = Math.floor(s / 60);
+  return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+}
+
+interface MusicParams { desiredBrainwaveState?: string; musicalTempo?: number; binauralHz?: number; emotionalTone?: string; }
+
+interface AudioPlayerCardProps {
+  audioUrl?: string;
+  isLoading?: boolean;
+  musicParams?: MusicParams;
+}
+
+export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }: AudioPlayerCardProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(120);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!audioUrl) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    audio.src = audioUrl;
+
+    const handleLoadedMetadata = () => {
+      if (audio.duration) setDuration(audio.duration);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.play()
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false));
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [audioUrl]);
+
+  function togglePlay() {
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); setPlaying(false); }
+    else { audioRef.current.play(); setPlaying(true); }
+  }
+
+  const progress = duration ? (current / duration) * 100 : 0;
+
+  const trackName = musicParams
+    ? `${musicParams.desiredBrainwaveState} — ${musicParams.musicalTempo} BPM Healing Passage`
+    : 'Generating composition…';
+
+  return (
+    <div className="card audio-card">
+      <div className="card-header">
+        <span className="card-label">Now Playing</span>
+        {isLoading && (
+          <span style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 500 }}>WAITING FOR DATA</span>
+        )}
+      </div>
+
+      <p className="audio-track-name">{trackName}</p>
+      <p className="audio-track-meta">
+        {musicParams ? `${musicParams.binauralHz}Hz binaural · ${musicParams.emotionalTone}` : 'Mozart-inspired classical'}
+      </p>
+
+      <div className="audio-controls">
+        <button className="play-btn" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
+          {playing
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>}
+        </button>
+
+        <div className="progress-bar-wrap">
+          <div className="progress-bar-bg">
+            <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="progress-times">
+            <span>{fmtTime(current)}</span>
+            <span>{fmtTime(duration)}</span>
+          </div>
+        </div>
+      </div>
+
+      <audio
+        ref={audioRef}
+        loop
+        preload="none"
+        onTimeUpdate={(e) => setCurrent((e.target as HTMLAudioElement).currentTime)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
+    </div>
+  );
+}

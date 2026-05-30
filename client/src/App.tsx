@@ -1,0 +1,128 @@
+import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { SoundEngineProvider, useSoundEngine } from './context/SoundEngineContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import AntiGravityCanvas from './components/AntiGravityCanvas';
+import AIMixDialog from './components/AIMixDialog';
+import AuthPage from './pages/AuthPage';
+import OnboardingPage from './pages/OnboardingPage';
+import JourneyPage from './pages/JourneyPage';
+import StudioPage from './pages/StudioPage';
+import SessionsPage from './pages/SessionsPage';
+import ProfilePage from './pages/ProfilePage';
+import BottomNav from './components/BottomNav';
+import TopBar from './components/TopBar';
+
+type Tab = 'journey' | 'studio' | 'sessions' | 'profile';
+
+function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
+  const label = tab === 'profile' ? 'your profile' : 'your session history';
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+      flex:1, padding:'48px 24px', textAlign:'center', gap:16 }}>
+      <div style={{ fontSize:48 }}>🔒</div>
+      <h2 style={{ fontSize:20, fontWeight:800, color:'var(--t1)', margin:0, letterSpacing:'-0.02em' }}>
+        Sign in to view {label}
+      </h2>
+      <p style={{ fontSize:13, color:'var(--t3)', margin:0, maxWidth:260 }}>
+        Create a free account or sign in to unlock your personal data and history.
+      </p>
+      <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
+        Sign In / Register
+      </button>
+    </div>
+  );
+}
+
+function AIFloatButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="ai-float-btn" onClick={onClick} title="AI Music Guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </button>
+  );
+}
+
+function Inner() {
+  const { isAuthenticated, loading } = useAuth();
+  const engine = useSoundEngine();
+  const [tab,      setTab]      = useState<Tab>('journey');
+  const [prevTab,  setPrevTab]  = useState<Tab>('journey');
+  const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
+  const [showAuth, setShowAuth] = useState(false);
+  const [showAI,   setShowAI]   = useState(false);
+
+  React.useEffect(() => { if (isAuthenticated) setShowAuth(false); }, [isAuthenticated]);
+
+  const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-deep)', flexDirection:'column', gap:16 }}>
+        <div style={{ fontFamily:'Orbitron,sans-serif', fontSize:22, fontWeight:900, color:'var(--neon-red)', letterSpacing:'0.16em', textShadow:'0 0 24px rgba(232,48,58,0.5)' }}>
+          ANAHATA
+        </div>
+        <div className="spinner" style={{ width:24, height:24 }} />
+      </div>
+    );
+  }
+
+  if (showAuth && !isAuthenticated) return <AuthPage onBack={() => setShowAuth(false)} />;
+  if (isAuthenticated && !onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
+
+  const PROTECTED: Tab[] = ['sessions', 'profile'];
+  const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
+
+  const PAGES: Record<Tab, React.ComponentType> = {
+    journey: JourneyPage, studio: StudioPage, sessions: SessionsPage, profile: ProfilePage,
+  };
+  const Page = PAGES[tab];
+
+  return (
+    <>
+      <AntiGravityCanvas brainwave={engine.brainwave} isPlaying={engine.isPlaying} bpm={engine.bpm} />
+
+      <div className="page">
+        <TopBar tab={tab} onSignIn={() => setShowAuth(true)} />
+        <ErrorBoundary>
+          <div key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
+            {needsAuth
+              ? <AuthPrompt onSignIn={() => setShowAuth(true)} tab={tab} />
+              : <Page />
+            }
+          </div>
+        </ErrorBoundary>
+        <BottomNav active={tab} onChange={handleTabChange} />
+      </div>
+
+      {/* AI float button — always visible */}
+      <AIFloatButton onClick={() => setShowAI(true)} />
+
+      {/* AI dialog */}
+      {showAI && (
+        <AIMixDialog
+          onClose={() => setShowAI(false)}
+          onApplyMix={(mix) => { engine.applyMix(mix as Record<string, unknown>); setShowAI(false); }}
+        />
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <SoundEngineProvider>
+            <Inner />
+          </SoundEngineProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
+  );
+}
