@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useRef, useState, useCallback, useEffect, ReactNode } from 'react';
 import { PhraseEngine } from '../utils/PhraseEngine';
 
 // ── Intention presets ────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ export const BINAURAL_PRESETS   = [
   { label: 'Gamma 40Hz', hz: 40, carrier: 200 },
 ];
 
-export const BW_FOR_HZ = (hz) => {
+export const BW_FOR_HZ = (hz: number): string => {
   if (hz <= 4)  return 'Delta';
   if (hz <= 8)  return 'Theta';
   if (hz <= 14) return 'Alpha';
@@ -31,14 +31,14 @@ export const BW_FOR_HZ = (hz) => {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function noiseBuffer(ctx, secs = 4) {
+function noiseBuffer(ctx: AudioContext, secs = 4) {
   const buf = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate);
   const d   = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   return buf;
 }
 
-function createReverb(ctx, decay = 2.5) {
+function createReverb(ctx: AudioContext, decay = 2.5) {
   const len = ctx.sampleRate * decay;
   const buf = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let c = 0; c < 2; c++) {
@@ -52,7 +52,7 @@ function createReverb(ctx, decay = 2.5) {
 
 // ── Layer builders ────────────────────────────────────────────────────────────
 
-function buildBinaural(ctx, dst, hz, carrier) {
+function buildBinaural(ctx: AudioContext, dst: AudioNode, hz: number, carrier: number) {
   const nodes  = [];
   const merger = ctx.createChannelMerger(2);
   merger.connect(dst);
@@ -74,9 +74,9 @@ function buildBinaural(ctx, dst, hz, carrier) {
   return { nodes, leftOsc: left, rightOsc: right };
 }
 
-function buildDrone(ctx, dst, type) {
-  const nodes  = [];
-  const timers = [];
+function buildDrone(ctx: AudioContext, dst: AudioNode, type: string) {
+  const nodes: AudioNode[] = [];
+  const timers: ReturnType<typeof setInterval>[] = [];
   const master = ctx.createGain(); master.gain.value = 0.85; master.connect(dst);
 
   if (type === 'tanpura') {
@@ -164,9 +164,9 @@ function buildDrone(ctx, dst, type) {
   return { nodes, timers };
 }
 
-function buildInstrument(ctx, dst, type, phraseEngine) {
-  const nodes  = [];
-  const timers = [];
+function buildInstrument(ctx: AudioContext, dst: AudioNode, type: string, phraseEngine: PhraseEngine) {
+  const nodes: AudioNode[] = [];
+  const timers: ReturnType<typeof setInterval>[] = [];
   const g      = ctx.createGain(); g.gain.value = 0.9; g.connect(dst);
 
   if (type === 'bansuri') {
@@ -203,7 +203,7 @@ function buildInstrument(ctx, dst, type, phraseEngine) {
     timers.push(setInterval(playPhrase, dur));
 
   } else if (type === 'sitar') {
-    const playNote = (freq, when, dur) => {
+    const playNote = (freq: number, when: number, dur: number) => {
       const bufLen = Math.round(ctx.sampleRate / freq);
       const buf    = ctx.createBuffer(1, bufLen, ctx.sampleRate);
       const d      = buf.getChannelData(0);
@@ -254,7 +254,7 @@ function buildInstrument(ctx, dst, type, phraseEngine) {
     timers.push(setInterval(playPattern, beat * 16 * 1000));
 
   } else if (type === 'sarod') {
-    const playNote = (freq, when, dur) => {
+    const playNote = (freq: number, when: number, dur: number) => {
       const osc = ctx.createOscillator(); const bpf = ctx.createBiquadFilter(); const og = ctx.createGain();
       osc.type = 'sawtooth'; osc.frequency.value = freq;
       bpf.type = 'bandpass'; bpf.frequency.value = freq * 1.8; bpf.Q.value = 35;
@@ -274,9 +274,9 @@ function buildInstrument(ctx, dst, type, phraseEngine) {
   return { nodes, timers };
 }
 
-function buildNature(ctx, dst, type) {
-  const nodes  = [];
-  const timers = [];
+function buildNature(ctx: AudioContext, dst: AudioNode, type: string) {
+  const nodes: AudioNode[] = [];
+  const timers: ReturnType<typeof setTimeout>[] = [];
   const g      = ctx.createGain(); g.gain.value = 0.9; g.connect(dst);
 
   if (type === 'rain') {
@@ -351,7 +351,7 @@ function buildNature(ctx, dst, type) {
   return { nodes, timers };
 }
 
-function buildSolfeggio(ctx, dst, hz) {
+function buildSolfeggio(ctx: AudioContext, dst: AudioNode, hz: number) {
   const nodes   = [];
   const conv    = createReverb(ctx, 3);
   const dryG    = ctx.createGain(); dryG.gain.value = 0.7;
@@ -390,9 +390,41 @@ const DEFAULT_SETTINGS = {
   solfeggio:  { hz: 528 },
 };
 
-const SoundEngineContext = createContext(null);
+// ── Context type ─────────────────────────────────────────────────────────────
+export interface SoundEngineContextType {
+  isPlaying: boolean;
+  layers: typeof DEFAULT_LAYERS;
+  settings: typeof DEFAULT_SETTINGS;
+  intention: string | null;
+  elapsed: number;
+  bpm: number;
+  chaos: number;
+  masterVol: number;
+  brainwave: string;
+  analyser: AnalyserNode | null;
+  start: () => void;
+  stop: () => void;
+  togglePlay: () => void;
+  setLayerVolume: (name: string, vol: number) => void;
+  setLayerPan: (name: string, pan: number) => void;
+  toggleMute: (name: string) => void;
+  toggleSolo: (name: string) => void;
+  setLayerEQ: (name: string, band: string, value: number) => void;
+  setLayerReverb: (name: string, val: number) => void;
+  setLayerActive: (name: string, active: boolean) => void;
+  updateLayerSetting: (layer: string, key: string, value: unknown) => void;
+  applyIntention: (key: string) => void;
+  applyMix: (mixData: Record<string, unknown>) => void;
+  setBpm: (val: number) => void;
+  setChaos: (val: number) => void;
+  setMasterVolume: (val: number) => void;
+  adaptFromHeartRate: (hr: number) => void;
+  ragaName: string;
+}
 
-export function SoundEngineProvider({ children }) {
+const SoundEngineContext = createContext<SoundEngineContextType | null>(null);
+
+export function SoundEngineProvider({ children }: { children: ReactNode }) {
   const [isPlaying,    setIsPlaying]    = useState(false);
   const [layers,       setLayers]       = useState(DEFAULT_LAYERS);
   const [settings,     setSettings]     = useState(DEFAULT_SETTINGS);
@@ -424,7 +456,7 @@ export function SoundEngineProvider({ children }) {
   const brainwave = BW_FOR_HZ(settings.binaural.hz);
 
   // ── Build one layer into ctx ────────────────────────────────────────────────
-  const buildLayer = useCallback((ctx, name, masterIn) => {
+  const buildLayer = useCallback((ctx: AudioContext, name: string, masterIn: AudioNode) => {
     const s = settingsRef.current;
     const l = layersRef.current[name];
 
@@ -684,7 +716,7 @@ export function SoundEngineProvider({ children }) {
   return <SoundEngineContext.Provider value={value}>{children}</SoundEngineContext.Provider>;
 }
 
-export function useSoundEngine() {
+export function useSoundEngine(): SoundEngineContextType {
   const ctx = useContext(SoundEngineContext);
   if (!ctx) throw new Error('useSoundEngine must be used inside SoundEngineProvider');
   return ctx;
