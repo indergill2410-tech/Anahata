@@ -13,10 +13,11 @@ import LibraryPage from './pages/LibraryPage';
 import StudioPage from './pages/StudioPage';
 import SessionsPage from './pages/SessionsPage';
 import ProfilePage from './pages/ProfilePage';
+import JournalPage from './pages/JournalPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 
-type Tab = 'journey' | 'library' | 'studio' | 'sessions' | 'profile';
+type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
 
 function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
   const label = tab === 'profile' ? 'your profile' : 'your session history';
@@ -80,11 +81,11 @@ function Inner() {
   if (showAuth && !isAuthenticated) return <AuthPage onBack={() => setShowAuth(false)} />;
   if (isAuthenticated && !onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
 
-  const PROTECTED: Tab[] = ['sessions', 'profile'];
+  const PROTECTED: Tab[] = ['profile'];
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
 
   const PAGES: Record<Tab, React.ComponentType> = {
-    journey: JourneyPage, library: LibraryPage, studio: StudioPage, sessions: SessionsPage, profile: ProfilePage,
+    journey: JourneyPage, library: LibraryPage, studio: StudioPage, journal: JournalPage, profile: ProfilePage,
   };
   const Page = PAGES[tab];
 
