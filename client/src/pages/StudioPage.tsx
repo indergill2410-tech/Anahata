@@ -112,7 +112,7 @@ export default function StudioPage() {
       {/* ── Brainwave header ─────────────────────────────── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:4 }}>
         <div>
-          <h2 style={{ fontFamily:'Lora, serif', fontSize:18, color:'var(--t1)', marginBottom:2 }}>Sound Studio</h2>
+          <h2 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:18, color:'var(--t1)', marginBottom:2 }}>Sound Studio</h2>
           <p style={{ fontSize:11, color:'var(--t3)' }}>Mix your perfect soundscape</p>
         </div>
         <span className="bw-chip" style={{ background:`${bwColor}12`, color:bwColor, borderColor:`${bwColor}40` }}>
@@ -243,7 +243,7 @@ export default function StudioPage() {
         <div className="modal-overlay" onClick={() => setShowSave(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
-            <h3 style={{ fontFamily:'Lora,serif', fontSize:17, marginBottom:16 }}>Save Mix</h3>
+            <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:17, marginBottom:16 }}>Save Mix</h3>
             <div className="form-group">
               <label className="form-label">Mix Name</label>
               <input
@@ -270,7 +270,7 @@ export default function StudioPage() {
         <div className="modal-overlay" onClick={() => setShowLoad(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
-            <h3 style={{ fontFamily:'Lora,serif', fontSize:17, marginBottom:16 }}>Saved Mixes</h3>
+            <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:17, marginBottom:16 }}>Saved Mixes</h3>
             {savedMixes.length === 0
               ? <p style={{ fontSize:13, color:'var(--t3)', textAlign:'center', padding:'20px 0' }}>No saved mixes yet.</p>
               : savedMixes.map(mix => (
