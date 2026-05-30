@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSoundEngine } from '../context/SoundEngineContext';
+import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
 import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 
 const MOOD_TO_ORB: Record<string, OrbId> = {
@@ -38,7 +38,11 @@ const BW_TO_INTENTION: Record<string, string> = {
   Delta: 'sleep', Theta: 'meditate', Alpha: 'focus', Beta: 'energize', Gamma: 'focus',
 };
 
-export default function LibraryPage() {
+interface LibraryPageProps {
+  onTabChange?: (tab: 'journey' | 'library' | 'studio' | 'journal' | 'profile') => void;
+}
+
+export default function LibraryPage({ onTabChange }: LibraryPageProps) {
   const engine = useSoundEngine();
   const [filter, setFilter] = useState('All');
 
@@ -48,8 +52,26 @@ export default function LibraryPage() {
 
   function playTrack(track: Track) {
     const intention = BW_TO_INTENTION[track.bw] || 'meditate';
-    engine.applyIntention(intention);
+    const preset = (INTENTIONS as Record<string, typeof INTENTIONS[keyof typeof INTENTIONS]>)[intention];
+    engine.applyMix({
+      intention,
+      settings: {
+        binaural:   { hz: track.hz, carrierHz: preset?.carrierHz || 200 },
+        drone:      { type: preset?.drone || 'tanpura' },
+        instrument: { type: preset?.instrument || 'bansuri' },
+        nature:     { type: preset?.nature || 'rain' },
+        solfeggio:  { hz: preset?.solfeggio || 528 },
+      },
+      layers: {
+        binaural:   { active: true,              volume: 0.7, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.10 },
+        drone:      { active: !!preset?.drone,   volume: 0.5, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.20 },
+        instrument: { active: !!preset?.instrument, volume: 0.4, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.30 },
+        nature:     { active: !!preset?.nature,  volume: 0.5, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.15 },
+        solfeggio:  { active: true,              volume: 0.3, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.40 },
+      },
+    });
     engine.start();
+    onTabChange?.('journey');
   }
 
   return (

@@ -84,10 +84,11 @@ function Inner() {
   const PROTECTED: Tab[] = ['profile'];
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
 
-  const PAGES: Record<Tab, React.ComponentType> = {
+  const PAGES: Record<Tab, React.ComponentType<Record<string, unknown>>> = {
     journey: JourneyPage, library: LibraryPage, studio: StudioPage, journal: JournalPage, profile: ProfilePage,
   };
   const Page = PAGES[tab];
+  const pageProps: Record<string, unknown> = tab === 'library' ? { onTabChange: handleTabChange } : {};
 
   return (
     <>
@@ -99,7 +100,7 @@ function Inner() {
           <div key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
             {needsAuth
               ? <AuthPrompt onSignIn={() => setShowAuth(true)} tab={tab} />
-              : <Page />
+              : <Page {...pageProps} />
             }
           </div>
         </ErrorBoundary>
