@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { SoundEngineProvider } from './context/SoundEngineContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
-import DashboardPage from './pages/DashboardPage';
+import JourneyPage from './pages/JourneyPage';
+import StudioPage from './pages/StudioPage';
 import SessionsPage from './pages/SessionsPage';
 import ProfilePage from './pages/ProfilePage';
-import LibraryPage from './pages/LibraryPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 
@@ -30,9 +31,8 @@ function AuthPrompt({ onSignIn, tab }) {
 
 function Inner() {
   const { isAuthenticated, loading } = useAuth();
-  const [tab, setTab]       = useState('dashboard');
+  const [tab, setTab]       = useState('journey');
   const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
-
   const [showAuth, setShowAuth] = useState(false);
 
   React.useEffect(() => {
@@ -53,8 +53,8 @@ function Inner() {
   const PROTECTED = ['sessions', 'profile'];
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
 
-  const PAGES = { dashboard: DashboardPage, library: LibraryPage, sessions: SessionsPage, profile: ProfilePage };
-  const Page = PAGES[tab] || DashboardPage;
+  const PAGES = { journey: JourneyPage, studio: StudioPage, sessions: SessionsPage, profile: ProfilePage };
+  const Page = PAGES[tab] || JourneyPage;
 
   return (
     <div className="page">
@@ -75,7 +75,9 @@ export default function App() {
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-          <Inner />
+          <SoundEngineProvider>
+            <Inner />
+          </SoundEngineProvider>
         </AuthProvider>
       </ToastProvider>
     </ErrorBoundary>
