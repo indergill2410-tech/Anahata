@@ -38,7 +38,7 @@ export default function LayerChannel({ name, layer, onVolume, onPan, onMute, onS
         onClick={() => onActive?.(!layer.active)}
         style={{
           width: 28, height: 28, borderRadius: '50%',
-          background: layer.active ? meta.color : 'var(--bg-2)',
+          background: layer.active ? meta.color : 'var(--bg2)',
           border: `2px solid ${layer.active ? meta.color : 'var(--border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',

@@ -36,7 +36,7 @@ export default function MasterBus({ bpm, chaos, masterVol, onBpm, onChaos, onMas
         onClick={onTogglePlay}
         style={{
           width: 44, height: 44, borderRadius: '50%',
-          background: isPlaying ? 'var(--accent)' : 'var(--bg-1)',
+          background: isPlaying ? 'var(--accent)' : 'var(--bg1)',
           border: `2px solid ${isPlaying ? 'var(--accent)' : 'var(--border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
@@ -79,7 +79,7 @@ export default function MasterBus({ bpm, chaos, masterVol, onBpm, onChaos, onMas
       {ragaName && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, marginLeft: 'auto' }}>
           <span style={{ fontSize: 9, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Raga</span>
-          <span style={{ fontSize: 12, fontFamily: 'Lora, serif', color: 'var(--t2)', fontStyle: 'italic' }}>{ragaName}</span>
+          <span style={{ fontSize: 12, fontFamily: "'Space Grotesk',sans-serif", color: 'var(--t2)', fontStyle: 'italic' }}>{ragaName}</span>
         </div>
       )}
     </div>
