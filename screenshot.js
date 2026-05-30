@@ -7,28 +7,34 @@ const { chromium } = require('playwright');
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
 
-  // Landing page
   await page.goto('http://localhost:5173');
-  await page.waitForTimeout(2800);
-  await page.screenshot({ path: '/tmp/shot_landing.png', clip: { x:0, y:0, width:390, height:844 } });
+  await page.waitForTimeout(2500);
 
-  // Enter app
+  // Dismiss landing
   const btns = await page.$$('button');
   for (const b of btns) {
     const txt = await b.innerText().catch(()=>'');
     if (/enter|begin|start|explore/i.test(txt)) { await b.click(); break; }
   }
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: '/tmp/shot_home.png', clip: { x:0, y:0, width:390, height:844 } });
 
-  // Studio
-  const navBtns = await page.$$('button');
-  for (const b of navBtns) {
+  // Go to Studio
+  const nav = await page.$$('button');
+  for (const b of nav) {
     const txt = await b.innerText().catch(()=>'');
     if (/studio/i.test(txt)) { await b.click(); break; }
   }
-  await page.waitForTimeout(1000);
-  await page.screenshot({ path: '/tmp/shot_studio.png', clip: { x:0, y:0, width:390, height:844 } });
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: '/tmp/ck_generate.png', clip: { x:0, y:0, width:390, height:844 } });
+
+  // Mix mode
+  const segBtns = await page.$$('.ck-seg-btn');
+  if (segBtns[1]) { await segBtns[1].click(); await page.waitForTimeout(400); }
+  await page.screenshot({ path: '/tmp/ck_mix.png', clip: { x:0, y:0, width:390, height:844 } });
+
+  // Tune mode
+  if (segBtns[2]) { await segBtns[2].click(); await page.waitForTimeout(400); }
+  await page.screenshot({ path: '/tmp/ck_tune.png', clip: { x:0, y:0, width:390, height:844 } });
 
   await browser.close();
   console.log('done');
