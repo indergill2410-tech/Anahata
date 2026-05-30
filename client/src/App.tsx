@@ -55,7 +55,7 @@ function Inner() {
   const engine = useSoundEngine();
   const [tab,      setTab]      = useState<Tab>('journey');
   const [prevTab,  setPrevTab]  = useState<Tab>('journey');
-  const [seenLanding, setSeenLanding] = useState(!!localStorage.getItem('anahata_landing'));
+  const [seenLanding, setSeenLanding] = useState(false);
   const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
   const [showAuth, setShowAuth] = useState(false);
   const [showAI,   setShowAI]   = useState(false);
@@ -104,7 +104,7 @@ function Inner() {
   }
 
   if (!seenLanding) return (
-    <LandingPage onEnter={() => { localStorage.setItem('anahata_landing', '1'); setSeenLanding(true); }} />
+    <LandingPage onEnter={() => setSeenLanding(true)} />
   );
   if (showAuth && !isAuthenticated) return <AuthPage onBack={() => setShowAuth(false)} />;
   if (isAuthenticated && !onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
