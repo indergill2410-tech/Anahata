@@ -132,7 +132,7 @@ export default function JourneyPage() {
       {/* Intention label */}
       {engine.intention && (
         <p style={{ fontSize:12, color:'var(--t3)', marginTop:10, fontWeight:600, letterSpacing:'0.06em', textTransform:'uppercase' }}>
-          {INTENTIONS[engine.intention]?.label} SESSION
+          {(INTENTIONS as Record<string, { label: string }>)[engine.intention]?.label} SESSION
         </p>
       )}
 

@@ -1,8 +1,20 @@
 import React, { useRef } from 'react';
 import KnobControl from './KnobControl';
 
-export default function MasterBus({ bpm, chaos, masterVol, onBpm, onChaos, onMasterVol, isPlaying, onTogglePlay, ragaName }) {
-  const tapTimesRef = useRef([]);
+interface MasterBusProps {
+  bpm: number;
+  chaos: number;
+  masterVol: number;
+  onBpm?: (v: number) => void;
+  onChaos?: (v: number) => void;
+  onMasterVol?: (v: number) => void;
+  isPlaying: boolean;
+  onTogglePlay?: () => void;
+  ragaName?: string;
+}
+
+export default function MasterBus({ bpm, chaos, masterVol, onBpm, onChaos, onMasterVol, isPlaying, onTogglePlay, ragaName }: MasterBusProps) {
+  const tapTimesRef = useRef<number[]>([]);
 
   const handleTapTempo = () => {
     const now = Date.now();

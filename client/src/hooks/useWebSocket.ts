@@ -7,10 +7,10 @@ const WS_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`;
  * @returns {{ status, lastMessage, send }}
  */
 export function useWebSocket() {
-  const wsRef = useRef(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const [status, setStatus]           = useState('disconnected'); // connecting | connected | disconnected | error
-  const [lastMessage, setLastMessage] = useState(null);
-  const reconnectTimer = useRef(null);
+  const [lastMessage, setLastMessage] = useState<unknown>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
   const connect = useCallback(() => {
@@ -39,12 +39,12 @@ export function useWebSocket() {
     connect();
     return () => {
       mountedRef.current = false;
-      clearTimeout(reconnectTimer.current);
+      if (reconnectTimer.current !== null) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
   }, [connect]);
 
-  const send = useCallback((data) => {
+  const send = useCallback((data: unknown) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
     }

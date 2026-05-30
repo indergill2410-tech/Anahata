@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { CSSProperties } from 'react';
 
-export function SkeletonLine({ width = '100%', height = 12, style = {} }) {
+interface SkeletonLineProps { width?: string | number; height?: number; style?: CSSProperties; }
+
+export function SkeletonLine({ width = '100%', height = 12, style = {} }: SkeletonLineProps) {
   return (
     <div style={{
       width, height, borderRadius: 6,
@@ -15,7 +17,7 @@ export function SkeletonLine({ width = '100%', height = 12, style = {} }) {
 export function SkeletonTrackCard() {
   return (
     <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px' }}>
-      <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--bg-2)', flexShrink: 0,
+      <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
         animation: 'shimmer 1.4s infinite',
         background: 'linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%)',
         backgroundSize: '200% 100%'

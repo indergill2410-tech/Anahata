@@ -1,21 +1,34 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
-const ToastContext = createContext(null);
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+interface ToastContextType {
+  toast: (message: string, type?: 'success' | 'error' | 'info', duration?: number) => void;
+  success: (m: string, d?: number) => void;
+  error: (m: string, d?: number) => void;
+  info: (m: string, d?: number) => void;
+}
+
+const ToastContext = createContext<ToastContextType | null>(null);
 
 let _id = 0;
 
-export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([]);
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const toast = useCallback((message, type = 'info', duration = 3500) => {
+  const toast = useCallback((message: string, type: Toast['type'] = 'info', duration = 3500) => {
     const id = ++_id;
     setToasts(t => [...t, { id, message, type }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
   }, []);
 
-  const success = useCallback((m, d) => toast(m, 'success', d), [toast]);
-  const error   = useCallback((m, d) => toast(m, 'error', d),   [toast]);
-  const info    = useCallback((m, d) => toast(m, 'info', d),    [toast]);
+  const success = useCallback((m: string, d?: number) => toast(m, 'success', d), [toast]);
+  const error   = useCallback((m: string, d?: number) => toast(m, 'error', d),   [toast]);
+  const info    = useCallback((m: string, d?: number) => toast(m, 'info', d),    [toast]);
 
   const COLOURS = { success: '#34d399', error: '#f87171', info: '#818cf8' };
 
@@ -49,7 +62,7 @@ export function ToastProvider({ children }) {
   );
 }
 
-export function useToast() {
+export function useToast(): ToastContextType {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast must be used inside ToastProvider');
   return ctx;

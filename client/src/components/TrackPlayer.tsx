@@ -1,25 +1,28 @@
 import React, { useEffect } from 'react';
 import { useBinauralPlayer } from '../hooks/useBinauralPlayer';
 
-function fmtTime(s) {
+function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
-const BW_COLOUR = {
+const BW_COLOUR: Record<string, string> = {
   Delta: '#818cf8', Theta: '#a78bfa', Alpha: '#34d399',
   Beta: '#fbbf24', Gamma: '#f472b6'
 };
 
-export default function TrackPlayer({ track, onClose }) {
+interface TrackObj { id: string; title: string; brainwave?: string; binauralHz?: number; carrierHz?: number; duration?: number; }
+interface TrackPlayerProps { track: TrackObj; onClose: () => void; }
+
+export default function TrackPlayer({ track, onClose }: TrackPlayerProps) {
   const { isPlaying, elapsed, volume, play, toggle, stop, setVolume } = useBinauralPlayer();
   const duration = track.duration || 1800;
   const progress = duration ? Math.min((elapsed / duration) * 100, 100) : 0;
-  const bwColour = BW_COLOUR[track.brainwave] || 'var(--accent-hi)';
+  const bwColour = (track.brainwave && BW_COLOUR[track.brainwave]) || 'var(--accent-hi)';
 
   // Auto-start when track changes
   useEffect(() => {
-    play(track);
+    play(track as unknown as Parameters<typeof play>[0]);
     return () => stop();
   }, [track.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

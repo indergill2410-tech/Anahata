@@ -1,6 +1,9 @@
 import React from 'react';
 
-const BRAINWAVE_COLOURS = {
+interface Track { title: string; brainwave?: string; binauralHz?: number; duration?: number; instruments: string[]; }
+interface TrackCardProps { track: Track; isPlaying: boolean; onPlay: () => void; fmtDur: (d?: number) => string; }
+
+const BRAINWAVE_COLOURS: Record<string, string> = {
   Delta: '#818cf8',
   Theta: '#a78bfa',
   Alpha: '#34d399',
@@ -8,15 +11,15 @@ const BRAINWAVE_COLOURS = {
   Gamma: '#f472b6',
 };
 
-const INSTRUMENT_ICONS = {
+const INSTRUMENT_ICONS: Record<string, string> = {
   sitar: '\uD83C\uDFB8', bansuri: '\uD83C\uDFB5', tabla: '\uD83E\uDD41',
   tanpura: '\uD83C\uDFB9', santoor: '\u2728', sarod: '\uD83C\uDFBC',
   veena: '\uD83C\uDFB7', shehnai: '\uD83C\uDFBA', mridangam: '\uD83E\uDD41',
   harmonium: '\uD83C\uDFB9',
 };
 
-export default function TrackCard({ track, isPlaying, onPlay, fmtDur }) {
-  const bwColour = BRAINWAVE_COLOURS[track.brainwave] || 'var(--t3)';
+export default function TrackCard({ track, isPlaying, onPlay, fmtDur }: TrackCardProps) {
+  const bwColour = (track.brainwave && BRAINWAVE_COLOURS[track.brainwave]) || 'var(--t3)';
 
   return (
     <div
@@ -61,7 +64,7 @@ export default function TrackCard({ track, isPlaying, onPlay, fmtDur }) {
           )}
           <span style={{ fontSize:10, color:'var(--t3)' }}>· {fmtDur(track.duration)}</span>
           <span style={{ fontSize:11 }}>
-            {track.instruments.slice(0,2).map(i => INSTRUMENT_ICONS[i] || '\uD83C\uDFB5').join(' ')}
+            {track.instruments.slice(0,2).map((i: string) => INSTRUMENT_ICONS[i] || '\uD83C\uDFB5').join(' ')}
           </span>
         </div>
       </div>

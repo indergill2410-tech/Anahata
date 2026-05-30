@@ -1,6 +1,13 @@
 import React from 'react';
 
-export default function MetricsGrid({ targetHR, tempo, binauralHz, brainwaveState }) {
+interface MetricsGridProps {
+  targetHR?: number;
+  tempo?: number;
+  binauralHz?: number;
+  brainwaveState?: string;
+}
+
+export default function MetricsGrid({ targetHR, tempo, binauralHz, brainwaveState }: MetricsGridProps) {
   const tiles = [
     { label: 'Target HR',  value: targetHR    ?? '–', unit: 'BPM' },
     { label: 'Tempo',      value: tempo       ?? '–', unit: 'BPM' },

@@ -1,8 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
-const AuthContext = createContext(null);
+interface User { id: string; email: string; name?: string; }
 
-function parseJwt(token) {
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<unknown>;
+  register: (name: string, email: string, password: string) => Promise<unknown>;
+  logout: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+function parseJwt(token: string) {
   try {
     return JSON.parse(atob(token.split('.')[1]));
   } catch {
@@ -10,15 +23,15 @@ function parseJwt(token) {
   }
 }
 
-function isTokenValid(token) {
+function isTokenValid(token: string) {
   const payload = parseJwt(token);
   if (!payload) return false;
   return payload.exp * 1000 > Date.now();
 }
 
-export function AuthProvider({ children }) {
-  const [user, setUser]               = useState(null);
-  const [token, setToken]             = useState(null);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser]               = useState<User | null>(null);
+  const [token, setToken]             = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [isAuthenticated, setIsAuth]  = useState(false);
 
@@ -36,7 +49,7 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email: string, password: string) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,7 +65,7 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const register = useCallback(async (name, email, password) => {
+  const register = useCallback(async (name: string, email: string, password: string) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,10 +100,10 @@ export function AuthProvider({ children }) {
     return () => clearTimeout(t);
   }, [token, logout]);
 
-  const authFetch = useCallback(async (url, options = {}) => {
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
     return fetch(url, {
       ...options,
-      headers: { ...options.headers, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+      headers: { ...(options.headers as Record<string, string> || {}), Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
     });
   }, [token]);
 
@@ -101,7 +114,7 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
   return ctx;

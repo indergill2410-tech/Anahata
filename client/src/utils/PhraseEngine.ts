@@ -1,6 +1,6 @@
 // Generative melodic phrase engine — ragas mapped to intentions
 
-const RAGAS = {
+const RAGAS: Record<string, { name: string; scale: number[]; root: number; bpm: number }> = {
   sleep:    { name: 'Bhairavi',  scale: [0,2,3,5,7,8,10], root: 130.81, bpm: 44 },
   focus:    { name: 'Yaman',     scale: [0,2,4,6,7,9,11], root: 146.83, bpm: 66 },
   heal:     { name: 'Darbari',   scale: [0,2,3,5,7,8,10], root: 123.47, bpm: 54 },
@@ -9,10 +9,10 @@ const RAGAS = {
   custom:   { name: 'Khamaj',    scale: [0,2,4,5,7,9,10], root: 146.83, bpm: 60 },
 };
 
-function midiToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+function midiToFreq(midi: number) { return 440 * Math.pow(2, (midi - 69) / 12); }
 
-function buildScaleFreqs(rootHz, intervals, octaves = 3) {
-  const freqs = [];
+function buildScaleFreqs(rootHz: number, intervals: number[], octaves = 3) {
+  const freqs: number[] = [];
   const rootMidi = Math.round(69 + 12 * Math.log2(rootHz / 440));
   for (let oct = 0; oct < octaves; oct++) {
     for (const interval of intervals) {
@@ -22,8 +22,8 @@ function buildScaleFreqs(rootHz, intervals, octaves = 3) {
   return freqs.sort((a, b) => a - b);
 }
 
-function pickPhrase(freqs, length, chaos = 0.3) {
-  const notes = [];
+function pickPhrase(freqs: number[], length: number, chaos = 0.3) {
+  const notes: { freq: number; duration: number; rest: boolean }[] = [];
   let idx = Math.floor(freqs.length * 0.2);
   for (let i = 0; i < length; i++) {
     const leap = Math.random() < chaos;
@@ -39,11 +39,20 @@ function pickPhrase(freqs, length, chaos = 0.3) {
 }
 
 export class PhraseEngine {
+  raga: { name: string; scale: number[]; root: number; bpm: number };
+  freqs: number[];
+  chaos: number;
+  bpm: number;
+
   constructor(intention = 'meditate', chaos = 0.3) {
+    this.raga  = RAGAS.custom;
+    this.freqs = [];
+    this.chaos = chaos;
+    this.bpm   = 60;
     this.setIntention(intention, chaos);
   }
 
-  setIntention(intention, chaos = 0.3) {
+  setIntention(intention: string, chaos = 0.3) {
     const raga = RAGAS[intention] || RAGAS.custom;
     this.raga  = raga;
     this.freqs = buildScaleFreqs(raga.root, raga.scale, 3);
@@ -51,8 +60,8 @@ export class PhraseEngine {
     this.bpm   = raga.bpm;
   }
 
-  setBpm(bpm)   { this.bpm   = bpm; }
-  setChaos(c)   { this.chaos = c; }
+  setBpm(bpm: number)   { this.bpm   = bpm; }
+  setChaos(c: number)   { this.chaos = c; }
 
   nextPhrase(length = 8) {
     return pickPhrase(this.freqs, length, this.chaos);

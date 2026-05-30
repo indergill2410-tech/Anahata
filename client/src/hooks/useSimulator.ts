@@ -6,8 +6,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  */
 export function useSimulator() {
   const [active, setActive]       = useState(false);
-  const [heartRate, setHeartRate] = useState(null);
-  const intervalRef = useRef(null);
+  const [heartRate, setHeartRate] = useState<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const phaseRef    = useRef(0); // 0=baseline 1=descending 2=deep 3=rising
   const hrRef       = useRef(80);
 
@@ -36,12 +36,12 @@ export function useSimulator() {
   }, [tick]);
 
   const stop = useCallback(() => {
-    clearInterval(intervalRef.current);
+    if (intervalRef.current !== null) clearInterval(intervalRef.current);
     setActive(false);
     setHeartRate(null);
   }, []);
 
-  useEffect(() => () => clearInterval(intervalRef.current), []);
+  useEffect(() => () => { if (intervalRef.current !== null) clearInterval(intervalRef.current); }, []);
 
   return { active, heartRate, start, stop };
 }

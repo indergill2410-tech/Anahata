@@ -18,7 +18,7 @@ const STEPS = [
   }
 ];
 
-export default function OnboardingPage({ onComplete }) {
+export default function OnboardingPage({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0);
 
   function finish() {

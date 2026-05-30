@@ -1,7 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 
-export default function AudioPlayer({ audioData, musicParams }) {
-  const audioRef = useRef(null);
+interface AudioPlayerProps {
+  audioData: { url?: string };
+  musicParams?: { desiredBrainwaveState?: string; musicalTempo?: number; binauralHz?: number };
+}
+
+export default function AudioPlayer({ audioData, musicParams }: AudioPlayerProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   // Cross-fade when a new audio URL arrives
   useEffect(() => {

@@ -8,19 +8,24 @@ import { useBluetooth } from '../hooks/useBluetooth';
 import { useSimulator } from '../hooks/useSimulator';
 import { useToast } from '../context/ToastContext';
 
+interface WsMessage { type?: string; heartRate?: number; brainwaveState?: string; targetHeartRate?: number; musicalTempo?: number; binauralHz?: number; audioUrl?: string; }
+interface MeditationState { brainwaveState?: string; targetHeartRate?: number; musicalTempo?: number; binauralHz?: number; audioUrl?: string; }
+
 export default function DashboardPage() {
   const ws  = useWebSocket();
   const ble = useBluetooth();
   const sim = useSimulator();
   const { info } = useToast();
 
-  const [meditation, setMeditation] = useState(null);
+  const [meditation, setMeditation] = useState<MeditationState | null>(null);
   const [demoMode, setDemoMode]     = useState(false);
+
+  const msg = ws.lastMessage as WsMessage | null;
 
   // Heart rate source priority: BLE > Simulator > WS
   const heartRate = ble.status === 'connected' ? ble.heartRate
                   : demoMode                   ? sim.heartRate
-                  : ws.lastMessage?.heartRate  || null;
+                  : msg?.heartRate  || null;
 
   // Send HR to server when available
   useEffect(() => {
@@ -31,8 +36,8 @@ export default function DashboardPage() {
 
   // Receive meditation response from WS
   useEffect(() => {
-    if (ws.lastMessage?.type === 'meditation') {
-      setMeditation(ws.lastMessage);
+    if (msg?.type === 'meditation') {
+      setMeditation(msg as MeditationState);
     }
   }, [ws.lastMessage]);
 
@@ -44,7 +49,7 @@ export default function DashboardPage() {
   return (
     <div className="dashboard fade-in">
       <HeroMetrics
-        heartRate={heartRate}
+        heartRate={heartRate ?? undefined}
         brainwaveState={meditation?.brainwaveState}
         wsStatus={ws.status}
       />
@@ -59,8 +64,11 @@ export default function DashboardPage() {
         isLoading={!meditation}
       />
       <BluetoothPanel
-        ble={ble}
-        demoMode={demoMode}
+        bleStatus={ble.status}
+        deviceName={ble.deviceName ?? undefined}
+        onConnect={ble.connect}
+        onDisconnect={ble.disconnect}
+        isDemo={demoMode}
         onToggleDemo={toggleDemo}
       />
     </div>

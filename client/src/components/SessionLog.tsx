@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
+interface Session { id: string; created_at: string; heart_rate?: number; brainwave_state?: string; }
+
 export default function SessionLog() {
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('anahata_token');

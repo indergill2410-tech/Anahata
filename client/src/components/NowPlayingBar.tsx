@@ -1,18 +1,29 @@
 import React from 'react';
 import SpectrumAnalyser from './SpectrumAnalyser';
 
-function fmtTime(s) {
+function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${String(s % 60).padStart(2,'0')}`;
 }
 
-const BW_COLOR = { Delta:'#4A7FA5', Theta:'#9B6B9A', Alpha:'#7B8B5E', Beta:'#4A7FA5', Gamma:'#D4A853' };
+const BW_COLOR: Record<string, string> = { Delta:'#4A7FA5', Theta:'#9B6B9A', Alpha:'#7B8B5E', Beta:'#4A7FA5', Gamma:'#D4A853' };
+const INTENTION_EMOJI: Record<string, string> = { sleep:'😴', focus:'🎯', heal:'💜', energize:'⚡', meditate:'🧘' };
 
-export default function NowPlayingBar({ isPlaying, intention, elapsed, brainwave, bpm, analyser, onTogglePlay }) {
+interface NowPlayingBarProps {
+  isPlaying: boolean;
+  intention?: string | null;
+  elapsed: number;
+  brainwave?: string;
+  bpm?: number;
+  analyser?: AnalyserNode | null;
+  onTogglePlay?: () => void;
+}
+
+export default function NowPlayingBar({ isPlaying, intention, elapsed, brainwave, bpm, analyser, onTogglePlay }: NowPlayingBarProps) {
   if (!isPlaying && elapsed === 0) return null;
 
-  const color  = BW_COLOR[brainwave] || 'var(--accent)';
-  const emoji  = { sleep:'😴', focus:'🎯', heal:'💜', energize:'⚡', meditate:'🧘' }[intention] || '🎵';
+  const color  = (brainwave && BW_COLOR[brainwave]) || 'var(--accent)';
+  const emoji  = (intention && INTENTION_EMOJI[intention]) || '🎵';
   const label  = intention ? intention.charAt(0).toUpperCase() + intention.slice(1) : 'Custom';
 
   return (

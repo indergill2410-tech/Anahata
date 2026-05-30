@@ -1,12 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-function fmtTime(s) {
+function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
-export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }) {
-  const audioRef = useRef(null);
+interface MusicParams { desiredBrainwaveState?: string; musicalTempo?: number; binauralHz?: number; emotionalTone?: string; }
+
+interface AudioPlayerCardProps {
+  audioUrl?: string;
+  isLoading?: boolean;
+  musicParams?: MusicParams;
+}
+
+export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }: AudioPlayerCardProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(120);
@@ -85,7 +93,7 @@ export default function AudioPlayerCard({ audioUrl, isLoading, musicParams }) {
         ref={audioRef}
         loop
         preload="none"
-        onTimeUpdate={(e) => setCurrent(e.target.currentTime)}
+        onTimeUpdate={(e) => setCurrent((e.target as HTMLAudioElement).currentTime)}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />

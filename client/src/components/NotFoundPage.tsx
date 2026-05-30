@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function NotFoundPage({ onHome }) {
+export default function NotFoundPage({ onHome }: { onHome: () => void }) {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', flexDirection: 'column',

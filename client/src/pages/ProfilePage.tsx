@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-function Toggle({ label, desc, value, onChange }) {
+function Toggle({ label, desc, value, onChange }: { label: string; desc?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 0',
       borderBottom:'1px solid var(--border)' }}>
@@ -36,7 +36,7 @@ export default function ProfilePage() {
     autoSession: JSON.parse(localStorage.getItem('pref_autoSession') ?? 'false'),
   });
 
-  function setPref(key, val) {
+  function setPref(key: string, val: boolean) {
     setPrefs(p => ({ ...p, [key]: val }));
     localStorage.setItem(`pref_${key}`, JSON.stringify(val));
     success('Preference saved');

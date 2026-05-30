@@ -2,27 +2,29 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonTrackCard } from '../components/SkeletonCard';
 
-function fmt(iso) {
+interface Session { id: string; brainwave_state?: string; created_at: string; heart_rate?: number; duration_seconds?: number; }
+
+function fmt(iso: string) {
   return new Date(iso).toLocaleDateString('en-AU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
 }
-function fmtDur(s) {
+function fmtDur(s: number) {
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`;
 }
 
-const BW_COLOUR = { Delta:'#818cf8', Theta:'#a78bfa', Alpha:'#34d399', Beta:'#fbbf24', Gamma:'#f472b6' };
+const BW_COLOUR: Record<string, string> = { Delta:'#818cf8', Theta:'#a78bfa', Alpha:'#34d399', Beta:'#fbbf24', Gamma:'#f472b6' };
 
 export default function SessionsPage() {
   const { authFetch } = useAuth();
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  const [error, setError]       = useState<string | null>(null);
 
   useEffect(() => {
     authFetch('/api/sessions')
       .then(r => r.json())
       .then(d => { setSessions(d.sessions || []); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
+      .catch((e: Error) => { setError(e.message); setLoading(false); });
   }, [authFetch]);
 
   return (
@@ -55,7 +57,7 @@ export default function SessionsPage() {
             <div>
               <p style={{ fontSize:13, fontWeight:500, color:'var(--t1)' }}>
                 {s.brainwave_state
-                  ? <span style={{ color: BW_COLOUR[s.brainwave_state] }}>{s.brainwave_state}</span>
+                  ? <span style={{ color: BW_COLOUR[s.brainwave_state] || 'var(--t2)' }}>{s.brainwave_state}</span>
                   : 'Meditation'} Session
               </p>
               <p style={{ fontSize:11, color:'var(--t3)', marginTop:3 }}>{fmt(s.created_at)}</p>

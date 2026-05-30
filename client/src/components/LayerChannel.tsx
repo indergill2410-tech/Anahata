@@ -1,7 +1,23 @@
 import React, { useState } from 'react';
 import KnobControl from './KnobControl';
 
-const LAYER_META = {
+interface LayerState { volume: number; pan: number; mute: boolean; solo: boolean; eq: { bass: number; mid: number; treble: number }; reverb: number; active: boolean; }
+interface LayerChannelProps {
+  name: string;
+  layer: LayerState;
+  onVolume?: (v: number) => void;
+  onPan?: (v: number) => void;
+  onMute?: () => void;
+  onSolo?: () => void;
+  onReverb?: (v: number) => void;
+  onEQ?: (band: string, v: number) => void;
+  onActive?: (v: boolean) => void;
+  options?: (string | number)[];
+  currentOption?: string | number;
+  onOption?: (v: string) => void;
+}
+
+const LAYER_META: Record<string, { label: string; color: string; emoji: string }> = {
   binaural:   { label: 'Binaural', color: '#4A7FA5', emoji: '🧠' },
   drone:      { label: 'Drone',    color: '#9B6B9A', emoji: '🎵' },
   instrument: { label: 'Instrum.', color: '#C4613A', emoji: '🎸' },
@@ -9,7 +25,7 @@ const LAYER_META = {
   solfeggio:  { label: 'Solfeg.',  color: '#D4A853', emoji: '✨' },
 };
 
-export default function LayerChannel({ name, layer, onVolume, onPan, onMute, onSolo, onReverb, onEQ, onActive, options, currentOption, onOption }) {
+export default function LayerChannel({ name, layer, onVolume, onPan, onMute, onSolo, onReverb, onEQ, onActive, options, currentOption, onOption }: LayerChannelProps) {
   const [showEQ, setShowEQ] = useState(false);
   const meta  = LAYER_META[name] || { label: name, color: 'var(--accent)', emoji: '🎛' };
   const isMuted  = layer.mute;
@@ -89,7 +105,7 @@ export default function LayerChannel({ name, layer, onVolume, onPan, onMute, onS
             <div key={band} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <span style={{ fontSize: 7, color: 'var(--t4)', width: 18, textTransform: 'uppercase' }}>{band[0]}</span>
               <input type="range" min="-12" max="12" step="0.5"
-                value={layer.eq[band]}
+                value={(layer.eq as Record<string, number>)[band]}
                 onChange={e => onEQ?.(band, parseFloat(e.target.value))}
                 style={{ flex: 1, accentColor: meta.color, height: 3 }}
               />
@@ -119,7 +135,7 @@ export default function LayerChannel({ name, layer, onVolume, onPan, onMute, onS
   );
 }
 
-function VUMeter({ value }) {
+function VUMeter({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   const color = pct > 85 ? '#C0392B' : pct > 60 ? '#D4A853' : '#7B8B5E';
   return (

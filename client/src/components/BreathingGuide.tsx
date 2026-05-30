@@ -7,16 +7,21 @@ const PHASES = [
   { label: 'Rest',    duration: 2000, scale: 0.85 },
 ];
 
-const PHASE_COLOR = { Inhale: '#7B8B5E', Hold: '#9B6B9A', Exhale: '#4A7FA5', Rest: '#C4613A' };
+const PHASE_COLOR: Record<string, string> = { Inhale: '#7B8B5E', Hold: '#9B6B9A', Exhale: '#4A7FA5', Rest: '#C4613A' };
 
-export default function BreathingGuide({ onComplete, cycles = 2 }) {
+interface BreathingGuideProps {
+  onComplete: () => void;
+  cycles?: number;
+}
+
+export default function BreathingGuide({ onComplete, cycles = 2 }: BreathingGuideProps) {
   const [phase,   setPhase]   = useState(0);
   const [cycle,   setCycle]   = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    let timeout;
-    function next(p, c) {
+    let timeout: ReturnType<typeof setTimeout>;
+    function next(p: number, c: number) {
       timeout = setTimeout(() => {
         const nextP = (p + 1) % PHASES.length;
         const nextC = nextP === 0 ? c + 1 : c;

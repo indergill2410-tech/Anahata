@@ -1,6 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 
-const BW_PALETTE = {
+interface Particle { angle: number; radius: number; speed: number; size: number; phase: number; drift: number; }
+
+const BW_PALETTE: Record<string, { core: string; mid: string; glow: string }> = {
   Delta:  { core: '#4A7FA5', mid: '#7AABCC', glow: 'rgba(74,127,165,0.18)'  },
   Theta:  { core: '#9B6B9A', mid: '#C49BC3', glow: 'rgba(155,107,154,0.18)' },
   Alpha:  { core: '#7B8B5E', mid: '#A8BA7F', glow: 'rgba(123,139,94,0.18)'  },
@@ -10,10 +12,12 @@ const BW_PALETTE = {
 
 const PARTICLE_COUNT = 48;
 
-export default function OrbVisualizer({ brainwave = 'Theta', isPlaying, heartRate, binauralHz = 6, size = 260 }) {
-  const canvasRef = useRef(null);
-  const rafRef    = useRef(null);
-  const stateRef  = useRef({ particles: [], t: 0 });
+interface OrbVisualizerProps { brainwave?: string; isPlaying: boolean; heartRate?: number; binauralHz?: number; size?: number; }
+
+export default function OrbVisualizer({ brainwave = 'Theta', isPlaying, heartRate, binauralHz = 6, size = 260 }: OrbVisualizerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef    = useRef<number | null>(null);
+  const stateRef  = useRef<{ particles: Particle[]; t: number }>({ particles: [], t: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,6 +28,7 @@ export default function OrbVisualizer({ brainwave = 'Theta', isPlaying, heartRat
     canvas.style.width  = `${size}px`;
     canvas.style.height = `${size}px`;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     ctx.scale(dpr, dpr);
 
     stateRef.current.particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
@@ -113,7 +118,7 @@ export default function OrbVisualizer({ brainwave = 'Theta', isPlaying, heartRat
     };
 
     draw();
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
   }, [brainwave, isPlaying, heartRate, binauralHz, size]);
 
   return <canvas ref={canvasRef} style={{ borderRadius: '50%', display: 'block' }} />;

@@ -1,13 +1,16 @@
 import React, { useRef, useEffect } from 'react';
 
-export default function SpectrumAnalyser({ analyser, isPlaying, height = 60 }) {
-  const canvasRef = useRef(null);
-  const rafRef    = useRef(null);
+interface SpectrumAnalyserProps { analyser?: AnalyserNode | null; isPlaying: boolean; height?: number; }
+
+export default function SpectrumAnalyser({ analyser, isPlaying, height = 60 }: SpectrumAnalyserProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef    = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const W = canvas.offsetWidth;
     const H = canvas.offsetHeight;
@@ -53,7 +56,7 @@ export default function SpectrumAnalyser({ analyser, isPlaying, height = 60 }) {
     };
 
     draw();
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
   }, [analyser, isPlaying]);
 
   return <canvas ref={canvasRef} className="spectrum-canvas" style={{ height }} />;

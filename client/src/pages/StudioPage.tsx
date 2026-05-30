@@ -16,7 +16,9 @@ import AIMusicAssistant from '../components/AIMusicAssistant';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-const BW_COLOR = { Delta:'#4A7FA5', Theta:'#9B6B9A', Alpha:'#7B8B5E', Beta:'#4A7FA5', Gamma:'#D4A853' };
+const BW_COLOR: Record<string, string> = { Delta:'#4A7FA5', Theta:'#9B6B9A', Alpha:'#7B8B5E', Beta:'#4A7FA5', Gamma:'#D4A853' };
+
+interface SavedMix { id: string; name: string; created: string; settings?: string; volumes?: string; }
 
 export default function StudioPage() {
   const engine = useSoundEngine();
@@ -26,7 +28,7 @@ export default function StudioPage() {
   const [showSave,    setShowSave]    = useState(false);
   const [showLoad,    setShowLoad]    = useState(false);
   const [mixName,     setMixName]     = useState('');
-  const [savedMixes,  setSavedMixes]  = useState([]);
+  const [savedMixes,  setSavedMixes]  = useState<SavedMix[]>([]);
   const [saving,      setSaving]      = useState(false);
 
   const bwColor = BW_COLOR[engine.brainwave] || 'var(--accent)';
@@ -39,14 +41,14 @@ export default function StudioPage() {
     nature:     NATURE_OPTIONS,
     solfeggio:  SOLFEGGIO_OPTIONS,
   };
-  const currentOption = (name) => {
+  const currentOption = (name: string) => {
     if (name === 'binaural')   return engine.settings.binaural.hz;
     if (name === 'solfeggio')  return engine.settings.solfeggio.hz;
     if (name === 'drone')      return engine.settings.drone.type;
     if (name === 'instrument') return engine.settings.instrument.type;
     if (name === 'nature')     return engine.settings.nature.type;
   };
-  const handleOption = (name, val) => {
+  const handleOption = (name: string, val: string) => {
     const v = isNaN(Number(val)) ? val : Number(val);
     if (name === 'binaural') {
       const preset = BINAURAL_PRESETS.find(p => p.hz === v) || BINAURAL_PRESETS[1];
@@ -90,7 +92,7 @@ export default function StudioPage() {
     } catch { error('Could not load mixes.'); }
   };
 
-  const handleLoadMix = (mix) => {
+  const handleLoadMix = (mix: SavedMix) => {
     engine.applyMix({
       settings: JSON.parse(mix.settings || '{}'),
       layers:   JSON.parse(mix.volumes  || '{}'),
@@ -99,7 +101,7 @@ export default function StudioPage() {
     setShowLoad(false);
   };
 
-  const handleDeleteMix = async (id) => {
+  const handleDeleteMix = async (id: string) => {
     await fetch(`/api/mixes/${id}`, { method:'DELETE', headers:{ 'Authorization':`Bearer ${token}` } });
     setSavedMixes(m => m.filter(x => x.id !== id));
   };
@@ -166,8 +168,8 @@ export default function StudioPage() {
             <LayerChannel
               key={name}
               name={name}
-              layer={engine.layers[name]}
-              options={LAYER_OPTIONS[name]}
+              layer={(engine.layers as Record<string, typeof engine.layers['binaural']>)[name]}
+              options={(LAYER_OPTIONS as Record<string, (string | number)[]>)[name]}
               currentOption={currentOption(name)}
               onOption={v  => handleOption(name, v)}
               onVolume={v  => engine.setLayerVolume(name, v)}

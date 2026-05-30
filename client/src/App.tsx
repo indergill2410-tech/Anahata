@@ -106,7 +106,7 @@ function Inner() {
       {showAI && (
         <AIMixDialog
           onClose={() => setShowAI(false)}
-          onApplyMix={(mix) => { engine.applyMix(mix); setShowAI(false); }}
+          onApplyMix={(mix) => { engine.applyMix(mix as Record<string, unknown>); setShowAI(false); }}
         />
       )}
     </>

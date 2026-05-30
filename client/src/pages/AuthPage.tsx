@@ -2,23 +2,28 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-export default function AuthPage({ onBack }) {
+interface AuthPageProps { onBack?: () => void; }
+
+type FormErrors = Record<string, string>;
+type FormState = { name: string; email: string; password: string };
+
+export default function AuthPage({ onBack }: AuthPageProps) {
   const { login, register } = useAuth();
   const { success, error }  = useToast();
   const [mode, setMode]     = useState('login');   // login | register
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const [errors, setErrors] = useState({});
+  const [form, setForm] = useState<FormState>({ name: '', email: '', password: '' });
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  function validate() {
-    const e = {};
+  function validate(): FormErrors {
+    const e: FormErrors = {};
     if (mode === 'register' && !form.name.trim()) e.name = 'Name is required';
     if (!form.email.match(/^[^@]+@[^@]+\.[^@]+$/))  e.email = 'Valid email required';
     if (form.password.length < 8)                    e.password = 'Min 8 characters';
     return e;
   }
 
-  async function handleSubmit(ev) {
+  async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
@@ -32,14 +37,14 @@ export default function AuthPage({ onBack }) {
         await register(form.name, form.email, form.password);
         success('Account created 🎉');
       }
-    } catch (err) {
-      error(err.message || 'Something went wrong');
+    } catch (err: unknown) {
+      error((err as Error).message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
   }
 
-  function field(key, type, placeholder, autoComplete) {
+  function field(key: keyof FormState, type: string, placeholder: string, autoComplete: string) {
     return (
       <div>
         <input

@@ -10,13 +10,19 @@ const SUGGESTIONS = [
   'Creative flow state',
 ];
 
-export default function AIMusicAssistant({ onApplyMix, isPlaying }) {
+interface AIMusicAssistantProps {
+  onApplyMix?: (mix: Record<string, unknown>) => void;
+  isPlaying?: boolean;
+}
+
+export default function AIMusicAssistant({ onApplyMix, isPlaying }: AIMusicAssistantProps) {
+  interface AIResponse { message: string; mix?: { name?: string; tags?: string[] } & Record<string, unknown>; }
   const [prompt,   setPrompt]   = useState('');
   const [loading,  setLoading]  = useState(false);
-  const [response, setResponse] = useState(null);
+  const [response, setResponse] = useState<AIResponse | null>(null);
   const { success, error } = useToast();
 
-  const send = async (text) => {
+  const send = async (text: string) => {
     if (!text.trim() || loading) return;
     setLoading(true);
     setResponse(null);
@@ -29,7 +35,7 @@ export default function AIMusicAssistant({ onApplyMix, isPlaying }) {
       if (!res.ok) throw new Error('AI unavailable');
       const data = await res.json();
       setResponse(data);
-    } catch (e) {
+    } catch (_e) {
       error('AI assistant is currently unavailable.');
     } finally {
       setLoading(false);
@@ -106,7 +112,7 @@ export default function AIMusicAssistant({ onApplyMix, isPlaying }) {
                     {response.mix.name}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {response.mix.tags?.map(tag => (
+                    {(response.mix.tags as string[] | undefined)?.map(tag => (
                       <span key={tag} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-1)', color: 'var(--t3)' }}>{tag}</span>
                     ))}
                   </div>

@@ -1,6 +1,12 @@
 import React from 'react';
 
-export default function HeroMetrics({ heartRate, brainwaveState, wsStatus }) {
+interface HeroMetricsProps {
+  heartRate?: number;
+  brainwaveState?: string;
+  wsStatus: string;
+}
+
+export default function HeroMetrics({ heartRate, brainwaveState, wsStatus }: HeroMetricsProps) {
   return (
     <div style={{ paddingTop: 8 }}>
       <div className="hero-section">

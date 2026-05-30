@@ -1,6 +1,11 @@
 import React from 'react';
 
-export default function BiometricsDisplay({ biometrics, musicParams }) {
+interface BiometricsDisplayProps {
+  biometrics: { heartRate?: number };
+  musicParams?: { targetHeartRate?: number; musicalTempo?: number; desiredBrainwaveState?: string; binauralHz?: number; emotionalTone?: string };
+}
+
+export default function BiometricsDisplay({ biometrics, musicParams }: BiometricsDisplayProps) {
   const { heartRate } = biometrics;
 
   return (

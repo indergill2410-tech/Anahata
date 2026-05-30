@@ -2,13 +2,13 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 
 const DRONE_ROOT = 110; // A2 — warm, low root note for all tracks
 
-function buildDrone(ctx, masterGain) {
+function buildDrone(ctx: AudioContext, masterGain: AudioNode) {
   const droneGain = ctx.createGain();
   droneGain.gain.setValueAtTime(0, ctx.currentTime);
   droneGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 3);
   droneGain.connect(masterGain);
 
-  const nodes = [];
+  const nodes: OscillatorNode[] = [];
   // Four harmonics of the root note with decreasing amplitude
   [1, 2, 3, 4].forEach((h, i) => {
     const osc = ctx.createOscillator();
@@ -25,8 +25,8 @@ function buildDrone(ctx, masterGain) {
   return nodes;
 }
 
-function buildBinaural(ctx, masterGain, carrierHz, binauralHz) {
-  const nodes = [];
+function buildBinaural(ctx: AudioContext, masterGain: AudioNode, carrierHz: number, binauralHz: number) {
+  const nodes: OscillatorNode[] = [];
 
   const leftGain  = ctx.createGain();
   const rightGain = ctx.createGain();
@@ -55,13 +55,15 @@ function buildBinaural(ctx, masterGain, carrierHz, binauralHz) {
   return nodes;
 }
 
+interface Track { carrierHz?: number; binauralHz?: number; [key: string]: unknown; }
+
 export function useBinauralPlayer() {
-  const ctxRef       = useRef(null);
-  const nodesRef     = useRef([]);
-  const masterRef    = useRef(null);
+  const ctxRef       = useRef<AudioContext | null>(null);
+  const nodesRef     = useRef<OscillatorNode[]>([]);
+  const masterRef    = useRef<GainNode | null>(null);
   const startRef     = useRef(0);   // audioContext.currentTime when playback started
   const offsetRef    = useRef(0);   // accumulated elapsed seconds before last pause
-  const tickRef      = useRef(null);
+  const tickRef      = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed,   setElapsed]   = useState(0);
@@ -72,16 +74,17 @@ export function useBinauralPlayer() {
     nodesRef.current = [];
   }
 
-  const setVolume = useCallback((v) => {
+  const setVolume = useCallback((v: number) => {
     setVolumeState(v);
-    if (masterRef.current) masterRef.current.gain.setTargetAtTime(v, ctxRef.current.currentTime, 0.05);
+    if (masterRef.current && ctxRef.current) masterRef.current.gain.setTargetAtTime(v, ctxRef.current.currentTime, 0.05);
   }, []);
 
-  const play = useCallback((track) => {
+  const play = useCallback((track: Track) => {
     stopNodes();
-    clearInterval(tickRef.current);
+    if (tickRef.current !== null) clearInterval(tickRef.current);
 
-    const ctx = ctxRef.current || new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+    const ctx = ctxRef.current || new AudioCtx();
     ctxRef.current = ctx;
     if (ctx.state === 'suspended') ctx.resume();
 
@@ -116,7 +119,7 @@ export function useBinauralPlayer() {
       masterRef.current?.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
       setTimeout(() => ctx.suspend(), 800);
       offsetRef.current += ctx.currentTime - startRef.current;
-      clearInterval(tickRef.current);
+      if (tickRef.current !== null) clearInterval(tickRef.current);
       setIsPlaying(false);
     } else if (ctx.state === 'suspended') {
       ctx.resume().then(() => {
@@ -138,7 +141,7 @@ export function useBinauralPlayer() {
       stopNodes();
       ctxRef.current?.suspend();
     }, 600);
-    clearInterval(tickRef.current);
+    if (tickRef.current !== null) clearInterval(tickRef.current);
     offsetRef.current = 0;
     setElapsed(0);
     setIsPlaying(false);
@@ -147,7 +150,7 @@ export function useBinauralPlayer() {
   // cleanup on unmount
   useEffect(() => () => {
     stopNodes();
-    clearInterval(tickRef.current);
+    if (tickRef.current !== null) clearInterval(tickRef.current);
     ctxRef.current?.close();
   }, []);
 

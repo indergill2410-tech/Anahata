@@ -1,24 +1,34 @@
 import React, { useRef, useCallback } from 'react';
 
-// Rotary knob — drag vertically to change value
-export default function KnobControl({ value = 0.5, min = 0, max = 1, size = 36, color = 'var(--accent)', label, onChange }) {
-  const startY  = useRef(null);
-  const startVal = useRef(null);
+interface KnobControlProps {
+  value?: number;
+  min?: number;
+  max?: number;
+  size?: number;
+  color?: string;
+  label?: string;
+  onChange?: (val: number) => void;
+}
 
-  const toAngle = (v) => {
+// Rotary knob — drag vertically to change value
+export default function KnobControl({ value = 0.5, min = 0, max = 1, size = 36, color = 'var(--accent)', label, onChange }: KnobControlProps) {
+  const startY  = useRef<number | null>(null);
+  const startVal = useRef<number | null>(null);
+
+  const toAngle = (v: number) => {
     const pct = (v - min) / (max - min);
     return -135 + pct * 270; // -135° to +135°
   };
 
-  const onPointerDown = useCallback((e) => {
+  const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     e.preventDefault();
     startY.current   = e.clientY;
     startVal.current = value;
-    const onMove = (me) => {
-      const dy    = startY.current - me.clientY;
+    const onMove = (me: PointerEvent) => {
+      const dy    = (startY.current ?? e.clientY) - me.clientY;
       const range = max - min;
       const delta = (dy / 120) * range;
-      const next  = Math.max(min, Math.min(max, startVal.current + delta));
+      const next  = Math.max(min, Math.min(max, (startVal.current ?? value) + delta));
       onChange?.(next);
     };
     const onUp = () => {
@@ -35,7 +45,7 @@ export default function KnobControl({ value = 0.5, min = 0, max = 1, size = 36, 
   const trackR = r - 4;
 
   // Arc path helper
-  const polarToXY = (ang, radius) => {
+  const polarToXY = (ang: number, radius: number) => {
     const rad = (ang - 90) * (Math.PI / 180);
     return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
   };

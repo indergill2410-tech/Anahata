@@ -233,14 +233,14 @@ function buildInstrument(ctx: AudioContext, dst: AudioNode, type: string, phrase
     const TAAL   = [1,0,0,1, 1,0,1,0, 1,0,0,1, 1,0,1,1];
     const BAYAN  = new Set([0,8]);
     const beat   = phraseEngine.beatSeconds() * 0.5;
-    const playB  = (when) => {
+    const playB  = (when: number) => {
       const osc = ctx.createOscillator(); const og = ctx.createGain();
       const lp  = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=120;
       osc.type='sine'; osc.frequency.setValueAtTime(80,when); osc.frequency.exponentialRampToValueAtTime(45,when+0.08);
       og.gain.setValueAtTime(0.5,when); og.gain.exponentialRampToValueAtTime(0.001,when+0.18);
       osc.connect(lp); lp.connect(og); og.connect(g); osc.start(when); osc.stop(when+0.2); nodes.push(osc);
     };
-    const playD  = (when) => {
+    const playD  = (when: number) => {
       const osc = ctx.createOscillator(); const og = ctx.createGain();
       osc.type='sine'; osc.frequency.setValueAtTime(310,when); osc.frequency.exponentialRampToValueAtTime(240,when+0.04);
       og.gain.setValueAtTime(0.38,when); og.gain.exponentialRampToValueAtTime(0.001,when+0.12);
@@ -352,7 +352,7 @@ function buildNature(ctx: AudioContext, dst: AudioNode, type: string) {
 }
 
 function buildSolfeggio(ctx: AudioContext, dst: AudioNode, hz: number) {
-  const nodes   = [];
+  const nodes: AudioNode[]   = [];
   const conv    = createReverb(ctx, 3);
   const dryG    = ctx.createGain(); dryG.gain.value = 0.7;
   const wetG    = ctx.createGain(); wetG.gain.value = 0.3;
@@ -428,24 +428,24 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
   const [isPlaying,    setIsPlaying]    = useState(false);
   const [layers,       setLayers]       = useState(DEFAULT_LAYERS);
   const [settings,     setSettings]     = useState(DEFAULT_SETTINGS);
-  const [intention,    setIntention]    = useState(null);
+  const [intention,    setIntention]    = useState<string | null>(null);
   const [elapsed,      setElapsed]      = useState(0);
   const [bpm,          setBpmState]     = useState(60);
   const [chaos,        setChaosState]   = useState(0.3);
   const [masterVol,    setMasterVol]    = useState(0.85);
   const [masterReverb, setMasterReverb] = useState(0.15);
 
-  const ctxRef          = useRef(null);
-  const nodesRef        = useRef({});
-  const gainNodesRef    = useRef({});
-  const panNodesRef     = useRef({});
-  const eqNodesRef      = useRef({});
-  const reverbSendRef   = useRef({});
-  const masterGainRef   = useRef(null);
-  const masterRevRef    = useRef(null);
-  const analyserRef     = useRef(null);
+  const ctxRef          = useRef<AudioContext | null>(null);
+  const nodesRef        = useRef<Record<string, { nodes: AudioNode[]; timers: ReturnType<typeof setInterval>[]; leftOsc?: OscillatorNode; rightOsc?: OscillatorNode }>>({});
+  const gainNodesRef    = useRef<Record<string, GainNode>>({});
+  const panNodesRef     = useRef<Record<string, StereoPannerNode>>({});
+  const eqNodesRef      = useRef<Record<string, { bassEQ: BiquadFilterNode; midEQ: BiquadFilterNode; trebleEQ: BiquadFilterNode }>>({});
+  const reverbSendRef   = useRef<Record<string, GainNode>>({});
+  const masterGainRef   = useRef<GainNode | null>(null);
+  const masterRevRef    = useRef<ConvolverNode | null>(null);
+  const analyserRef     = useRef<AnalyserNode | null>(null);
   const phraseRef       = useRef(new PhraseEngine('meditate', 0.3));
-  const timerRef        = useRef(null);
+  const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const settingsRef     = useRef(DEFAULT_SETTINGS);
   const layersRef       = useRef(DEFAULT_LAYERS);
 
@@ -458,7 +458,7 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
   // ── Build one layer into ctx ────────────────────────────────────────────────
   const buildLayer = useCallback((ctx: AudioContext, name: string, masterIn: AudioNode) => {
     const s = settingsRef.current;
-    const l = layersRef.current[name];
+    const l = (layersRef.current as Record<string, typeof DEFAULT_LAYERS['binaural']>)[name];
 
     const gainNode = ctx.createGain();
     const panNode  = ctx.createStereoPanner();
@@ -471,7 +471,7 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     bassEQ.connect(midEQ); midEQ.connect(trebleEQ); trebleEQ.connect(gainNode);
     gainNode.connect(panNode);
     panNode.connect(dryGain);   dryGain.connect(masterIn);
-    panNode.connect(revSend);   revSend.connect(masterRevRef.current);
+    if (masterRevRef.current) panNode.connect(revSend); revSend.connect(masterRevRef.current!);
 
     gainNode.gain.value = l.mute ? 0 : l.volume;
     panNode.pan.value   = l.pan;
@@ -487,13 +487,13 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     if (name === 'instrument') result = buildInstrument(ctx, bassEQ, s.instrument.type, phraseRef.current);
     if (name === 'nature')     result = buildNature(ctx,     bassEQ, s.nature.type);
     if (name === 'solfeggio')  result = buildSolfeggio(ctx,  bassEQ, s.solfeggio.hz);
-    if (result) nodesRef.current[name] = result;
+    if (result) nodesRef.current[name] = result as { nodes: AudioNode[]; timers: ReturnType<typeof setInterval>[] };
   }, []);
 
-  const stopLayer = useCallback((name) => {
+  const stopLayer = useCallback((name: string) => {
     const { nodes = [], timers = [] } = nodesRef.current[name] || {};
     timers.forEach(t => { clearInterval(t); clearTimeout(t); });
-    nodes.forEach(n => { try { n.stop?.(); n.disconnect?.(); } catch {} });
+    nodes.forEach(n => { try { (n as AudioScheduledSourceNode).stop?.(); n.disconnect?.(); } catch {} });
     gainNodesRef.current[name]?.disconnect?.();
     panNodesRef.current[name]?.disconnect?.();
     delete nodesRef.current[name];
@@ -504,7 +504,8 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
   // ── Start ───────────────────────────────────────────────────────────────────
   const start = useCallback(() => {
     if (ctxRef.current) { try { ctxRef.current.close(); } catch {} }
-    const ctx      = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+    const ctx      = new AudioCtx();
     ctxRef.current = ctx;
 
     const masterGain = ctx.createGain(); masterGain.gain.value = masterVol;
@@ -527,13 +528,13 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
 
     setIsPlaying(true);
     setElapsed(0);
-    clearInterval(timerRef.current);
+    if (timerRef.current !== null) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
   }, [masterVol, masterReverb, buildLayer]);
 
   // ── Stop ────────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {
-    clearInterval(timerRef.current);
+    if (timerRef.current !== null) clearInterval(timerRef.current);
     Object.keys(nodesRef.current).forEach(stopLayer);
     nodesRef.current = {}; gainNodesRef.current = {}; panNodesRef.current = {};
     eqNodesRef.current = {}; reverbSendRef.current = {};
@@ -545,45 +546,48 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
   const togglePlay = useCallback(() => { isPlaying ? stop() : start(); }, [isPlaying, start, stop]);
 
   // ── Layer controls ──────────────────────────────────────────────────────────
-  const setLayerVolume = useCallback((name, vol) => {
+  const setLayerVolume = useCallback((name: string, vol: number) => {
     setLayers(prev => {
-      const next    = { ...prev, [name]: { ...prev[name], volume: vol } };
+      const prevL = prev as Record<string, typeof DEFAULT_LAYERS['binaural']>;
+      const next    = { ...prev, [name]: { ...prevL[name], volume: vol } } as Record<string, typeof DEFAULT_LAYERS['binaural']>;
       const gn      = gainNodesRef.current[name];
       const anySolo = Object.values(next).some(l => l.solo);
       if (gn && ctxRef.current) {
         const hearable = !next[name].mute && (!anySolo || next[name].solo);
         gn.gain.setTargetAtTime(hearable ? vol : 0, ctxRef.current.currentTime, 0.02);
       }
-      return next;
+      return next as unknown as typeof DEFAULT_LAYERS;
     });
   }, []);
 
-  const setLayerPan = useCallback((name, pan) => {
+  const setLayerPan = useCallback((name: string, pan: number) => {
     setLayers(prev => {
       const pn = panNodesRef.current[name];
       if (pn && ctxRef.current) pn.pan.setTargetAtTime(pan, ctxRef.current.currentTime, 0.02);
-      return { ...prev, [name]: { ...prev[name], pan } };
+      return { ...prev, [name]: { ...(prev as Record<string, typeof DEFAULT_LAYERS['binaural']>)[name], pan } } as typeof DEFAULT_LAYERS;
     });
   }, []);
 
-  const toggleMute = useCallback((name) => {
+  const toggleMute = useCallback((name: string) => {
     setLayers(prev => {
-      const mute    = !prev[name].mute;
-      const next    = { ...prev, [name]: { ...prev[name], mute } };
+      const mute    = !(prev as Record<string, typeof DEFAULT_LAYERS['binaural']>)[name].mute;
+      const next    = { ...prev, [name]: { ...(prev as Record<string, typeof DEFAULT_LAYERS['binaural']>)[name], mute } };
       const gn      = gainNodesRef.current[name];
-      const anySolo = Object.values(next).some(l => l.solo);
+      const nextL = next as Record<string, typeof DEFAULT_LAYERS['binaural']>;
+      const anySolo = Object.values(nextL).some(l => l.solo);
       if (gn && ctxRef.current) {
-        const hearable = !mute && (!anySolo || next[name].solo);
-        gn.gain.setTargetAtTime(hearable ? next[name].volume : 0, ctxRef.current.currentTime, 0.02);
+        const hearable = !mute && (!anySolo || nextL[name].solo);
+        gn.gain.setTargetAtTime(hearable ? nextL[name].volume : 0, ctxRef.current.currentTime, 0.02);
       }
-      return next;
+      return next as typeof DEFAULT_LAYERS;
     });
   }, []);
 
-  const toggleSolo = useCallback((name) => {
+  const toggleSolo = useCallback((name: string) => {
     setLayers(prev => {
-      const solo    = !prev[name].solo;
-      const next    = { ...prev, [name]: { ...prev[name], solo } };
+      const prevL = prev as Record<string, typeof DEFAULT_LAYERS['binaural']>;
+      const solo    = !prevL[name].solo;
+      const next    = { ...prev, [name]: { ...prevL[name], solo } };
       const anySolo = Object.values(next).some(l => l.solo);
       Object.entries(next).forEach(([n, l]) => {
         const gn = gainNodesRef.current[n];
@@ -592,12 +596,13 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
           gn.gain.setTargetAtTime(hearable ? l.volume : 0, ctxRef.current.currentTime, 0.02);
         }
       });
-      return next;
+      return next as typeof DEFAULT_LAYERS;
     });
   }, []);
 
-  const setLayerEQ = useCallback((name, band, value) => {
+  const setLayerEQ = useCallback((name: string, band: string, value: number) => {
     setLayers(prev => {
+      const prevL = prev as Record<string, typeof DEFAULT_LAYERS['binaural']>;
       const eq = eqNodesRef.current[name];
       if (eq && ctxRef.current) {
         const t = ctxRef.current.currentTime;
@@ -605,33 +610,37 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
         if (band === 'mid')    eq.midEQ.gain.setTargetAtTime(value,  t, 0.05);
         if (band === 'treble') eq.trebleEQ.gain.setTargetAtTime(value, t, 0.05);
       }
-      return { ...prev, [name]: { ...prev[name], eq: { ...prev[name].eq, [band]: value } } };
+      return { ...prev, [name]: { ...prevL[name], eq: { ...prevL[name].eq, [band]: value } } } as typeof DEFAULT_LAYERS;
     });
   }, []);
 
-  const setLayerReverb = useCallback((name, val) => {
+  const setLayerReverb = useCallback((name: string, val: number) => {
     setLayers(prev => {
+      const prevL = prev as Record<string, typeof DEFAULT_LAYERS['binaural']>;
       const rs = reverbSendRef.current[name];
       if (rs && ctxRef.current) rs.gain.setTargetAtTime(val, ctxRef.current.currentTime, 0.05);
-      return { ...prev, [name]: { ...prev[name], reverb: val } };
+      return { ...prev, [name]: { ...prevL[name], reverb: val } } as typeof DEFAULT_LAYERS;
     });
   }, []);
 
-  const setLayerActive = useCallback((name, active) => {
-    setLayers(prev => ({ ...prev, [name]: { ...prev[name], active } }));
+  const setLayerActive = useCallback((name: string, active: boolean) => {
+    setLayers(prev => {
+      const prevL = prev as Record<string, typeof DEFAULT_LAYERS['binaural']>;
+      return { ...prev, [name]: { ...prevL[name], active } } as typeof DEFAULT_LAYERS;
+    });
     if (!isPlaying || !ctxRef.current) return;
     if (active && !nodesRef.current[name]) {
-      buildLayer(ctxRef.current, name, masterGainRef.current);
+      buildLayer(ctxRef.current, name, masterGainRef.current!);
     } else if (!active) {
       stopLayer(name);
     }
   }, [isPlaying, buildLayer, stopLayer]);
 
-  const updateLayerSetting = useCallback((layer, key, value) => {
+  const updateLayerSetting = useCallback((layer: string, key: string, value: unknown) => {
     setSettings(prev => {
-      const next = { ...prev, [layer]: { ...prev[layer], [key]: value } };
-      settingsRef.current = next;
-      return next;
+      const next = { ...prev, [layer]: { ...(prev as Record<string, Record<string, unknown>>)[layer], [key]: value } };
+      settingsRef.current = next as typeof DEFAULT_SETTINGS;
+      return next as typeof DEFAULT_SETTINGS;
     });
     if (isPlaying && ctxRef.current) {
       stopLayer(layer);
@@ -641,8 +650,8 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying, buildLayer, stopLayer]);
 
-  const applyIntention = useCallback((key) => {
-    const preset = INTENTIONS[key];
+  const applyIntention = useCallback((key: string) => {
+    const preset = (INTENTIONS as unknown as Record<string, typeof INTENTIONS['sleep']>)[key];
     if (!preset) return;
     setIntention(key);
     phraseRef.current.setIntention(key, phraseRef.current.chaos);
@@ -670,24 +679,24 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     if (isPlaying) { stop(); setTimeout(start, 120); }
   }, [isPlaying, stop, start]);
 
-  const applyMix = useCallback((mixData) => {
-    if (mixData.settings) { setSettings(s => ({ ...s, ...mixData.settings })); settingsRef.current = { ...settingsRef.current, ...mixData.settings }; }
-    if (mixData.layers)   setLayers(l  => ({ ...l,  ...mixData.layers  }));
-    if (mixData.bpm)      setBpmState(mixData.bpm);
-    if (mixData.chaos !== undefined) setChaosState(mixData.chaos);
-    if (mixData.intention) setIntention(mixData.intention);
+  const applyMix = useCallback((mixData: Record<string, unknown>) => {
+    if (mixData.settings) { setSettings(s => ({ ...s, ...(mixData.settings as Record<string, unknown>) } as typeof DEFAULT_SETTINGS)); settingsRef.current = { ...settingsRef.current, ...(mixData.settings as Record<string, unknown>) } as typeof DEFAULT_SETTINGS; }
+    if (mixData.layers)   setLayers(l  => ({ ...l,  ...(mixData.layers  as Record<string, unknown>) } as typeof DEFAULT_LAYERS));
+    if (mixData.bpm)      setBpmState(mixData.bpm as number);
+    if (mixData.chaos !== undefined) setChaosState(mixData.chaos as number);
+    if (mixData.intention) setIntention(mixData.intention as string);
     if (isPlaying) { stop(); setTimeout(start, 150); }
   }, [isPlaying, stop, start]);
 
-  const setBpm = useCallback((val) => { setBpmState(val); phraseRef.current.setBpm(val); }, []);
-  const setChaos = useCallback((val) => { setChaosState(val); phraseRef.current.setChaos(val); }, []);
+  const setBpm = useCallback((val: number) => { setBpmState(val); phraseRef.current.setBpm(val); }, []);
+  const setChaos = useCallback((val: number) => { setChaosState(val); phraseRef.current.setChaos(val); }, []);
 
-  const setMasterVolume = useCallback((val) => {
+  const setMasterVolume = useCallback((val: number) => {
     setMasterVol(val);
     if (masterGainRef.current && ctxRef.current) masterGainRef.current.gain.setTargetAtTime(val, ctxRef.current.currentTime, 0.05);
   }, []);
 
-  const adaptFromHeartRate = useCallback((hr) => {
+  const adaptFromHeartRate = useCallback((hr: number) => {
     if (!ctxRef.current) return;
     const { leftOsc, rightOsc } = nodesRef.current.binaural || {};
     if (!leftOsc || !rightOsc) return;

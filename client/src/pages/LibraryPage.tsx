@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import TrackCard from '../components/TrackCard';
 import TrackPlayer from '../components/TrackPlayer';
 
+interface Track { id: string; title: string; brainwave?: string; binauralHz?: number; duration?: number; instruments: string[]; }
+interface Category { name: string; count: number; }
+
 const CATEGORIES_ORDER = [
   'All',
   'Binaural + Indian Fusion',
@@ -22,7 +25,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function LibraryPage() {
-  const [tracks, setTracks]       = useState([]);
+  const [tracks, setTracks]       = useState<Track[]>([]);
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
   const [category, setCategory]   = useState('All');
@@ -30,8 +33,8 @@ export default function LibraryPage() {
   const [search, setSearch]       = useState('');
   const [page, setPage]           = useState(1);
   const [pages, setPages]         = useState(1);
-  const [playing, setPlaying]     = useState(null); // active track object
-  const [categories, setCategories] = useState([]);
+  const [playing, setPlaying]     = useState<Track | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Fetch category counts once
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function LibraryPage() {
 
   const fetchTracks = useCallback(() => {
     setLoading(true);
-    const params = new URLSearchParams({ sort, page, limit: 18 });
+    const params = new URLSearchParams({ sort, page: String(page), limit: '18' });
     if (category !== 'All') params.set('category', category);
     if (search.trim()) params.set('search', search.trim());
 
@@ -63,7 +66,8 @@ export default function LibraryPage() {
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [category, sort, search]);
 
-  function fmtDur(secs) {
+  function fmtDur(secs?: number) {
+    if (!secs) return '';
     const m = Math.floor(secs / 60);
     const h = Math.floor(m / 60);
     return h > 0 ? `${h}h ${m % 60}m` : `${m}m`;
@@ -162,20 +166,18 @@ export default function LibraryPage() {
 
       {/* Pagination */}
       {pages > 1 && (
-        <div style={{ display:'flex', gap:8, justifyContent:'center', paddingBottom:8 }}>
-          <button className="btn btn-ghost" style={{ height:34, padding:'0 14px', fontSize:13 }}
-            disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-          <span style={{ display:'flex', alignItems:'center', fontSize:13, color:'var(--t2)' }}>
-            {page} / {pages}
-          </span>
-          <button className="btn btn-ghost" style={{ height:34, padding:'0 14px', fontSize:13 }}
-            disabled={page === pages} onClick={() => setPage(p => p + 1)}>Next</button>
+        <div style={{ display:'flex', gap:6, justifyContent:'center', paddingBottom:8 }}>
+          <button className="btn-secondary" style={{ padding:'8px 16px', fontSize:13 }}
+            disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
+          <span style={{ fontSize:12, color:'var(--t3)', alignSelf:'center' }}>{page} / {pages}</span>
+          <button className="btn-secondary" style={{ padding:'8px 16px', fontSize:13 }}
+            disabled={page === pages} onClick={() => setPage(p => p + 1)}>Next →</button>
         </div>
       )}
 
-      {/* Sticky Player */}
+      {/* TrackPlayer */}
       {playing && (
-        <TrackPlayer track={playing} onClose={() => setPlaying(null)} />
+        <TrackPlayer track={{ ...playing, id: playing.id }} onClose={() => setPlaying(null)} />
       )}
     </div>
   );

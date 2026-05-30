@@ -10,16 +10,20 @@ const BATTERY_CHAR  = 0x2A19;
  */
 export function useBluetooth() {
   const [status, setStatus]           = useState('idle');     // idle | connecting | connected | disconnected | unsupported | error
-  const [heartRate, setHeartRate]     = useState(null);
-  const [deviceName, setDeviceName]   = useState(null);
-  const [battery, setBattery]         = useState(null);
-  const deviceRef = useRef(null);
-  const charRef   = useRef(null);
+  const [heartRate, setHeartRate]     = useState<number | null>(null);
+  const [deviceName, setDeviceName]   = useState<string | null>(null);
+  const [battery, setBattery]         = useState<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deviceRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const charRef   = useRef<any>(null);
 
   const isSupported = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
 
-  const parseHR = useCallback((event) => {
-    const value = event.target.value;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parseHR = useCallback((event: any) => {
+    const value = event.target?.value;
+    if (!value) return;
     const flags = value.getUint8(0);
     const hr = flags & 0x01 ? value.getUint16(1, true) : value.getUint8(1);
     setHeartRate(hr);
@@ -29,7 +33,8 @@ export function useBluetooth() {
     if (!isSupported) { setStatus('unsupported'); return; }
     try {
       setStatus('connecting');
-      const device = await navigator.bluetooth.requestDevice({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const device = await (navigator as any).bluetooth.requestDevice({
         filters: [{ services: [HR_SERVICE] }],
         optionalServices: [BATTERY_SVC]
       });
@@ -38,7 +43,7 @@ export function useBluetooth() {
 
       device.addEventListener('gattserverdisconnected', () => setStatus('disconnected'));
 
-      const server  = await device.gatt.connect();
+      const server  = await device.gatt!.connect();
       const hrSvc   = await server.getPrimaryService(HR_SERVICE);
       const hrChar  = await hrSvc.getCharacteristic(HR_CHAR);
       charRef.current = hrChar;
@@ -54,8 +59,8 @@ export function useBluetooth() {
       } catch {}
 
       setStatus('connected');
-    } catch (err) {
-      if (err.name === 'NotFoundError') { setStatus('idle'); return; }
+    } catch (err: unknown) {
+      if ((err as { name?: string }).name === 'NotFoundError') { setStatus('idle'); return; }
       console.error('[BLE]', err);
       setStatus('error');
     }

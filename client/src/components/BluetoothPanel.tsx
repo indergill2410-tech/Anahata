@@ -1,6 +1,16 @@
 import React from 'react';
 
-export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect, onDisconnect, isDemo, onToggleDemo }) {
+interface BluetoothPanelProps {
+  bleStatus: string;
+  deviceName?: string;
+  error?: string;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  isDemo?: boolean;
+  onToggleDemo: () => void;
+}
+
+export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect, onDisconnect, isDemo, onToggleDemo }: BluetoothPanelProps) {
   const isConnected = bleStatus === 'connected';
   const isSearching = bleStatus === 'searching';
 
