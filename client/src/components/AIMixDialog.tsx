@@ -103,7 +103,7 @@ function getFallbackMix(prompt: string): AIResponse {
     if (preset.keys.some(k => lower.includes(k))) return preset.mix;
   }
   // Default: meditation
-  return KEYWORD_PRESETS[4].mix;
+  return KEYWORD_PRESETS.find(p => p.keys.includes('meditate'))?.mix || KEYWORD_PRESETS[0].mix;
 }
 
 
