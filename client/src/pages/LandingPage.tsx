@@ -108,25 +108,35 @@ function OrbHero({ entered }: { entered: boolean }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
-    const S = 300;
+    const S = 320;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = S * dpr; canvas.height = S * dpr;
     canvas.style.width = `${S}px`; canvas.style.height = `${S}px`;
     ctx.scale(dpr, dpr);
     const cx = S / 2, cy = S / 2;
 
-    const particles = Array.from({ length: 120 }, (_, i) => ({
-      angle: (i / 120) * Math.PI * 2,
-      r: S * 0.28 + Math.random() * S * 0.18,
-      speed: 0.002 + Math.random() * 0.007,
-      size: 1.2 + Math.random() * 2.8,
-      phase: Math.random() * Math.PI * 2,
-      hue: 255 + (Math.random() - 0.5) * 50,
-      layer: Math.floor(Math.random() * 3),
-    }));
+    type ParticleColor = 'violet' | 'amber' | 'teal';
+    const particles = Array.from({ length: 200 }, (_, i) => {
+      const rnd = Math.random();
+      let color: ParticleColor;
+      let hue: number;
+      if (rnd < 0.7) { color = 'violet'; hue = 255 + Math.random() * 50; }
+      else if (rnd < 0.9) { color = 'amber'; hue = 35 + Math.random() * 20; }
+      else { color = 'teal'; hue = 190 + Math.random() * 20; }
+      return {
+        angle: (i / 200) * Math.PI * 2,
+        r: S * 0.28 + Math.random() * S * 0.18,
+        speed: 0.002 + Math.random() * 0.007,
+        size: 1.2 + Math.random() * 2.8,
+        phase: Math.random() * Math.PI * 2,
+        hue,
+        color,
+        layer: Math.floor(Math.random() * 3),
+      };
+    });
 
     // floating debris
-    const debris = Array.from({ length: 30 }, () => ({
+    const debris = Array.from({ length: 50 }, () => ({
       x: Math.random() * S, y: Math.random() * S,
       vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
       r: 0.5 + Math.random() * 1.5, hue: 250 + Math.random() * 60, alpha: Math.random() * 0.4 + 0.1,
@@ -176,6 +186,23 @@ function OrbHero({ entered }: { entered: boolean }) {
         ctx.restore();
       }
 
+      // breathing ring (4th ring — physiological breath cycle 4s inhale, 4s hold, 6s exhale)
+      {
+        const cycleDuration = 14; // 4+4+6
+        const cyclePos = t % cycleDuration;
+        let breathNorm: number;
+        if (cyclePos < 4) { breathNorm = cyclePos / 4; }           // inhale
+        else if (cyclePos < 8) { breathNorm = 1; }                  // hold
+        else { breathNorm = 1 - (cyclePos - 8) / 6; }              // exhale
+        const breathRingR = orbR * 2.2 + breathNorm * (orbR * 2.6 - orbR * 2.2);
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, breathRingR, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(112,72,232,0.08)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // orb body
       const body = ctx.createRadialGradient(cx - orbR * 0.15, cy - orbR * 0.15, 0, cx, cy, orbR);
       body.addColorStop(0,    'hsl(270,45%,94%)');
@@ -200,6 +227,29 @@ function OrbHero({ entered }: { entered: boolean }) {
       hi.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.beginPath(); ctx.arc(cx, cy, orbR, 0, Math.PI * 2);
       ctx.fillStyle = hi; ctx.fill();
+
+      // plasma inner glow (two counter-rotating radial gradients)
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(t * 0.3);
+      const plasma1 = ctx.createRadialGradient(-orbR * 0.2, -orbR * 0.2, 0, 0, 0, orbR * 0.85);
+      plasma1.addColorStop(0, `rgba(140,80,255,0.22)`);
+      plasma1.addColorStop(0.5, `rgba(112,72,232,0.18)`);
+      plasma1.addColorStop(1, 'rgba(112,72,232,0)');
+      ctx.beginPath(); ctx.arc(0, 0, orbR, 0, Math.PI * 2);
+      ctx.fillStyle = plasma1; ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-t * 0.22);
+      const plasma2 = ctx.createRadialGradient(orbR * 0.25, orbR * 0.1, 0, 0, 0, orbR * 0.85);
+      plasma2.addColorStop(0, `rgba(0,210,180,0.18)`);
+      plasma2.addColorStop(0.4, `rgba(240,160,40,0.12)`);
+      plasma2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath(); ctx.arc(0, 0, orbR, 0, Math.PI * 2);
+      ctx.fillStyle = plasma2; ctx.fill();
+      ctx.restore();
 
       // mouse parallax highlight
       const { x: mx, y: my } = mouseRef.current;
@@ -238,7 +288,7 @@ function OrbHero({ entered }: { entered: boolean }) {
       // Sanskrit centre
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `500 ${Math.round(S * 0.045)}px 'Plus Jakarta Sans', sans-serif`;
-      ctx.fillStyle = `rgba(90,50,180,${0.45 + 0.1 * Math.sin(t)})`;
+      ctx.fillStyle = `rgba(90,50,180,${0.3 + 0.15 * Math.sin(t * 0.4)})`;
       ctx.fillText('अनाहत', cx, cy);
     };
 
@@ -256,7 +306,7 @@ function OrbHero({ entered }: { entered: boolean }) {
       opacity: entered ? 1 : 0,
       transform: entered ? 'scale(1) translateY(0)' : 'scale(0.7) translateY(40px)',
       transition: 'opacity 1.4s ease, transform 1.6s cubic-bezier(0.34,1.56,0.64,1)',
-      filter: 'drop-shadow(0 20px 60px rgba(112,72,232,0.22)) drop-shadow(0 4px 20px rgba(112,72,232,0.15))',
+      filter: 'drop-shadow(0 20px 60px rgba(112,72,232,0.35)) drop-shadow(0 4px 20px rgba(112,72,232,0.25))',
       cursor: 'crosshair',
     }} />
   );
@@ -309,6 +359,56 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
   useEffect(() => {
     const id = setInterval(() => { setHeartbeat(true); setTimeout(() => setHeartbeat(false), 180); }, 900);
     return () => clearInterval(id);
+  }, []);
+
+  // Anahata sound on landing load
+  useEffect(() => {
+    const playAnahataSound = () => {
+      const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      const audioCtx = new AudioContextCtor();
+
+      const master = audioCtx.createGain();
+      master.connect(audioCtx.destination);
+      master.gain.setValueAtTime(0.0, audioCtx.currentTime);
+      master.gain.linearRampToValueAtTime(0.55, audioCtx.currentTime + 1.2);
+      master.gain.setValueAtTime(0.55, audioCtx.currentTime + 1.2 + 0.8);
+      master.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2 + 0.8 + 2.5);
+
+      const oscDefs: { freq: number; gain: number }[] = [
+        { freq: 528, gain: 0.35 },
+        { freq: 1056, gain: 0.12 },
+        { freq: 264, gain: 0.08 },
+      ];
+
+      oscDefs.forEach(({ freq, gain }) => {
+        const osc = audioCtx.createOscillator();
+        const oscGain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        oscGain.gain.value = gain;
+        osc.connect(oscGain);
+        oscGain.connect(master);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 4.5);
+      });
+
+      setTimeout(() => { audioCtx.close(); }, 5000);
+    };
+
+    const timer = setTimeout(() => {
+      try {
+        playAnahataSound();
+      } catch {
+        const onFirstClick = () => {
+          playAnahataSound();
+          document.removeEventListener('click', onFirstClick);
+        };
+        document.addEventListener('click', onFirstClick, { once: true });
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const heroOpacity  = Math.max(0, 1 - scrollY / 320);

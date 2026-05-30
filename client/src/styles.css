@@ -801,3 +801,168 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 
 .gen-input::placeholder{color:var(--ink3);}
 .lc-select option{background:var(--bg1);color:var(--ink1);}
+
+/* ════════════════════════════════════════════════════════
+   FLOATING PILL NAVIGATION
+   Replaces the old .navbar / .nav-item system
+════════════════════════════════════════════════════════ */
+
+/* Keep old .navbar visible-but-hidden so nothing breaks if refs linger */
+.navbar { display: none !important; }
+
+.fnav-wrap {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 300;
+  display: flex;
+  justify-content: center;
+  /* account for iOS safe area */
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+  padding-top: 12px;
+  pointer-events: none;
+}
+
+.fnav-pill {
+  pointer-events: all;
+  background: rgba(253,250,244,0.88);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(23,18,10,0.08);
+  border-radius: 28px;
+  box-shadow:
+    0 8px 32px rgba(23,18,10,0.12),
+    0 2px 8px  rgba(23,18,10,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.7);
+  padding: 6px 8px;
+  width: min(calc(100vw - 32px), 420px);
+}
+
+.fnav-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* sliding glow indicator */
+.fnav-indicator {
+  position: absolute;
+  height: 32px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(112,72,232,0.12), rgba(59,91,219,0.10));
+  border: 1px solid rgba(112,72,232,0.18);
+  transition: left 0.32s cubic-bezier(0.34,1.56,0.64,1),
+              width 0.32s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+  top: 50%; transform: translateY(-50%);
+}
+
+.fnav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  padding: 8px 4px;
+  border-radius: 20px;
+  color: var(--ink4);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  transition: color 0.2s var(--ease), transform 0.18s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fnav-btn:active { transform: scale(0.88); }
+
+.fnav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+}
+
+.fnav-icon svg {
+  width: 20px; height: 20px;
+  transition: stroke 0.2s, transform 0.2s var(--spring);
+}
+
+.fnav-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.2s;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.fnav-btn.active {
+  color: var(--violet);
+}
+.fnav-btn.active .fnav-icon svg {
+  stroke: var(--violet);
+  transform: scale(1.1) translateY(-1px);
+  filter: drop-shadow(0 0 4px rgba(112,72,232,0.4));
+}
+.fnav-btn.active .fnav-label {
+  color: var(--violet);
+}
+
+/* Adjust dashboard bottom padding to sit above pill nav */
+.dashboard {
+  padding-bottom: 120px !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Typography & Spacing upgrades
+════════════════════════════════════════════════════════ */
+
+/* Consistent card upgrade — more breathing room */
+.studio-card,
+.card {
+  border-radius: 20px !important;
+  padding: 20px !important;
+  box-shadow: 0 2px 16px rgba(23,18,10,0.06), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+  border: 1px solid rgba(23,18,10,0.06) !important;
+}
+
+.section-title {
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase;
+  color: var(--ink3) !important;
+  margin-bottom: 14px !important;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Topbar — cleaner, bigger logo */
+.topbar {
+  padding: 16px 20px 14px !important;
+  background: rgba(247,244,238,0.92) !important;
+}
+.topbar-logo {
+  font-size: 17px !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* Modal sheets — rounder, more breathing room */
+.modal-sheet {
+  border-radius: 28px 28px 0 0 !important;
+  padding: 24px 24px 40px !important;
+}
+
+/* Buttons — rounder with more weight */
+.btn-primary {
+  border-radius: 14px !important;
+  padding: 14px 28px !important;
+  font-size: 14px !important;
+  letter-spacing: 0.02em !important;
+}
+.btn-secondary {
+  border-radius: 12px !important;
+  padding: 12px 20px !important;
+}
+
