@@ -174,6 +174,7 @@ export default function StudioPage() {
   const handleTapTempo = () => {
     const now = Date.now();
     const taps = tapTimesRef.current;
+    if (taps.length > 0 && now - taps[taps.length - 1] > 2000) taps.length = 0;
     taps.push(now);
     if (taps.length > 4) taps.shift();
     if (taps.length >= 2) {
@@ -281,11 +282,15 @@ export default function StudioPage() {
   };
 
   const handleLoadMix = (mix: SavedMix) => {
-    const ll = JSON.parse(mix.volumes || '{}');
-    const merged = Object.fromEntries(Object.entries(engine.layers).map(([n, cur]) => [n, { ...cur, ...(ll[n] || {}) }]));
-    engine.applyMix({ settings: JSON.parse(mix.settings || '{}'), layers: merged });
-    success(`Loaded: ${mix.name}`);
-    setShowLib(false);
+    try {
+      const ll = JSON.parse(mix.volumes || '{}');
+      const merged = Object.fromEntries(Object.entries(engine.layers).map(([n, cur]) => [n, { ...cur, ...(ll[n] || {}) }]));
+      engine.applyMix({ settings: JSON.parse(mix.settings || '{}'), layers: merged });
+      success(`Loaded: ${mix.name}`);
+      setShowLib(false);
+    } catch {
+      error('Failed to load mix: invalid settings data.');
+    }
   };
 
   const handleDeleteMix = async (id: string) => {
@@ -296,31 +301,6 @@ export default function StudioPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
-      <style>{`
-        @keyframes stGenPulse { 0%,100%{opacity:.7;transform:scale(1)}  50%{opacity:1;transform:scale(1.1)}  }
-        @keyframes stGenSpin  { to{transform:rotate(360deg)} }
-        @keyframes stGenSlide { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes stOrbPulse { 0%{box-shadow:0 0 0 0 var(--orb-c,rgba(112,72,232,.5))} 70%{box-shadow:0 0 0 22px rgba(0,0,0,0)} 100%{box-shadow:0 0 0 0 rgba(0,0,0,0)} }
-
-        .lc-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;outline:none;cursor:pointer;
-          background:linear-gradient(to right,var(--rc,#7048E8) var(--rp,0%),var(--bg2) var(--rp,0%));}
-        .lc-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--rc,#7048E8);box-shadow:0 0 6px var(--rc,#7048E8);cursor:pointer;}
-        .lc-range:disabled{opacity:.28;cursor:default;}
-        .lc-range-sm{height:3px;}
-        .lc-range-sm::-webkit-slider-thumb{width:10px;height:10px;}
-
-        .st-tune-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;outline:none;cursor:pointer;
-          background:linear-gradient(to right,var(--tc,#7048E8) var(--tv,0%),var(--bg2) var(--tv,0%));}
-        .st-tune-range::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--tc,#7048E8);box-shadow:0 0 8px var(--tc,rgba(112,72,232,.4));cursor:pointer;}
-
-        .st-hero-vol-range{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;outline:none;cursor:pointer;
-          background:linear-gradient(to right,var(--vc,#7048E8) var(--vp,85%),rgba(23,18,10,.12) var(--vp,85%));}
-        .st-hero-vol-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:white;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer;}
-
-        .gen-input::placeholder{color:var(--ink3);}
-        .lc-select option{background:var(--bg1);color:var(--ink1);}
-      `}</style>
-
       <div className="dashboard">
 
         {/* ══════════════════════════════════════════════════════════
