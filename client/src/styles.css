@@ -77,8 +77,8 @@ body{
 .page{min-height:100dvh;display:flex;flex-direction:column;position:relative;z-index:1;}
 
 .dashboard{
-  max-width:480px;margin:0 auto;padding:0 16px 140px;
-  display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:1;
+  max-width:480px;margin:0 auto;padding:16px 16px 140px;
+  display:flex;flex-direction:column;gap:14px;width:100%;position:relative;z-index:1;
 }
 
 .card{
