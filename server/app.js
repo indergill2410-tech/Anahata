@@ -17,6 +17,7 @@ const meditationRoutes = require('./routes/meditation');
 const libraryRoutes    = require('./routes/library');
 const profileRoutes    = require('./routes/profile');
 const mixesRoutes      = require('./routes/mixes');
+const aiRoutes         = require('./routes/ai');
 const pb               = require('./services/pbClient');
 
 const app = express();
@@ -100,6 +101,7 @@ app.use('/api/meditation', meditationRoutes);
 app.use('/api/library',    libraryRoutes);
 app.use('/api/profile',    profileRoutes);
 app.use('/api/mixes',      mixesRoutes);
+app.use('/api/ai',         aiRoutes);
 
 // ── Health check (deep) ────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {

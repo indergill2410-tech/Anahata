@@ -9,436 +9,282 @@ import {
   BINAURAL_PRESETS,
   BW_FOR_HZ,
 } from '../context/SoundEngineContext';
+import LayerChannel from '../components/LayerChannel';
+import MasterBus from '../components/MasterBus';
+import SpectrumAnalyser from '../components/SpectrumAnalyser';
+import AIMusicAssistant from '../components/AIMusicAssistant';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-const BW_COLOUR = {
-  Delta: '#818cf8', Theta: '#a78bfa', Alpha: '#34d399', Beta: '#60a5fa', Gamma: '#fbbf24',
-};
+const BW_COLOR = { Delta:'#4A7FA5', Theta:'#9B6B9A', Alpha:'#7B8B5E', Beta:'#4A7FA5', Gamma:'#D4A853' };
 
-function fmtTime(s) {
-  const m = Math.floor(s / 60);
-  return `${m}m ${String(s % 60).padStart(2,'0')}s`;
-}
-
-// ── Vertical Fader ──────────────────────────────────────────────────────────
-function Fader({ label, colour, volume, onVolume, options, value, onValue, active, onToggle }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 8, flex: 1, minWidth: 0,
-    }}>
-      {/* Active dot */}
-      <div
-        onClick={onToggle}
-        style={{
-          width: 8, height: 8, borderRadius: '50%',
-          background: active && volume > 0 ? colour : 'var(--bg-3)',
-          boxShadow: active && volume > 0 ? `0 0 8px ${colour}` : 'none',
-          cursor: 'pointer', transition: 'all 0.3s ease',
-          border: `1px solid ${active ? colour + '60' : 'var(--border)'}`,
-        }}
-      />
-
-      {/* Vertical slider */}
-      <div style={{ position: 'relative', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <input
-          type="range" min="0" max="1" step="0.02"
-          value={volume}
-          onChange={e => onVolume(parseFloat(e.target.value))}
-          className="fader-vertical"
-          style={{ '--fader-colour': colour }}
-        />
-      </div>
-
-      {/* Vol % */}
-      <span style={{ fontSize: 10, color: volume > 0 ? colour : 'var(--t3)', fontVariantNumeric: 'tabular-nums' }}>
-        {Math.round(volume * 100)}
-      </span>
-
-      {/* Option dropdown */}
-      {options && options.length > 0 && (
-        <select
-          value={value || ''}
-          onChange={e => onValue(e.target.value)}
-          style={{
-            background: 'var(--bg-2)', border: `1px solid ${active ? colour + '40' : 'var(--border)'}`,
-            color: 'var(--t2)', borderRadius: 6, padding: '3px 4px',
-            fontSize: 10, fontFamily: 'inherit', cursor: 'pointer',
-            maxWidth: '100%', textAlign: 'center',
-          }}
-        >
-          <option value="">off</option>
-          {options.map(o => (
-            <option key={o.toString()} value={o.toString()}>
-              {typeof o === 'number' ? `${o}Hz` : o}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {/* Label */}
-      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', textAlign: 'center' }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-// ── Binaural Fader (special — has hz presets) ───────────────────────────────
-function BinauralFader({ volume, onVolume, hz, carrier, onPreset }) {
-  const bw     = BW_FOR_HZ(hz);
-  const colour = BW_COLOUR[bw] || '#8b6fff';
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <div style={{
-        width: 8, height: 8, borderRadius: '50%',
-        background: volume > 0 ? colour : 'var(--bg-3)',
-        boxShadow: volume > 0 ? `0 0 8px ${colour}` : 'none',
-        border: `1px solid ${colour}60`,
-      }} />
-      <div style={{ position: 'relative', height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <input
-          type="range" min="0" max="1" step="0.02"
-          value={volume}
-          onChange={e => onVolume(parseFloat(e.target.value))}
-          className="fader-vertical"
-          style={{ '--fader-colour': colour }}
-        />
-      </div>
-      <span style={{ fontSize: 10, color: colour, fontVariantNumeric: 'tabular-nums' }}>
-        {Math.round(volume * 100)}
-      </span>
-      <select
-        value={`${hz}_${carrier}`}
-        onChange={e => {
-          const [h, c] = e.target.value.split('_').map(Number);
-          onPreset(h, c);
-        }}
-        style={{
-          background: 'var(--bg-2)', border: `1px solid ${colour}40`,
-          color: 'var(--t2)', borderRadius: 6, padding: '3px 4px',
-          fontSize: 10, fontFamily: 'inherit', cursor: 'pointer',
-          maxWidth: '100%', textAlign: 'center',
-        }}
-      >
-        {BINAURAL_PRESETS.map(p => (
-          <option key={p.label} value={`${p.hz}_${p.carrier}`}>{p.label}</option>
-        ))}
-      </select>
-      <div style={{ textAlign: 'center' }}>
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', display: 'block' }}>
-          Binaural
-        </span>
-        <span style={{ fontSize: 9, color: colour }}>{bw}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Save Mix Modal ──────────────────────────────────────────────────────────
-function SaveMixModal({ onSave, onClose }) {
-  const [name, setName] = useState('');
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 400,
-      background: 'rgba(8,8,16,0.85)', backdropFilter: 'blur(12px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-    }}>
-      <div className="card" style={{ width: '100%', maxWidth: 340, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <h2 style={{ fontSize: 16 }}>Save Mix</h2>
-        <input
-          className="form-input"
-          placeholder="Mix name (e.g. Deep Sleep)"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          autoFocus
-        />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" style={{ flex: 1, height: 40 }} onClick={onClose}>Cancel</button>
-          <button
-            className="btn btn-primary" style={{ flex: 1, height: 40 }}
-            disabled={!name.trim()}
-            onClick={() => onSave(name.trim())}
-          >Save</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main Studio Page ────────────────────────────────────────────────────────
 export default function StudioPage() {
   const engine = useSoundEngine();
-  const { isAuthenticated, authFetch } = useAuth();
-  const { success, error } = useToast();
+  const { isAuthenticated, token } = useAuth();
+  const { success, error, info }   = useToast();
+
   const [showSave,    setShowSave]    = useState(false);
+  const [showLoad,    setShowLoad]    = useState(false);
+  const [mixName,     setMixName]     = useState('');
   const [savedMixes,  setSavedMixes]  = useState([]);
-  const [showMixes,   setShowMixes]   = useState(false);
-  const [loadingMixes, setLoadingMixes] = useState(false);
+  const [saving,      setSaving]      = useState(false);
 
-  const bw     = BW_FOR_HZ(engine.settings.binaural.hz);
-  const colour = BW_COLOUR[bw] || '#8b6fff';
+  const bwColor = BW_COLOR[engine.brainwave] || 'var(--accent)';
 
-  async function saveMix(name) {
+  // ── Layer options ──────────────────────────────────────────────────────────
+  const LAYER_OPTIONS = {
+    binaural:   BINAURAL_PRESETS.map(p => p.hz),
+    drone:      DRONE_OPTIONS,
+    instrument: INSTRUMENT_OPTIONS,
+    nature:     NATURE_OPTIONS,
+    solfeggio:  SOLFEGGIO_OPTIONS,
+  };
+  const currentOption = (name) => {
+    if (name === 'binaural')   return engine.settings.binaural.hz;
+    if (name === 'solfeggio')  return engine.settings.solfeggio.hz;
+    if (name === 'drone')      return engine.settings.drone.type;
+    if (name === 'instrument') return engine.settings.instrument.type;
+    if (name === 'nature')     return engine.settings.nature.type;
+  };
+  const handleOption = (name, val) => {
+    const v = isNaN(Number(val)) ? val : Number(val);
+    if (name === 'binaural') {
+      const preset = BINAURAL_PRESETS.find(p => p.hz === v) || BINAURAL_PRESETS[1];
+      engine.updateLayerSetting('binaural', 'hz',        preset.hz);
+      engine.updateLayerSetting('binaural', 'carrierHz', preset.carrier);
+    } else if (name === 'solfeggio') {
+      engine.updateLayerSetting('solfeggio', 'hz', v);
+    } else {
+      engine.updateLayerSetting(name, 'type', v);
+    }
+  };
+
+  // ── Save mix ───────────────────────────────────────────────────────────────
+  const handleSave = async () => {
+    if (!mixName.trim()) return;
+    setSaving(true);
     try {
-      const res = await authFetch('/api/mixes', {
+      const res = await fetch('/api/mixes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, settings: engine.settings, volumes: engine.volumes }),
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` },
+        body: JSON.stringify({
+          name:     mixName.trim(),
+          settings: engine.settings,
+          layers:   Object.fromEntries(Object.entries(engine.layers).map(([k,v]) => [k, { volume:v.volume, active:v.active, reverb:v.reverb, pan:v.pan }])),
+        }),
       });
-      if (!res.ok) throw new Error('Save failed');
-      success(`"${name}" saved 🎛️`);
-      setShowSave(false);
-    } catch (e) { error(e.message); }
-  }
+      if (!res.ok) throw new Error();
+      success('Mix saved!');
+      setShowSave(false); setMixName('');
+    } catch { error('Failed to save mix.'); }
+    finally { setSaving(false); }
+  };
 
-  async function loadMixes() {
-    setLoadingMixes(true);
-    setShowMixes(true);
+  // ── Load mixes ─────────────────────────────────────────────────────────────
+  const handleOpenLoad = async () => {
     try {
-      const res  = await authFetch('/api/mixes');
+      const res = await fetch('/api/mixes', { headers: { 'Authorization':`Bearer ${token}` } });
       const data = await res.json();
       setSavedMixes(data.mixes || []);
-    } catch {}
-    setLoadingMixes(false);
-  }
+      setShowLoad(true);
+    } catch { error('Could not load mixes.'); }
+  };
 
-  async function deleteMix(id) {
-    await authFetch(`/api/mixes/${id}`, { method: 'DELETE' });
+  const handleLoadMix = (mix) => {
+    engine.applyMix({
+      settings: JSON.parse(mix.settings || '{}'),
+      layers:   JSON.parse(mix.volumes  || '{}'),
+    });
+    success(`Loaded: ${mix.name}`);
+    setShowLoad(false);
+  };
+
+  const handleDeleteMix = async (id) => {
+    await fetch(`/api/mixes/${id}`, { method:'DELETE', headers:{ 'Authorization':`Bearer ${token}` } });
     setSavedMixes(m => m.filter(x => x.id !== id));
-  }
-
-  function loadMix(mix) {
-    engine.start(mix.settings, mix.volumes);
-    setShowMixes(false);
-    success(`Loaded "${mix.name}" 🎵`);
-  }
+  };
 
   return (
-    <div className="dashboard fade-in" style={{ paddingTop: 4 }}>
-      {showSave && <SaveMixModal onSave={saveMix} onClose={() => setShowSave(false)} />}
+    <div className="dashboard">
 
-      {/* ── Header ──────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* ── Brainwave header ─────────────────────────────── */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingTop:4 }}>
         <div>
-          <h2 style={{ fontSize: 18, letterSpacing: '-0.02em' }}>Sound Studio</h2>
-          <p style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>
-            {engine.isPlaying ? `▶ Playing · ${fmtTime(engine.elapsed)}` : 'Build your perfect soundscape'}
-          </p>
+          <h2 style={{ fontFamily:'Lora, serif', fontSize:18, color:'var(--t1)', marginBottom:2 }}>Sound Studio</h2>
+          <p style={{ fontSize:11, color:'var(--t3)' }}>Mix your perfect soundscape</p>
         </div>
-        {isAuthenticated && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-ghost" style={{ height: 34, padding: '0 12px', fontSize: 12 }} onClick={loadMixes}>
-              Load
-            </button>
-            <button
-              className="btn btn-ghost" style={{ height: 34, padding: '0 12px', fontSize: 12 }}
-              onClick={() => engine.isPlaying ? setShowSave(true) : engine.start()}
-            >
-              {engine.isPlaying ? 'Save' : 'Start'}
-            </button>
-          </div>
-        )}
+        <span className="bw-chip" style={{ background:`${bwColor}12`, color:bwColor, borderColor:`${bwColor}40` }}>
+          {engine.brainwave} · {engine.settings.binaural.hz}Hz
+        </span>
       </div>
 
-      {/* ── Intention quick-pick ─────────────────────────────── */}
-      <div>
-        <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 8 }}>
-          Quick Generate
-        </p>
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
-          {Object.entries(INTENTIONS).map(([key, val]) => (
+      {/* ── AI Assistant ─────────────────────────────────── */}
+      <AIMusicAssistant onApplyMix={engine.applyMix} isPlaying={engine.isPlaying} />
+
+      {/* ── Intentions ───────────────────────────────────── */}
+      <div className="studio-card">
+        <div className="section-title">Intention</div>
+        <div className="intention-row">
+          {Object.entries(INTENTIONS).map(([key, p]) => (
             <button
               key={key}
+              className={`intention-btn ${engine.intention === key ? 'active' : ''}`}
               onClick={() => engine.applyIntention(key)}
-              style={{
-                flexShrink: 0,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                padding: '10px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                background: engine.intention === key ? `${colour}18` : 'var(--bg-2)',
-                border: `1px solid ${engine.intention === key ? colour + '50' : 'var(--border)'}`,
-                transition: 'all 0.2s ease',
-              }}
             >
-              <span style={{ fontSize: 20 }}>{val.emoji}</span>
-              <span style={{ fontSize: 11, fontWeight: 500, color: engine.intention === key ? colour : 'var(--t2)' }}>
-                {val.label}
-              </span>
+              <span>{p.emoji}</span>
+              <span>{p.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── Mixer ───────────────────────────────────────────── */}
-      <div className="card" style={{ padding: '20px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <span className="card-label">Mixer</span>
-          {engine.isPlaying ? (
-            <button
-              onClick={engine.togglePlay}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '5px 12px', borderRadius: 20,
-                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                color: 'var(--red)', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              Pause
-            </button>
-          ) : (
-            <button
-              onClick={() => engine.start()}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '5px 12px', borderRadius: 20,
-                background: 'rgba(109,74,255,0.15)', border: '1px solid rgba(109,74,255,0.4)',
-                color: colour, fontSize: 11, fontWeight: 500, cursor: 'pointer',
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              Play
-            </button>
-          )}
-        </div>
+      {/* ── Master Bus ───────────────────────────────────── */}
+      <MasterBus
+        bpm={engine.bpm}
+        chaos={engine.chaos}
+        masterVol={engine.masterVol}
+        isPlaying={engine.isPlaying}
+        ragaName={engine.ragaName}
+        onBpm={engine.setBpm}
+        onChaos={engine.setChaos}
+        onMasterVol={engine.setMasterVolume}
+        onTogglePlay={engine.togglePlay}
+      />
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          {/* Binaural */}
-          <BinauralFader
-            volume={engine.volumes.binaural}
-            onVolume={v => engine.setLayerVolume('binaural', v)}
-            hz={engine.settings.binaural.hz}
-            carrier={engine.settings.binaural.carrier}
-            onPreset={(hz, carrier) => engine.updateLayerSetting('binaural', { hz, carrier })}
-          />
-
-          {/* Drone */}
-          <Fader
-            label="Drone"
-            colour="#a78bfa"
-            volume={engine.volumes.drone}
-            onVolume={v => engine.setLayerVolume('drone', v)}
-            options={DRONE_OPTIONS}
-            value={engine.settings.drone.type}
-            onValue={type => engine.updateLayerSetting('drone', { type })}
-            active={engine.volumes.drone > 0}
-            onToggle={() => engine.setLayerVolume('drone', engine.volumes.drone > 0 ? 0 : 0.6)}
-          />
-
-          {/* Instrument */}
-          <Fader
-            label="Instrument"
-            colour="#34d399"
-            volume={engine.volumes.instrument}
-            onVolume={v => engine.setLayerVolume('instrument', v)}
-            options={INSTRUMENT_OPTIONS}
-            value={engine.settings.instrument.type}
-            onValue={type => engine.updateLayerSetting('instrument', { type })}
-            active={engine.volumes.instrument > 0}
-            onToggle={() => engine.setLayerVolume('instrument', engine.volumes.instrument > 0 ? 0 : 0.4)}
-          />
-
-          {/* Nature */}
-          <Fader
-            label="Nature"
-            colour="#60a5fa"
-            volume={engine.volumes.nature}
-            onVolume={v => engine.setLayerVolume('nature', v)}
-            options={NATURE_OPTIONS}
-            value={engine.settings.nature.type}
-            onValue={type => engine.updateLayerSetting('nature', { type })}
-            active={engine.volumes.nature > 0}
-            onToggle={() => engine.setLayerVolume('nature', engine.volumes.nature > 0 ? 0 : 0.45)}
-          />
-
-          {/* Solfeggio */}
-          <Fader
-            label="Solfeggio"
-            colour="#fbbf24"
-            volume={engine.volumes.solfeggio}
-            onVolume={v => engine.setLayerVolume('solfeggio', v)}
-            options={SOLFEGGIO_OPTIONS}
-            value={engine.settings.solfeggio.hz?.toString()}
-            onValue={hz => engine.updateLayerSetting('solfeggio', { hz: parseInt(hz) })}
-            active={engine.volumes.solfeggio > 0}
-            onToggle={() => engine.setLayerVolume('solfeggio', engine.volumes.solfeggio > 0 ? 0 : 0.3)}
-          />
-        </div>
-
-        {/* 🎧 note */}
-        <p style={{ fontSize: 10, color: 'var(--t3)', textAlign: 'center', marginTop: 14 }}>
-          🎧 Headphones required for binaural effect
-        </p>
-      </div>
-
-      {/* ── Saved Mixes ─────────────────────────────────────── */}
-      {showMixes && (
-        <div className="card">
-          <div className="card-header">
-            <span className="card-label">Saved Mixes</span>
-            <button className="btn-icon" style={{ width: 28, height: 28 }} onClick={() => setShowMixes(false)}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
-          {loadingMixes ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-              <div className="spinner" />
-            </div>
-          ) : savedMixes.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--t3)', textAlign: 'center', padding: '16px 0' }}>
-              No saved mixes yet. Build one above and save it!
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {savedMixes.map(mix => (
-                <div key={mix.id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 0', borderBottom: '1px solid var(--border)',
-                }}>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{mix.name}</p>
-                    <p style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>
-                      {BW_FOR_HZ(mix.settings?.binaural?.hz || 7)} · {mix.settings?.binaural?.hz || 7}Hz
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      onClick={() => loadMix(mix)}
-                      style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, background: 'var(--accent-low)', border: '1px solid rgba(109,74,255,0.3)', color: 'var(--accent-hi)', cursor: 'pointer' }}
-                    >Load</button>
-                    <button
-                      onClick={() => deleteMix(mix.id)}
-                      style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(239,68,68,0.25)', color: 'var(--red)', cursor: 'pointer' }}
-                    >✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* ── Spectrum analyser ────────────────────────────── */}
+      {engine.isPlaying && (
+        <div className="studio-card" style={{ padding:'12px 16px' }}>
+          <SpectrumAnalyser analyser={engine.analyser} isPlaying={engine.isPlaying} height={56} />
         </div>
       )}
 
-      {/* ── Frequency guide ──────────────────────────────────── */}
-      <div className="card">
-        <p className="card-label" style={{ marginBottom: 12 }}>Frequency Guide</p>
-        {[
-          { bw: 'Delta',  hz: '0.5–4Hz',  use: 'Deep sleep · healing · unconscious mind',  colour: '#818cf8' },
-          { bw: 'Theta',  hz: '4–8Hz',    use: 'Meditation · creativity · REM',             colour: '#a78bfa' },
-          { bw: 'Alpha',  hz: '8–14Hz',   use: 'Relaxed focus · calm alertness',            colour: '#34d399' },
-          { bw: 'Beta',   hz: '14–30Hz',  use: 'Active focus · problem solving',            colour: '#60a5fa' },
-          { bw: 'Gamma',  hz: '30–100Hz', use: 'Peak insight · spiritual states',           colour: '#fbbf24' },
-        ].map(row => (
-          <div key={row.bw} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: row.colour, width: 40, letterSpacing: '0.06em' }}>{row.bw}</span>
-            <span style={{ fontSize: 10, color: 'var(--t3)', width: 52 }}>{row.hz}</span>
-            <span style={{ fontSize: 11, color: 'var(--t2)' }}>{row.use}</span>
-          </div>
-        ))}
+      {/* ── Mixer ────────────────────────────────────────── */}
+      <div className="studio-card">
+        <div className="section-title" style={{ marginBottom:10 }}>Mixer</div>
+        <div className="mixer-grid">
+          {['binaural','drone','instrument','nature','solfeggio'].map(name => (
+            <LayerChannel
+              key={name}
+              name={name}
+              layer={engine.layers[name]}
+              options={LAYER_OPTIONS[name]}
+              currentOption={currentOption(name)}
+              onOption={v  => handleOption(name, v)}
+              onVolume={v  => engine.setLayerVolume(name, v)}
+              onPan={v     => engine.setLayerPan(name, v)}
+              onMute={()   => engine.toggleMute(name)}
+              onSolo={()   => engine.toggleSolo(name)}
+              onReverb={v  => engine.setLayerReverb(name, v)}
+              onEQ={(b, v) => engine.setLayerEQ(name, b, v)}
+              onActive={v  => engine.setLayerActive(name, v)}
+            />
+          ))}
+        </div>
       </div>
 
+      {/* ── Frequency guide ──────────────────────────────── */}
+      <div className="studio-card">
+        <div className="section-title">Frequency Guide</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:4 }}>
+          {[
+            { label:'Delta', hz:'1–4Hz', desc:'Deep sleep, restoration', color:'#4A7FA5' },
+            { label:'Theta', hz:'4–8Hz', desc:'Meditation, creativity',   color:'#9B6B9A' },
+            { label:'Alpha', hz:'8–13Hz',desc:'Calm focus, relaxation',   color:'#7B8B5E' },
+            { label:'Beta',  hz:'13–30Hz',desc:'Active thinking, energy', color:'#4A7FA5' },
+            { label:'Gamma', hz:'30+Hz', desc:'Peak cognition, insight',  color:'#D4A853' },
+          ].map(row => (
+            <div key={row.label} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 0', borderBottom:'1px solid var(--border)' }}>
+              <span className="badge" style={{ background:`${row.color}12`, color:row.color, borderColor:`${row.color}30`, minWidth:52, justifyContent:'center', fontSize:10 }}>{row.label}</span>
+              <span style={{ fontSize:11, fontWeight:600, color:'var(--t2)', width:52 }}>{row.hz}</span>
+              <span style={{ fontSize:11, color:'var(--t3)' }}>{row.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Solfeggio guide ──────────────────────────────── */}
+      <div className="studio-card">
+        <div className="section-title">Solfeggio Frequencies</div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:6 }}>
+          {[
+            {hz:174,label:'Pain relief'},{hz:285,label:'Tissue healing'},{hz:396,label:'Release fear'},
+            {hz:417,label:'Change'},{hz:528,label:'DNA repair'},{hz:639,label:'Relationships'},
+            {hz:741,label:'Intuition'},{hz:852,label:'Spiritual'},{hz:963,label:'Crown'},
+          ].map(s => (
+            <button
+              key={s.hz}
+              onClick={() => engine.updateLayerSetting('solfeggio','hz',s.hz)}
+              style={{
+                padding:'5px 10px', borderRadius:'var(--r-full)', fontSize:10, fontFamily:'inherit',
+                border:`1px solid ${engine.settings.solfeggio.hz === s.hz ? 'var(--gold)' : 'var(--border)'}`,
+                background: engine.settings.solfeggio.hz === s.hz ? 'var(--gold-low)' : '#fff',
+                color: engine.settings.solfeggio.hz === s.hz ? 'var(--gold)' : 'var(--t3)',
+                cursor:'pointer', transition:'all 0.15s',
+              }}
+            >
+              {s.hz}Hz · {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Save / Load ───────────────────────────────────── */}
+      {isAuthenticated && (
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn-secondary" style={{ flex:1 }} onClick={() => setShowSave(true)}>Save Mix</button>
+          <button className="btn-secondary" style={{ flex:1 }} onClick={handleOpenLoad}>Load Mix</button>
+        </div>
+      )}
+
+      {/* ── Save modal ───────────────────────────────────── */}
+      {showSave && (
+        <div className="modal-overlay" onClick={() => setShowSave(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <h3 style={{ fontFamily:'Lora,serif', fontSize:17, marginBottom:16 }}>Save Mix</h3>
+            <div className="form-group">
+              <label className="form-label">Mix Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Deep Sleep Sunday…"
+                value={mixName}
+                onChange={e => setMixName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSave()}
+                autoFocus
+              />
+            </div>
+            <div style={{ display:'flex', gap:8, marginTop:16 }}>
+              <button className="btn-secondary" style={{ flex:1 }} onClick={() => setShowSave(false)}>Cancel</button>
+              <button className="btn-primary"   style={{ flex:2 }} onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Load modal ────────────────────────────────────── */}
+      {showLoad && (
+        <div className="modal-overlay" onClick={() => setShowLoad(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <h3 style={{ fontFamily:'Lora,serif', fontSize:17, marginBottom:16 }}>Saved Mixes</h3>
+            {savedMixes.length === 0
+              ? <p style={{ fontSize:13, color:'var(--t3)', textAlign:'center', padding:'20px 0' }}>No saved mixes yet.</p>
+              : savedMixes.map(mix => (
+                <div key={mix.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--t1)' }}>{mix.name}</div>
+                    <div style={{ fontSize:10, color:'var(--t4)' }}>{new Date(mix.created).toLocaleDateString()}</div>
+                  </div>
+                  <button className="btn-secondary" style={{ padding:'6px 14px', fontSize:12 }} onClick={() => handleLoadMix(mix)}>Load</button>
+                  <button className="btn-ghost"     style={{ padding:'6px 10px', fontSize:12, color:'var(--red)' }} onClick={() => handleDeleteMix(mix.id)}>✕</button>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
     </div>
   );
 }

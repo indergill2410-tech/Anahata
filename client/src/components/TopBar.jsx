@@ -1,29 +1,29 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const TITLES = { dashboard: 'Anahata', library: 'Library', sessions: 'History', profile: 'Profile' };
+const TITLES = { journey: 'Anahata', studio: 'Studio', sessions: 'History', profile: 'Profile' };
 
 export default function TopBar({ tab, onSignIn }) {
   const { user } = useAuth();
   return (
     <div className="topbar">
       <span className="topbar-logo">
-        {tab === 'dashboard' ? <>Ana<span>hata</span></> : TITLES[tab]}
+        {tab === 'journey' ? <>Ana<span style={{ color: 'var(--t2)' }}>hata</span></> : TITLES[tab]}
       </span>
       {user ? (
         <span style={{
-          width:30, height:30, borderRadius:'50%',
-          background:'var(--accent-low)', border:'1px solid rgba(109,74,255,0.3)',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:11, fontWeight:600, color:'var(--accent-hi)'
+          width: 30, height: 30, borderRadius: '50%',
+          background: 'var(--accent-low)', border: '1px solid rgba(196,97,58,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 700, color: 'var(--accent)',
         }}>
           {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
         </span>
       ) : (
         <button onClick={onSignIn} style={{
-          fontSize:12, fontWeight:600, color:'var(--accent-hi)',
-          background:'var(--accent-low)', border:'1px solid rgba(109,74,255,0.3)',
-          borderRadius:20, padding:'5px 14px', cursor:'pointer'
+          fontSize: 12, fontWeight: 600, color: 'var(--accent)',
+          background: 'var(--accent-low)', border: '1px solid rgba(196,97,58,0.25)',
+          borderRadius: 20, padding: '5px 14px', cursor: 'pointer', fontFamily: 'inherit',
         }}>
           Sign In
         </button>
