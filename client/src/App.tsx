@@ -6,15 +6,18 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AntiGravityCanvas from './components/AntiGravityCanvas';
 import AIMixDialog from './components/AIMixDialog';
 import AuthPage from './pages/AuthPage';
+import LandingPage from './pages/LandingPage';
 import OnboardingPage from './pages/OnboardingPage';
 import JourneyPage from './pages/JourneyPage';
+import LibraryPage from './pages/LibraryPage';
 import StudioPage from './pages/StudioPage';
 import SessionsPage from './pages/SessionsPage';
 import ProfilePage from './pages/ProfilePage';
+import JournalPage from './pages/JournalPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 
-type Tab = 'journey' | 'studio' | 'sessions' | 'profile';
+type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
 
 function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
   const label = tab === 'profile' ? 'your profile' : 'your session history';
@@ -52,6 +55,7 @@ function Inner() {
   const engine = useSoundEngine();
   const [tab,      setTab]      = useState<Tab>('journey');
   const [prevTab,  setPrevTab]  = useState<Tab>('journey');
+  const [seenLanding, setSeenLanding] = useState(!!localStorage.getItem('anahata_landing'));
   const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
   const [showAuth, setShowAuth] = useState(false);
   const [showAI,   setShowAI]   = useState(false);
@@ -62,8 +66,8 @@ function Inner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-deep)', flexDirection:'column', gap:16 }}>
-        <div style={{ fontFamily:'Orbitron,sans-serif', fontSize:22, fontWeight:900, color:'var(--neon-red)', letterSpacing:'0.16em', textShadow:'0 0 24px rgba(232,48,58,0.5)' }}>
+      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)', flexDirection:'column', gap:16 }}>
+        <div style={{ fontFamily:"'Space Grotesk', sans-serif", fontSize:22, fontWeight:700, color:'var(--blue)', letterSpacing:'0.14em' }}>
           ANAHATA
         </div>
         <div className="spinner" style={{ width:24, height:24 }} />
@@ -71,16 +75,20 @@ function Inner() {
     );
   }
 
+  if (!seenLanding) return (
+    <LandingPage onEnter={() => { localStorage.setItem('anahata_landing', '1'); setSeenLanding(true); }} />
+  );
   if (showAuth && !isAuthenticated) return <AuthPage onBack={() => setShowAuth(false)} />;
   if (isAuthenticated && !onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
 
-  const PROTECTED: Tab[] = ['sessions', 'profile'];
+  const PROTECTED: Tab[] = ['profile'];
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
 
-  const PAGES: Record<Tab, React.ComponentType> = {
-    journey: JourneyPage, studio: StudioPage, sessions: SessionsPage, profile: ProfilePage,
+  const PAGES: Record<Tab, React.ComponentType<Record<string, unknown>>> = {
+    journey: JourneyPage, library: LibraryPage, studio: StudioPage, journal: JournalPage, profile: ProfilePage,
   };
   const Page = PAGES[tab];
+  const pageProps: Record<string, unknown> = tab === 'library' ? { onTabChange: handleTabChange } : {};
 
   return (
     <>
@@ -92,7 +100,7 @@ function Inner() {
           <div key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
             {needsAuth
               ? <AuthPrompt onSignIn={() => setShowAuth(true)} tab={tab} />
-              : <Page />
+              : <Page {...pageProps} />
             }
           </div>
         </ErrorBoundary>

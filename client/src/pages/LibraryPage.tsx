@@ -1,183 +1,230 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import TrackCard from '../components/TrackCard';
-import TrackPlayer from '../components/TrackPlayer';
+import React, { useState } from 'react';
+import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
+import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 
-interface Track { id: string; title: string; brainwave?: string; binauralHz?: number; duration?: number; instruments: string[]; }
-interface Category { name: string; count: number; }
+const MOOD_TO_ORB: Record<string, OrbId> = {
+  Sleep: 'int-sleep', Focus: 'int-focus', Healing: 'int-heal',
+  Dream: 'int-dream', Energy: 'int-energy', Relax: 'int-peace', Peace: 'int-peace',
+};
 
-const CATEGORIES_ORDER = [
-  'All',
-  'Binaural + Indian Fusion',
-  'Theta Waves',
-  'Alpha Waves',
-  'Delta Waves',
-  'Beta Waves',
-  'Gamma Waves',
-  'Indian Classical',
-  'Solfeggio Frequencies',
+interface Track {
+  id: string;
+  title: string;
+  mood: string;
+  duration: string;
+  bw: string;
+  hz: number;
+  desc: string;
+  color: string;
+}
+
+const TRACKS: Track[] = [
+  { id:'1',  title:'Deep Delta Sleep',   mood:'Sleep',   duration:'28 min', bw:'Delta', hz:2,  desc:'Slow ocean waves + 432Hz drone',        color:'#3B5BDB' },
+  { id:'2',  title:'Theta Dreamweave',   mood:'Dream',   duration:'22 min', bw:'Theta', hz:6,  desc:'Crystal bowls + binaural Theta',         color:'#7048E8' },
+  { id:'3',  title:'Alpha Flow State',   mood:'Focus',   duration:'18 min', bw:'Alpha', hz:10, desc:'Forest ambience + Alpha entrainment',     color:'#0CA678' },
+  { id:'4',  title:'Morning Clarity',    mood:'Energy',  duration:'15 min', bw:'Beta',  hz:14, desc:'Tibetan bells + Beta activation',         color:'#F59F00' },
+  { id:'5',  title:'Deep Heal 432Hz',    mood:'Healing', duration:'30 min', bw:'Theta', hz:7,  desc:'Solfeggio 528Hz + deep drone',            color:'#E64980' },
+  { id:'6',  title:'Yaman Evening Raga', mood:'Relax',   duration:'25 min', bw:'Alpha', hz:9,  desc:'Raga Yaman + sine harmonics',             color:'#7048E8' },
+  { id:'7',  title:'Gamma Peak Focus',   mood:'Focus',   duration:'20 min', bw:'Gamma', hz:40, desc:'High Gamma + rhythmic pulses',            color:'#F59F00' },
+  { id:'8',  title:'Bhairavi Dawn',      mood:'Peace',   duration:'27 min', bw:'Delta', hz:3,  desc:'Raga Bhairavi + 174Hz foundation',        color:'#3B5BDB' },
+  { id:'9',  title:'Ocean Theta',        mood:'Dream',   duration:'24 min', bw:'Theta', hz:5,  desc:'Deep ocean + 396Hz liberation',           color:'#0CA678' },
+  { id:'10', title:'Forest Alpha Bath',  mood:'Relax',   duration:'19 min', bw:'Alpha', hz:11, desc:'Rain forest + binaural healing',          color:'#7048E8' },
+  { id:'11', title:'Darbari Night',      mood:'Sleep',   duration:'32 min', bw:'Delta', hz:1,  desc:'Raga Darbari + 396Hz + Delta',            color:'#3B5BDB' },
 ];
 
-const SORT_OPTIONS = [
-  { value: 'title',    label: 'A–Z' },
-  { value: 'duration', label: 'Longest' },
-  { value: 'binaural', label: 'Hz ↑' },
-  { value: 'bpm',      label: 'BPM ↑' },
-];
+const MOODS = ['All', 'Sleep', 'Dream', 'Focus', 'Energy', 'Healing', 'Relax', 'Peace'];
 
-export default function LibraryPage() {
-  const [tracks, setTracks]       = useState<Track[]>([]);
-  const [total, setTotal]         = useState(0);
-  const [loading, setLoading]     = useState(true);
-  const [category, setCategory]   = useState('All');
-  const [sort, setSort]           = useState('title');
-  const [search, setSearch]       = useState('');
-  const [page, setPage]           = useState(1);
-  const [pages, setPages]         = useState(1);
-  const [playing, setPlaying]     = useState<Track | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+const BW_TO_INTENTION: Record<string, string> = {
+  Delta: 'sleep', Theta: 'meditate', Alpha: 'focus', Beta: 'energize', Gamma: 'focus',
+};
 
-  // Fetch category counts once
-  useEffect(() => {
-    fetch('/api/library/categories')
-      .then(r => r.json())
-      .then(d => setCategories(d.categories || []))
-      .catch(() => {});
-  }, []);
+interface LibraryPageProps {
+  onTabChange?: (tab: 'journey' | 'library' | 'studio' | 'journal' | 'profile') => void;
+}
 
-  const fetchTracks = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ sort, page: String(page), limit: '18' });
-    if (category !== 'All') params.set('category', category);
-    if (search.trim()) params.set('search', search.trim());
+export default function LibraryPage({ onTabChange }: LibraryPageProps) {
+  const engine = useSoundEngine();
+  const [filter, setFilter] = useState('All');
 
-    fetch(`/api/library?${params}`)
-      .then(r => r.json())
-      .then(d => {
-        setTracks(d.tracks || []);
-        setTotal(d.pagination?.total || 0);
-        setPages(d.pagination?.pages || 1);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [category, sort, search, page]);
+  const filtered = filter === 'All' ? TRACKS : TRACKS.filter(t => t.mood === filter);
+  const featured = filtered[0];
+  const rest = filtered.slice(1);
 
-  useEffect(() => { fetchTracks(); }, [fetchTracks]);
-
-  // Reset page when filters change
-  useEffect(() => { setPage(1); }, [category, sort, search]);
-
-  function fmtDur(secs?: number) {
-    if (!secs) return '';
-    const m = Math.floor(secs / 60);
-    const h = Math.floor(m / 60);
-    return h > 0 ? `${h}h ${m % 60}m` : `${m}m`;
+  function playTrack(track: Track) {
+    const intention = BW_TO_INTENTION[track.bw] || 'meditate';
+    const preset = (INTENTIONS as Record<string, typeof INTENTIONS[keyof typeof INTENTIONS]>)[intention];
+    engine.applyMix({
+      intention,
+      settings: {
+        binaural:   { hz: track.hz, carrierHz: preset?.carrierHz || 200 },
+        drone:      { type: preset?.drone || 'tanpura' },
+        instrument: { type: preset?.instrument || 'bansuri' },
+        nature:     { type: preset?.nature || 'rain' },
+        solfeggio:  { hz: preset?.solfeggio || 528 },
+      },
+      layers: {
+        binaural:   { active: true,              volume: 0.7, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.10 },
+        drone:      { active: !!preset?.drone,   volume: 0.5, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.20 },
+        instrument: { active: !!preset?.instrument, volume: 0.4, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.30 },
+        nature:     { active: !!preset?.nature,  volume: 0.5, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.15 },
+        solfeggio:  { active: true,              volume: 0.3, pan: 0, mute: false, solo: false, eq: { bass:0, mid:0, treble:0 }, reverb: 0.40 },
+      },
+    });
+    engine.start();
+    onTabChange?.('journey');
   }
 
   return (
-    <div className="dashboard fade-in">
-
-      {/* Search */}
-      <div style={{ position: 'relative', marginTop: 8 }}>
-        <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'var(--t3)', pointerEvents:'none' }}
-          width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          className="form-input"
-          style={{ paddingLeft: 36 }}
-          placeholder="Search tracks, ragas, instruments…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+    <div className="dashboard fade-in" style={{ paddingTop: 8 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 4 }}>
+        <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, color: 'var(--ink1)', margin: 0, letterSpacing: '-0.01em' }}>
+          Library
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--ink3)', margin: '2px 0 0' }}>11 curated journeys</p>
       </div>
 
-      {/* Category Filter Pills */}
-      <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none' }}>
-        {CATEGORIES_ORDER.map(cat => {
-          const count = cat === 'All' ? total : (categories.find(c => c.name === cat)?.count || 0);
-          return (
+      {/* Mood filter chips */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+        {MOODS.map(mood => (
+          <button
+            key={mood}
+            onClick={() => setFilter(mood)}
+            style={{
+              flexShrink: 0,
+              height: 32,
+              padding: '0 14px',
+              borderRadius: 'var(--rf)',
+              border: `1px solid ${filter === mood ? 'rgba(112,72,232,0.4)' : 'var(--border)'}`,
+              background: filter === mood ? 'var(--violet)' : 'var(--bg1)',
+              color: filter === mood ? '#fff' : 'var(--ink2)',
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              transition: 'all var(--dur) var(--ease)',
+              whiteSpace: 'nowrap',
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            {mood}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink3)', fontSize: 13 }}>
+          No tracks found.
+        </div>
+      )}
+
+      {/* Featured card */}
+      {featured && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex' }}>
+            {/* Color strip */}
+            <div style={{ width: 6, background: featured.color, flexShrink: 0 }} />
+            <div style={{ flex: 1, padding: '16px 16px 16px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <AnahataOrb id={MOOD_TO_ORB[featured.mood] || 'int-peace'} size={36} />
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: featured.color, fontFamily: "'JetBrains Mono', monospace",
+                    }}>
+                      {featured.bw} · {featured.hz}Hz
+                    </span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 'var(--rf)',
+                      background: `${featured.color}15`, color: featured.color, border: `1px solid ${featured.color}30`,
+                    }}>
+                      {featured.mood}
+                    </span>
+                  </div>
+                  <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 700, color: 'var(--ink1)', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
+                    {featured.title}
+                  </h2>
+                  <p style={{ fontSize: 12, color: 'var(--ink3)', margin: '0 0 12px' }}>{featured.desc}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={() => playTrack(featured)}
+                      style={{
+                        background: featured.color, color: '#fff', border: 'none',
+                        borderRadius: 'var(--rf)', padding: '8px 20px',
+                        fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+                        cursor: 'pointer', boxShadow: `0 4px 14px ${featured.color}40`,
+                        transition: 'all var(--dur)',
+                      }}
+                    >
+                      ▶ Play
+                    </button>
+                    <span style={{
+                      fontSize: 11, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace",
+                      background: 'var(--bg2)', padding: '4px 10px', borderRadius: 'var(--rf)',
+                      border: '1px solid var(--border)',
+                    }}>
+                      {featured.duration}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Track list */}
+      {rest.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {rest.map(track => (
             <button
-              key={cat}
-              onClick={() => setCategory(cat)}
+              key={track.id}
+              onClick={() => playTrack(track)}
               style={{
-                flexShrink: 0,
-                height: 30,
-                padding: '0 12px',
-                borderRadius: 'var(--r-full)',
-                border: `1px solid ${category === cat ? 'var(--accent)' : 'var(--border)'}`,
-                background: category === cat ? 'var(--accent-low)' : 'transparent',
-                color: category === cat ? 'var(--accent-hi)' : 'var(--t3)',
-                fontSize: 12,
-                fontWeight: 500,
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                transition: 'all var(--dur) var(--ease)',
-                whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 14px', background: 'var(--bg1)',
+                border: '1px solid var(--border)', borderRadius: 'var(--r)',
+                boxShadow: 'var(--shadow)', cursor: 'pointer',
+                textAlign: 'left', width: '100%', fontFamily: 'inherit',
+                transition: 'all var(--dur)',
               }}
             >
-              {cat} {count > 0 && <span style={{ opacity:0.6 }}>({count})</span>}
+              {/* Mood orb */}
+              <AnahataOrb id={MOOD_TO_ORB[track.mood] || 'int-peace'} size={28} />
+
+              {/* Title + desc */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink1)', lineHeight: 1.3, marginBottom: 2 }}>
+                  {track.title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{track.desc}</div>
+              </div>
+
+              {/* Mood tag */}
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--rf)',
+                background: `${track.color}12`, color: track.color, border: `1px solid ${track.color}25`,
+                flexShrink: 0, letterSpacing: '0.06em', textTransform: 'uppercase',
+              }}>
+                {track.mood}
+              </span>
+
+              {/* Duration */}
+              <span style={{
+                fontSize: 10, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace",
+                flexShrink: 0,
+              }}>
+                {track.duration}
+              </span>
+
+              {/* Chevron */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink4)" strokeWidth="2" strokeLinecap="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
             </button>
-          );
-        })}
-      </div>
-
-      {/* Sort + Count Row */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <span className="text-subtle" style={{ fontSize:12 }}>
-          {loading ? 'Loading…' : `${total} tracks`}
-        </span>
-        <div style={{ display:'flex', gap:4 }}>
-          {SORT_OPTIONS.map(o => (
-            <button key={o.value} onClick={() => setSort(o.value)} style={{
-              height:28, padding:'0 10px', borderRadius:'var(--r-sm)',
-              border: `1px solid ${sort===o.value ? 'var(--accent)':'var(--border)'}`,
-              background: sort===o.value ? 'var(--accent-low)' : 'transparent',
-              color: sort===o.value ? 'var(--accent-hi)' : 'var(--t3)',
-              fontSize:11, fontWeight:500, fontFamily:'inherit', cursor:'pointer',
-              transition:'all var(--dur) var(--ease)'
-            }}>{o.label}</button>
           ))}
         </div>
-      </div>
-
-      {/* Track Grid */}
-      {loading ? (
-        <div style={{ display:'flex', justifyContent:'center', padding:'40px 0' }}>
-          <div className="spinner" style={{ width:24, height:24 }} />
-        </div>
-      ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {tracks.map(track => (
-            <TrackCard
-              key={track.id}
-              track={track}
-              isPlaying={playing?.id === track.id}
-              onPlay={() => setPlaying(playing?.id === track.id ? null : track)}
-              fmtDur={fmtDur}
-            />
-          ))}
-          {tracks.length === 0 && (
-            <div style={{ textAlign:'center', padding:'40px 0', color:'var(--t3)', fontSize:13 }}>
-              No tracks found.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {pages > 1 && (
-        <div style={{ display:'flex', gap:6, justifyContent:'center', paddingBottom:8 }}>
-          <button className="btn-secondary" style={{ padding:'8px 16px', fontSize:13 }}
-            disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
-          <span style={{ fontSize:12, color:'var(--t3)', alignSelf:'center' }}>{page} / {pages}</span>
-          <button className="btn-secondary" style={{ padding:'8px 16px', fontSize:13 }}
-            disabled={page === pages} onClick={() => setPage(p => p + 1)}>Next →</button>
-        </div>
-      )}
-
-      {/* TrackPlayer */}
-      {playing && (
-        <TrackPlayer track={{ ...playing, id: playing.id }} onClose={() => setPlaying(null)} />
       )}
     </div>
   );
