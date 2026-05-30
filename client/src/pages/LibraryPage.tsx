@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
 import { useSoundEngine } from '../context/SoundEngineContext';
+import AnahataOrb, { OrbId } from '../components/AnahataOrb';
+
+const MOOD_TO_ORB: Record<string, OrbId> = {
+  Sleep: 'int-sleep', Focus: 'int-focus', Healing: 'int-heal',
+  Dream: 'int-dream', Energy: 'int-energy', Relax: 'int-peace', Peace: 'int-peace',
+};
 
 interface Track {
   id: string;
@@ -100,6 +106,7 @@ export default function LibraryPage() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <AnahataOrb id={MOOD_TO_ORB[featured.mood] || 'int-peace'} size={36} />
                     <span style={{
                       fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                       color: featured.color, fontFamily: "'JetBrains Mono', monospace",
@@ -161,8 +168,8 @@ export default function LibraryPage() {
                 transition: 'all var(--dur)',
               }}
             >
-              {/* Color dot */}
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: track.color, flexShrink: 0 }} />
+              {/* Mood orb */}
+              <AnahataOrb id={MOOD_TO_ORB[track.mood] || 'int-peace'} size={28} />
 
               {/* Title + desc */}
               <div style={{ flex: 1, minWidth: 0 }}>

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AnahataOrb from '../components/AnahataOrb';
 
 interface LandingPageProps { onEnter: () => void; }
 
@@ -24,10 +25,10 @@ const PILLARS = [
 ];
 
 const STATS = [
-  { value: '11', label: 'Curated Journeys' },
-  { value: '432', label: 'Hz Foundation Tuning' },
-  { value: '3000', label: 'Years of Raga Wisdom' },
-  { value: '∞', label: 'Adaptive Permutations' },
+  { value: '11',   label: 'Curated Journeys',     orbId: 'int-peace'     as const },
+  { value: '432',  label: 'Hz Foundation Tuning', orbId: 'bw-alpha'      as const },
+  { value: '3000', label: 'Years of Raga Wisdom', orbId: 'el-ether'      as const },
+  { value: '∞',    label: 'Adaptive Permutations',orbId: 'mood-blissful' as const },
 ];
 
 const DIFFERENCES = [
@@ -376,12 +377,15 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
               border: '1px solid rgba(23,18,10,0.07)',
               boxShadow: '0 2px 12px rgba(23,18,10,0.06)',
             }}>
-              <div style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 36, fontWeight: 700,
-                color: '#7048E8', lineHeight: 1,
-              }}>{s.value}</div>
-              <div style={{ fontSize: 11, color: '#8C7D6C', marginTop: 6, fontWeight: 600, letterSpacing: '0.06em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+                <AnahataOrb id={s.orbId} size={28} />
+                <div style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: 36, fontWeight: 700,
+                  color: '#7048E8', lineHeight: 1,
+                }}>{s.value}</div>
+              </div>
+              <div style={{ fontSize: 11, color: '#8C7D6C', marginTop: 2, fontWeight: 600, letterSpacing: '0.06em' }}>
                 {s.label}
               </div>
             </div>

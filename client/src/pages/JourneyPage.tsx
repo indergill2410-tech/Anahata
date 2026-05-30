@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import OrbVisualizer from '../components/OrbVisualizer';
+import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 import BreathingGuide from '../components/BreathingGuide';
 import NowPlayingBar from '../components/NowPlayingBar';
 import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
@@ -91,8 +92,9 @@ export default function JourneyPage() {
 
       {/* Header status row */}
       <div style={{ marginTop:20, marginBottom:4, display:'flex', alignItems:'center', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-        <span className="bw-chip" style={{ fontSize:11 }}>
-          ◈ {engine.brainwave} · {engine.settings.binaural.hz}Hz
+        <span className="bw-chip" style={{ fontSize:11, display:'flex', alignItems:'center', gap:5 }}>
+          <AnahataOrb id={({ Delta:'bw-delta', Theta:'bw-theta', Alpha:'bw-alpha', Beta:'bw-beta', Gamma:'bw-gamma' } as Record<string,OrbId>)[engine.brainwave] || 'bw-alpha'} size={20} style={{ verticalAlign:'middle' }} />
+          {engine.brainwave} · {engine.settings.binaural.hz}Hz
         </span>
         {engine.isPlaying && (
           <span style={{

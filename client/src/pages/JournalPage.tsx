@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface JournalEntry {
@@ -17,11 +18,11 @@ type JournalStore = Record<string, JournalEntry>;
 const STORAGE_KEY = 'anahata_journal';
 
 const MOOD_CONFIG = [
-  { value: 1, emoji: '😔', label: 'Rough',   color: '#E64980' },
-  { value: 2, emoji: '😐', label: 'Okay',    color: '#F59F00' },
-  { value: 3, emoji: '🙂', label: 'Good',    color: '#0CA678' },
-  { value: 4, emoji: '😊', label: 'Great',   color: '#3B5BDB' },
-  { value: 5, emoji: '🤩', label: 'Blissful',color: '#7048E8' },
+  { value: 1, emoji: '😔', label: 'Rough',   color: '#E64980', orbId: 'mood-rough'    as OrbId },
+  { value: 2, emoji: '😐', label: 'Okay',    color: '#F59F00', orbId: 'mood-okay'     as OrbId },
+  { value: 3, emoji: '🙂', label: 'Good',    color: '#0CA678', orbId: 'mood-good'     as OrbId },
+  { value: 4, emoji: '😊', label: 'Great',   color: '#3B5BDB', orbId: 'mood-great'    as OrbId },
+  { value: 5, emoji: '🤩', label: 'Blissful',color: '#7048E8', orbId: 'mood-blissful' as OrbId },
 ];
 
 const PRESET_TAGS = ['calm','focused','grateful','restless','anxious','peaceful','energised','creative','tired','inspired'];
@@ -274,14 +275,14 @@ function EntryPanel({ dateKey, entry, onSave }: EntryPanelProps) {
                     style={{
                       flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4,
                       padding:'10px 4px', border:'none', borderRadius:12, cursor:'pointer',
-                      background: mood === m.value ? m.color : 'rgba(23,18,10,0.04)',
+                      background: mood === m.value ? m.color + '22' : 'rgba(23,18,10,0.04)',
                       transition:'all 0.15s ease',
                     }}
                   >
-                    <span style={{ fontSize:22 }}>{m.emoji}</span>
+                    <AnahataOrb id={m.orbId} size={52} selected={mood === m.value} onClick={() => setMood(m.value)} />
                     <span style={{
                       fontSize:10, fontWeight:600,
-                      color: mood === m.value ? '#FFFFFF' : '#8C7D6C',
+                      color: mood === m.value ? m.color : '#8C7D6C',
                       fontFamily:"'Plus Jakarta Sans', sans-serif",
                     }}>
                       {m.label}
@@ -377,7 +378,7 @@ function EntryPanel({ dateKey, entry, onSave }: EntryPanelProps) {
                   display:'flex', alignItems:'center', gap:8, padding:'8px 16px',
                   borderRadius:24, background: MOOD_CONFIG[entry.mood-1].color + '18',
                 }}>
-                  <span style={{ fontSize:20 }}>{MOOD_CONFIG[entry.mood-1].emoji}</span>
+                  <AnahataOrb id={MOOD_CONFIG[entry.mood-1].orbId} size={28} />
                   <span style={{ fontFamily:"'Plus Jakarta Sans', sans-serif", fontSize:13, fontWeight:600,
                     color: MOOD_CONFIG[entry.mood-1].color }}>
                     {MOOD_CONFIG[entry.mood-1].label}
@@ -606,7 +607,7 @@ export default function JournalPage() {
                           color:'#17120A' }}>
                           {formatDateLabel(entry.date).split(',').slice(0,2).join(',')}
                         </span>
-                        <span style={{ fontSize:14 }}>{moodCfg.emoji}</span>
+                        <AnahataOrb id={moodCfg.orbId} size={20} />
                       </div>
                       {preview && (
                         <p style={{ margin:'0 0 6px', fontSize:12, color:'#8C7D6C', lineHeight:1.5 }}>
