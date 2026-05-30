@@ -1,7 +1,7 @@
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 (async () => {
   const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
     args: ['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']
   });
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
