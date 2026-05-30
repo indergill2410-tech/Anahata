@@ -79,7 +79,13 @@ export default function StudioPage() {
     // Animate for at least 2s so it feels deliberate
     await new Promise(r => setTimeout(r, 2000));
 
-    engine.applyMix(mix);
+    const mergedLayers = Object.fromEntries(
+      Object.entries(engine.layers).map(([name, currentLayer]) => [
+        name,
+        { ...currentLayer, ...((mix.layers as Record<string, any>)?.[name] || {}) }
+      ])
+    );
+    engine.applyMix({ ...mix, layers: mergedLayers });
     setGenDone(true);
     await new Promise(r => setTimeout(r, 600));
     engine.start();
