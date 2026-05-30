@@ -62,8 +62,17 @@ function Inner() {
 
   React.useEffect(() => { if (isAuthenticated) setShowAuth(false); }, [isAuthenticated]);
 
-  // Sync browser history with tab state so the native back button works
+  const isPopState = React.useRef(false);
+
   React.useEffect(() => {
+    window.history.replaceState({ tab }, '', window.location.pathname);
+  }, []);
+
+  React.useEffect(() => {
+    if (isPopState.current) {
+      isPopState.current = false;
+      return;
+    }
     window.history.pushState({ tab }, '', window.location.pathname);
   }, [tab]);
 
@@ -71,16 +80,14 @@ function Inner() {
     const onPop = (e: PopStateEvent) => {
       const prev = (e.state as { tab?: Tab } | null)?.tab;
       if (prev && prev !== tab) {
+        isPopState.current = true;
         setPrevTab(tab);
         setTab(prev);
-      } else {
-        handleBack();
-        window.history.pushState({ tab }, '', window.location.pathname);
       }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  });
+  }, [tab]);
 
   const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
   const handleBack = () => { setTab(prevTab === tab ? 'journey' : prevTab); setPrevTab('journey'); };
