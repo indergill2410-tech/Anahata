@@ -68,7 +68,7 @@ export default function StudioPage() {
       const res = await fetch('/api/ai/mix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: `Generate a ${preset.label} meditation soundscape` }),
+        body: JSON.stringify({ prompt: preset.key === 'custom' ? preset.desc : `Generate a ${preset.label} meditation soundscape` }),
       });
       if (res.ok) {
         const data = await res.json();
