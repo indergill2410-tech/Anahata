@@ -75,7 +75,7 @@ export default function LibraryPage({ onTabChange }: LibraryPageProps) {
   }
 
   return (
-    <div className="dashboard fade-in" style={{ paddingTop: 8 }}>
+    <div className="dashboard fade-in">
       {/* Header */}
       <div style={{ marginBottom: 4 }}>
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, color: 'var(--ink1)', margin: 0, letterSpacing: '-0.01em' }}>
