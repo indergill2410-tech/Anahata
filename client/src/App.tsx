@@ -63,7 +63,7 @@ function Inner() {
   React.useEffect(() => { if (isAuthenticated) setShowAuth(false); }, [isAuthenticated]);
 
   const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
-  const handleBack = () => { setTab(prevTab); setPrevTab('journey'); };
+  const handleBack = () => { setTab(prevTab === tab ? 'journey' : prevTab); setPrevTab('journey'); };
 
   if (loading) {
     return (
