@@ -153,7 +153,14 @@ export default function StudioPage() {
   };
 
   const handleLoadMix = (mix: SavedMix) => {
-    engine.applyMix({ settings: JSON.parse(mix.settings || '{}'), layers: JSON.parse(mix.volumes || '{}') });
+    const loadedLayers = JSON.parse(mix.volumes || "{}");
+    const mergedLayers = Object.fromEntries(
+      Object.entries(engine.layers).map(([name, currentLayer]) => [
+        name,
+        { ...currentLayer, ...(loadedLayers[name] || {}) }
+      ])
+    );
+    engine.applyMix({ settings: JSON.parse(mix.settings || "{}"), layers: mergedLayers });
     success(`Loaded: ${mix.name}`);
     setShowLoad(false);
   };
