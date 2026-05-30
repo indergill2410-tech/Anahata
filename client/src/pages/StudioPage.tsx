@@ -146,7 +146,7 @@ function StudioOrb({ color, isPlaying, brainwave, hz }: { color: string; isPlayi
         const py = cy + Math.sin(p.angle) * (p.r + wobble);
         const alpha = (0.18 + 0.2 * Math.sin(t * 2 + p.phase)) * (isPlaying ? 1.4 : 0.6);
         const pgrd = ctx.createRadialGradient(px, py, 0, px, py, p.size * 2);
-        pgrd.addColorStop(0, `${color}${Math.round(Math.min(alpha, 1) * 255).toString(16).padStart(2,'0')}`);
+        pgrd.addColorStop(0, `${color}${Math.round(Math.max(0, Math.min(alpha, 1)) * 255).toString(16).padStart(2,'0')}`);
         pgrd.addColorStop(1, `${color}00`);
         ctx.beginPath(); ctx.arc(px, py, p.size * 2, 0, Math.PI * 2);
         ctx.fillStyle = pgrd; ctx.fill();
