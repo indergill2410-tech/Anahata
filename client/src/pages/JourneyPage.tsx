@@ -9,11 +9,11 @@ import { useSimulator } from '../hooks/useSimulator';
 import { useToast } from '../context/ToastContext';
 
 const BW_COLOR: Record<string, string> = {
-  Delta:'#1E90FF', Theta:'#A855F7', Alpha:'#00D68F', Beta:'#1E90FF', Gamma:'#FFB800',
+  Delta:'#3B5BDB', Theta:'#7048E8', Alpha:'#0CA678', Beta:'#3B5BDB', Gamma:'#F59F00',
 };
 const BW_GLOW: Record<string, string> = {
-  Delta:'rgba(30,144,255,0.35)', Theta:'rgba(168,85,247,0.35)',
-  Alpha:'rgba(0,214,143,0.35)', Beta:'rgba(30,144,255,0.35)', Gamma:'rgba(255,184,0,0.35)',
+  Delta:'rgba(59,91,219,0.08)', Theta:'rgba(112,72,232,0.08)',
+  Alpha:'rgba(12,166,120,0.08)', Beta:'rgba(59,91,219,0.08)', Gamma:'rgba(245,159,0,0.08)',
 };
 
 function fmtElapsed(s: number): string {
@@ -91,17 +91,14 @@ export default function JourneyPage() {
 
       {/* Header status row */}
       <div style={{ marginTop:20, marginBottom:4, display:'flex', alignItems:'center', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-        <span className="bw-chip" style={{
-          color:bwColor, borderColor:`${bwColor}50`, background:`${bwColor}12`,
-          fontSize:11, boxShadow:`0 0 12px ${bwColor}30`,
-        }}>
+        <span className="bw-chip" style={{ fontSize:11 }}>
           ◈ {engine.brainwave} · {engine.settings.binaural.hz}Hz
         </span>
         {engine.isPlaying && (
           <span style={{
-            fontSize:12, color:'var(--t2)', fontFamily:'JetBrains Mono,monospace',
-            background:'rgba(255,255,255,0.04)', padding:'3px 10px', borderRadius:20,
-            border:'1px solid rgba(255,255,255,0.08)',
+            fontSize:12, color:'var(--ink2)', fontFamily:'JetBrains Mono,monospace',
+            background:'var(--bg1)', padding:'3px 10px', borderRadius:20,
+            border:'1px solid var(--border)',
           }}>
             {fmtElapsed(engine.elapsed)}
           </span>
@@ -117,7 +114,7 @@ export default function JourneyPage() {
       <div ref={orbRef} onClick={handleOrbTap}
         style={{
           position:'relative', marginTop:12, cursor:'pointer', userSelect:'none',
-          filter: engine.isPlaying ? `drop-shadow(0 0 40px ${bwGlow}) drop-shadow(0 0 80px ${bwGlow})` : 'none',
+          filter: engine.isPlaying ? `drop-shadow(0 8px 40px rgba(112,72,232,0.18))` : 'none',
           transition:'filter 0.8s ease',
         }}
       >
@@ -137,12 +134,12 @@ export default function JourneyPage() {
           <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
             <div style={{
               width:62, height:62, borderRadius:'50%',
-              background:'rgba(232,48,58,0.12)', backdropFilter:'blur(12px)',
+              background:'rgba(59,91,219,0.1)', backdropFilter:'blur(12px)',
               display:'flex', alignItems:'center', justifyContent:'center',
-              border:'1.5px solid rgba(232,48,58,0.5)',
-              boxShadow:'0 0 32px rgba(232,48,58,0.4),0 0 64px rgba(232,48,58,0.15)',
+              border:'1.5px solid rgba(59,91,219,0.4)',
+              boxShadow:'0 0 20px rgba(59,91,219,0.2)',
             }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--neon-red)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--blue)">
                 <path d="M8 5v14l11-7z"/>
               </svg>
             </div>
@@ -155,7 +152,6 @@ export default function JourneyPage() {
         <p style={{
           fontSize:11, color:bwColor, marginTop:12, fontWeight:700,
           letterSpacing:'0.12em', textTransform:'uppercase',
-          textShadow:`0 0 12px ${bwColor}60`,
         }}>
           ✦ {(INTENTIONS as Record<string, { label: string }>)[engine.intention]?.label} SESSION
         </p>
@@ -168,12 +164,12 @@ export default function JourneyPage() {
             <button key={key} onClick={() => engine.applyIntention(key)}
               style={{
                 padding:'8px 16px', borderRadius:'var(--r-full)', fontSize:11, fontFamily:'inherit',
-                border:`1px solid ${engine.intention===key ? bwColor+'80' : 'rgba(255,255,255,0.08)'}`,
-                background: engine.intention===key ? `${bwColor}15` : 'rgba(255,255,255,0.02)',
-                color: engine.intention===key ? bwColor : 'var(--t3)',
+                border:`1px solid ${engine.intention===key ? 'rgba(112,72,232,0.4)' : 'var(--border)'}`,
+                background: engine.intention===key ? 'var(--violet)' : 'var(--bg1)',
+                color: engine.intention===key ? '#fff' : 'var(--ink2)',
                 cursor:'pointer', transition:'all 0.2s var(--spring)', fontWeight:700,
-                letterSpacing:'0.04em', backdropFilter:'blur(8px)',
-                boxShadow: engine.intention===key ? `0 0 16px ${bwColor}30` : 'none',
+                letterSpacing:'0.04em',
+                boxShadow: engine.intention===key ? '0 4px 16px rgba(112,72,232,0.3)' : 'var(--shadow)',
               }}
             >
               {p.emoji} {p.label}
@@ -193,18 +189,17 @@ export default function JourneyPage() {
           style={{
             display:'flex', alignItems:'center', gap:7, padding:'8px 16px',
             borderRadius:22, fontFamily:'inherit', cursor:'pointer',
-            border:`1px solid ${ble.status==='connected' ? 'rgba(0,214,143,0.4)' : 'rgba(255,255,255,0.08)'}`,
-            background: ble.status==='connected' ? 'rgba(0,214,143,0.06)' : 'rgba(255,255,255,0.02)',
-            color: ble.status==='connected' ? 'var(--neon-green)' : 'var(--t3)',
-            fontSize:11, fontWeight:700, backdropFilter:'blur(12px)',
+            border:`1px solid ${ble.status==='connected' ? 'rgba(12,166,120,0.4)' : 'var(--border)'}`,
+            background: ble.status==='connected' ? 'rgba(12,166,120,0.06)' : 'var(--bg1)',
+            color: ble.status==='connected' ? 'var(--teal)' : 'var(--ink3)',
+            fontSize:11, fontWeight:700,
             letterSpacing:'0.05em',
-            boxShadow: ble.status==='connected' ? '0 0 16px rgba(0,214,143,0.2)' : 'none',
+            boxShadow: 'var(--shadow)',
           }}
         >
           <span style={{
             width:7, height:7, borderRadius:'50%',
-            background: ble.status==='connected' ? 'var(--neon-green)' : ble.status==='connecting' ? 'var(--neon-gold)' : 'rgba(255,255,255,0.15)',
-            boxShadow: ble.status==='connected' ? '0 0 8px rgba(0,214,143,0.8)' : 'none',
+            background: ble.status==='connected' ? 'var(--teal)' : ble.status==='connecting' ? 'var(--amber)' : 'var(--ink4)',
           }} />
           {ble.status==='connected' ? `${ble.heartRate||'–'} BPM` : ble.status==='connecting' ? 'Connecting…' : '♡ Heart Rate'}
         </button>
@@ -213,11 +208,11 @@ export default function JourneyPage() {
         <button onClick={toggleDemo}
           style={{
             padding:'8px 16px', borderRadius:22, fontFamily:'inherit', cursor:'pointer',
-            border:`1px solid ${demoMode ? 'rgba(255,184,0,0.4)' : 'rgba(255,255,255,0.08)'}`,
-            background: demoMode ? 'rgba(255,184,0,0.08)' : 'rgba(255,255,255,0.02)',
-            color: demoMode ? 'var(--neon-gold)' : 'var(--t3)',
-            fontSize:11, fontWeight:700, letterSpacing:'0.05em', backdropFilter:'blur(12px)',
-            boxShadow: demoMode ? '0 0 16px rgba(255,184,0,0.2)' : 'none',
+            border:`1px solid ${demoMode ? 'rgba(245,159,0,0.4)' : 'var(--border)'}`,
+            background: demoMode ? 'rgba(245,159,0,0.08)' : 'var(--bg1)',
+            color: demoMode ? 'var(--amber)' : 'var(--ink3)',
+            fontSize:11, fontWeight:700, letterSpacing:'0.05em',
+            boxShadow: 'var(--shadow)',
           }}
         >
           {demoMode ? '⚡ DEMO ON' : 'DEMO'}
@@ -227,12 +222,11 @@ export default function JourneyPage() {
         <div style={{
           fontSize:10, display:'flex', alignItems:'center', gap:5, fontWeight:700,
           letterSpacing:'0.06em',
-          color: ws.status==='connected' ? 'var(--neon-green)' : 'rgba(255,255,255,0.2)',
+          color: ws.status==='connected' ? 'var(--teal)' : 'var(--ink3)',
         }}>
           <span style={{
             width:5, height:5, borderRadius:'50%',
-            background: ws.status==='connected' ? 'var(--neon-green)' : 'rgba(255,255,255,0.15)',
-            boxShadow: ws.status==='connected' ? '0 0 6px rgba(0,214,143,0.8)' : 'none',
+            background: ws.status==='connected' ? 'var(--teal)' : 'var(--ink4)',
           }} />
           {ws.status.toUpperCase()}
         </div>

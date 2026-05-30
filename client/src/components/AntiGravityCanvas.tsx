@@ -37,7 +37,7 @@ export default function AntiGravityCanvas({ brainwave = 'Theta', isPlaying = fal
     resize();
     window.addEventListener('resize', resize);
 
-    const COUNT = 140;
+    const COUNT = 90;
 
     stateRef.current.particles = Array.from({ length: COUNT }, () => {
       const h = BW_HUE[brainwave] ?? 270;
@@ -47,7 +47,7 @@ export default function AntiGravityCanvas({ brainwave = 'Theta', isPlaying = fal
         vx:          (Math.random() - 0.5) * 0.5,
         vy:          (Math.random() - 0.5) * 0.5,
         radius:      0.8 + Math.random() * 2.2,
-        baseOpacity: 0.3 + Math.random() * 0.5,
+        baseOpacity: 0.15 + Math.random() * 0.20,
         hue:         h,
         hueOffset:   (Math.random() - 0.5) * 40,
         pulse:       Math.random() * Math.PI * 2,
@@ -100,14 +100,14 @@ export default function AntiGravityCanvas({ brainwave = 'Theta', isPlaying = fal
           p.vy += (Math.random() - 0.5) * 0.06;
         }
 
-        // Pulsing opacity
-        const pulseOpacity = p.baseOpacity + (isPlaying ? 0.2 : 0.05) * Math.sin(t * 2.5 + p.pulse);
+        // Pulsing opacity — soft pastels on light bg
+        const pulseOpacity = Math.min(0.35, p.baseOpacity + (isPlaying ? 0.08 : 0.02) * Math.sin(t * 2.5 + p.pulse));
 
         // Draw with radial glow
         const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 3);
-        grd.addColorStop(0, `hsla(${p.hue},90%,72%,${pulseOpacity})`);
-        grd.addColorStop(0.4, `hsla(${p.hue},80%,65%,${pulseOpacity * 0.5})`);
-        grd.addColorStop(1, `hsla(${p.hue},70%,60%,0)`);
+        grd.addColorStop(0, `hsla(${p.hue},55%,72%,${pulseOpacity})`);
+        grd.addColorStop(0.4, `hsla(${p.hue},50%,70%,${pulseOpacity * 0.5})`);
+        grd.addColorStop(1, `hsla(${p.hue},45%,68%,0)`);
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius * 3, 0, Math.PI * 2);
         ctx.fillStyle = grd;
@@ -122,11 +122,11 @@ export default function AntiGravityCanvas({ brainwave = 'Theta', isPlaying = fal
           const d  = dx * dx + dy * dy;
           if (d < 120 * 120) {
             const dist = Math.sqrt(d);
-            const alpha = (1 - dist / 120) * (isPlaying ? 0.22 : 0.1);
+            const alpha = (1 - dist / 120) * (isPlaying ? 0.12 : 0.06);
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2},75%,65%,${alpha})`;
+            ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2},50%,65%,${alpha})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
