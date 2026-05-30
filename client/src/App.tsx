@@ -63,6 +63,7 @@ function Inner() {
   React.useEffect(() => { if (isAuthenticated) setShowAuth(false); }, [isAuthenticated]);
 
   const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
+  const handleBack = () => { setTab(prevTab); setPrevTab('journey'); };
 
   if (loading) {
     return (
@@ -95,7 +96,7 @@ function Inner() {
       <AntiGravityCanvas brainwave={engine.brainwave} isPlaying={engine.isPlaying} bpm={engine.bpm} />
 
       <div className="page">
-        <TopBar tab={tab} onSignIn={() => setShowAuth(true)} />
+        <TopBar tab={tab} onSignIn={() => setShowAuth(true)} onBack={tab !== 'journey' ? handleBack : undefined} />
         <ErrorBoundary>
           <div key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
             {needsAuth
