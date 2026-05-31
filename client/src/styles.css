@@ -1927,3 +1927,19 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.5; transform: scale(1.4); }
 }
+
+/* Orbital animations — wrapper rotates, inner counter-rotates to stay upright */
+@keyframes lib-orbit-cw   { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
+@keyframes lib-orbit-ccw  { from { transform: rotate(0deg);    } to { transform: rotate(-360deg); } }
+@keyframes lib-counter-cw { from { transform: translateX(-50%) rotate(0deg);    } to { transform: translateX(-50%) rotate(-360deg); } }
+@keyframes lib-counter-ccw{ from { transform: translateX(-50%) rotate(0deg);    } to { transform: translateX(-50%) rotate(360deg);  } }
+
+@keyframes lib-orb-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+  50%       { transform: scale(1.04); }
+}
+
+@keyframes lib-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
