@@ -222,7 +222,7 @@ export default function LibraryPage() {
     setElapsed(targetSec);
     setProgress(pct);
     stopTimer();
-    if (isPlaying) startTimer(dur - targetSec);
+    if (isPlaying) startTimer();
   }
 
   function handleVolume(v: number) {
