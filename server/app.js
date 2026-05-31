@@ -33,11 +33,13 @@ app.use(helmet({
   contentSecurityPolicy: isProd ? {
     directives: {
       defaultSrc:  ["'self'"],
-      scriptSrc:   ["'self'"],
-      styleSrc:    ["'self'", "'unsafe-inline'"],
+      scriptSrc:   ["'self'", 'https://www.youtube.com', 'https://s.ytimg.com'],
+      frameSrc:    ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
+      styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:     ["'self'", 'https://fonts.gstatic.com'],
       mediaSrc:    ["'self'", 'blob:', 'https:'],
       connectSrc:  ["'self'", 'wss:', 'https:'],
-      imgSrc:      ["'self'", 'data:', 'blob:']
+      imgSrc:      ["'self'", 'data:', 'blob:', 'https://i.ytimg.com']
     }
   } : false
 }));
