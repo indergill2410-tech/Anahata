@@ -125,41 +125,52 @@ async function downloadAndUpload(track, index) {
   const fileSize = fs.statSync(tmpFile).size;
   const PART_SIZE = 10 * 1024 * 1024; // 10MB per part
 
-  if (fileSize > PART_SIZE) {
-    // Multipart upload for large files
-    const { UploadId } = await R2.send(new CreateMultipartUploadCommand({
-      Bucket: BUCKET, Key: key, ContentType: 'audio/mpeg',
-      Metadata: { title: track.title.replace(/[^\x00-\x7F]/g, ''), artist: track.artist.replace(/[^\x00-\x7F]/g, '') },
-    }));
-    const parts = [];
-    const fd = fs.openSync(tmpFile, 'r');
-    let partNumber = 1;
-    for (let offset = 0; offset < fileSize; offset += PART_SIZE) {
-      const length = Math.min(PART_SIZE, fileSize - offset);
-      const buf = Buffer.alloc(length);
-      fs.readSync(fd, buf, 0, length, offset);
-      const { ETag } = await R2.send(new UploadPartCommand({
-        Bucket: BUCKET, Key: key, UploadId, PartNumber: partNumber, Body: buf,
+  try {
+    if (fileSize > PART_SIZE) {
+      const { UploadId } = await R2.send(new CreateMultipartUploadCommand({
+        Bucket: BUCKET, Key: key, ContentType: 'audio/mpeg',
+        Metadata: { title: track.title.replace(/[^\x00-\x7F]/g, ''), artist: track.artist.replace(/[^\x00-\x7F]/g, '') },
       }));
-      parts.push({ PartNumber: partNumber, ETag });
-      process.stdout.write(`       Part ${partNumber} done\r`);
-      partNumber++;
+      const parts = [];
+      const fd = fs.openSync(tmpFile, 'r');
+      let partNumber = 1;
+      try {
+        for (let offset = 0; offset < fileSize; offset += PART_SIZE) {
+          const length = Math.min(PART_SIZE, fileSize - offset);
+          const buf = Buffer.alloc(length);
+          fs.readSync(fd, buf, 0, length, offset);
+          const { ETag } = await R2.send(new UploadPartCommand({
+            Bucket: BUCKET, Key: key, UploadId, PartNumber: partNumber, Body: buf,
+          }));
+          parts.push({ PartNumber: partNumber, ETag });
+          process.stdout.write(`       Part ${partNumber} done\r`);
+          partNumber++;
+        }
+      } catch (uploadError) {
+        await R2.send(new AbortMultipartUploadCommand({ Bucket: BUCKET, Key: key, UploadId }));
+        throw uploadError;
+      } finally {
+        fs.closeSync(fd);
+      }
+      await R2.send(new CompleteMultipartUploadCommand({
+        Bucket: BUCKET, Key: key, UploadId,
+        MultipartUpload: { Parts: parts },
+      }));
+      console.log(`       All ${parts.length} parts uploaded`);
+    } else {
+      const body = fs.readFileSync(tmpFile);
+      await R2.send(new PutObjectCommand({
+        Bucket: BUCKET, Key: key, Body: body, ContentType: 'audio/mpeg',
+        Metadata: { title: track.title.replace(/[^\x00-\x7F]/g, ''), artist: track.artist.replace(/[^\x00-\x7F]/g, '') },
+      }));
     }
-    fs.closeSync(fd);
-    await R2.send(new CompleteMultipartUploadCommand({
-      Bucket: BUCKET, Key: key, UploadId,
-      MultipartUpload: { Parts: parts },
-    }));
-    console.log(`       All ${parts.length} parts uploaded`);
-  } else {
-    const body = fs.readFileSync(tmpFile);
-    await R2.send(new PutObjectCommand({
-      Bucket: BUCKET, Key: key, Body: body, ContentType: 'audio/mpeg',
-      Metadata: { title: track.title.replace(/[^\x00-\x7F]/g, ''), artist: track.artist.replace(/[^\x00-\x7F]/g, '') },
-    }));
+  } catch (uploadError) {
+    console.error(`       FAILED upload: ${uploadError.message}`);
+    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+    return null;
+  } finally {
+    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
   }
-
-  fs.unlinkSync(tmpFile);
   const url = `${PUBLIC_URL}/${key}`;
   console.log(`       DONE  -> ${url}`);
   return url;
