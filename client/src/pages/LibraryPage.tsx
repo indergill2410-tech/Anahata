@@ -17,12 +17,17 @@ function formatSecs(s: number): string {
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
-// postMessage YT commands (works once iframe has loaded with enablejsapi=1)
-function ytCmd(iframe: HTMLIFrameElement | null, func: string, args: unknown[] = []) {
-  iframe?.contentWindow?.postMessage(
-    JSON.stringify({ event: 'command', func, args }),
-    '*'
-  );
+// ─── YouTube IFrame API types ────────────────────────────────────────────────
+declare global {
+  interface Window {
+    YT: { Player: new (el: HTMLElement, opts: object) => YTPlayer; PlayerState: Record<string, number> };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+interface YTPlayer {
+  playVideo(): void; pauseVideo(): void; stopVideo(): void; destroy(): void;
+  seekTo(s: number, a: boolean): void; setVolume(v: number): void;
+  unMute(): void; getCurrentTime(): number; getDuration(): number;
 }
 
 // ─── AlbumOrb canvas ─────────────────────────────────────────────────────────
@@ -108,24 +113,39 @@ export default function LibraryPage() {
   const [volume,       setVolume]       = useState(80);
   const [loading,      setLoading]      = useState(false);
 
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const queueRef  = useRef<Track[]>([]);
-  const elapsedRef = useRef(0);       // mirror for timer closure
-  const durationRef = useRef(0);      // current track duration in seconds
-  const repeatRef = useRef(repeat);
-  const shuffleRef = useRef(shuffle);
-  const volumeRef = useRef(volume);
-  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  repeatRef.current = repeat;
-  shuffleRef.current = shuffle;
-  volumeRef.current = volume;
+  const ytRef            = useRef<YTPlayer | null>(null);
+  const ytDivRef         = useRef<HTMLDivElement>(null);
+  const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const createTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queueRef         = useRef<Track[]>([]);
+  const elapsedRef       = useRef(0);
+  const durationRef      = useRef(0);
+  const activeIdRef      = useRef('');
+  const currentTrackRef  = useRef<Track | null>(null);
+  const currentAlbumRef  = useRef<Album | null>(null);
+  const repeatRef        = useRef(repeat);
+  const shuffleRef       = useRef(shuffle);
+  const volumeRef        = useRef(volume);
+  currentTrackRef.current  = currentTrack;
+  currentAlbumRef.current  = currentAlbum;
+  repeatRef.current        = repeat;
+  shuffleRef.current       = shuffle;
+  volumeRef.current        = volume;
 
   const filteredAlbums = getAlbumsByCategory(category);
 
-  useEffect(() => () => {
-    stopTimer();
-    timeoutsRef.current.forEach(clearTimeout);
+  // Load YT IFrame API once — script is safe to add multiple times
+  useEffect(() => {
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+      const s = document.createElement('script');
+      s.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
+    return () => {
+      stopTimer();
+      if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
+      try { ytRef.current?.destroy(); } catch { /**/ }
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function stopTimer() {
@@ -142,48 +162,77 @@ export default function LibraryPage() {
       if (elapsedRef.current >= dur && dur > 0) {
         stopTimer();
         setIsPlaying(false);
-        if (repeatRef.current) { restartCurrent(); }
-        else { playNext(); }
+        if (repeatRef.current) restartCurrent();
+        else playNext();
       }
     }, 1000);
   }
 
   function restartCurrent() {
-    if (!currentTrack || !currentAlbum) return;
-    triggerPlay(currentTrack, currentAlbum, queueRef.current);
+    const t = currentTrackRef.current; const a = currentAlbumRef.current;
+    if (!t || !a) return;
+    triggerPlay(t, a, queueRef.current);
   }
 
   const triggerPlay = useCallback((track: Track, album: Album, queue: Track[]) => {
     setCurrentTrack(track);
     setCurrentAlbum(album);
     queueRef.current = queue;
-    setIsPlaying(true);
+    setIsPlaying(false);
     setLoading(true);
     setProgress(0);
     setElapsed(0);
     elapsedRef.current = 0;
-    const dur = parseDuration(track.duration);
-    durationRef.current = dur;
+    durationRef.current = parseDuration(track.duration);
+    activeIdRef.current = track.id;
 
-    // Clear any pending unMute retries from previous track
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.src = `https://www.youtube.com/embed/${track.ytId}?autoplay=1&playsinline=1&enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=0`;
-      iframe.onload = () => {
-        setLoading(false);
-        startTimer();
-        // YT enablejsapi initialises async — retry unMute+setVolume until it sticks
-        timeoutsRef.current = [300, 700, 1200, 2000].map(delay =>
-          setTimeout(() => {
-            ytCmd(iframeRef.current, 'unMute', []);
-            ytCmd(iframeRef.current, 'setVolume', [volumeRef.current]);
-          }, delay)
-        );
-      };
+    stopTimer();
+    if (createTimeoutRef.current) {
+      clearTimeout(createTimeoutRef.current);
+      createTimeoutRef.current = null;
     }
+    try { ytRef.current?.destroy(); } catch { /**/ }
+    ytRef.current = null;
+
+    const container = ytDivRef.current;
+    if (!container) return;
+    container.innerHTML = '';
+    const div = document.createElement('div');
+    container.appendChild(div);
+
+    function tryCreate() {
+      if (activeIdRef.current !== track.id) return; // newer tap superseded this one
+      if (!window.YT?.Player) { createTimeoutRef.current = setTimeout(tryCreate, 200); return; }
+
+      ytRef.current = new window.YT.Player(div, {
+        videoId: track.ytId,
+        width: '100%', height: '100%',
+        playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: (e: { target: YTPlayer }) => {
+            if (activeIdRef.current !== track.id) return;
+            // unMute + setVolume in onReady is the ONLY reliable way to get audio
+            e.target.unMute();
+            e.target.setVolume(volumeRef.current);
+            e.target.playVideo();
+          },
+          onStateChange: (e: { data: number }) => {
+            const S = window.YT?.PlayerState;
+            if (!S) return;
+            if (e.data === S.PLAYING)  { setIsPlaying(true);  setLoading(false); if (!timerRef.current) startTimer(); }
+            if (e.data === S.PAUSED)   { setIsPlaying(false); stopTimer(); }
+            if (e.data === S.BUFFERING){ setLoading(true); }
+            if (e.data === S.ENDED)    {
+              setIsPlaying(false); stopTimer();
+              if (repeatRef.current) { ytRef.current?.seekTo(0, true); ytRef.current?.playVideo(); }
+              else playNext();
+            }
+          },
+          onError: () => { setLoading(false); setIsPlaying(false); },
+        },
+      });
+    }
+    tryCreate();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function playTrack(track: Track, album: Album, queue?: Track[]) {
@@ -191,51 +240,46 @@ export default function LibraryPage() {
   }
 
   function togglePlay() {
-    if (!currentTrack) return;
-    if (isPlaying) {
-      ytCmd(iframeRef.current, 'pauseVideo');
-      stopTimer();
-      setIsPlaying(false);
-    } else {
-      ytCmd(iframeRef.current, 'playVideo');
-      startTimer();
-      setIsPlaying(true);
-    }
+    if (!ytRef.current) return;
+    isPlaying ? ytRef.current.pauseVideo() : ytRef.current.playVideo();
   }
 
   function playNext() {
     const q = queueRef.current;
-    if (!currentTrack || !currentAlbum || q.length === 0) return;
-    const idx = q.findIndex(t => t.id === currentTrack.id);
+    const track = currentTrackRef.current;
+    const album = currentAlbumRef.current;
+    if (!track || !album || q.length === 0) return;
+    const idx = q.findIndex(t => t.id === track.id);
     if (shuffleRef.current) {
-      triggerPlay(q[Math.floor(Math.random() * q.length)], currentAlbum, q);
+      triggerPlay(q[Math.floor(Math.random() * q.length)], album, q);
     } else if (idx < q.length - 1) {
-      triggerPlay(q[idx + 1], currentAlbum, q);
+      triggerPlay(q[idx + 1], album, q);
     }
   }
 
   function playPrev() {
     const q = queueRef.current;
-    if (!currentTrack || !currentAlbum || q.length === 0) return;
-    if (elapsedRef.current > 3) { restartCurrent(); return; }
-    const idx = q.findIndex(t => t.id === currentTrack.id);
-    if (idx > 0) triggerPlay(q[idx - 1], currentAlbum, q);
+    const curTrack = currentTrackRef.current;
+    const curAlbum = currentAlbumRef.current;
+    if (!curTrack || !curAlbum || q.length === 0) return;
+    const cur = ytRef.current?.getCurrentTime() ?? elapsedRef.current;
+    if (cur > 3) { ytRef.current?.seekTo(0, true); return; }
+    const idx = q.findIndex(t => t.id === curTrack.id);
+    if (idx > 0) triggerPlay(q[idx - 1], curAlbum, q);
   }
 
   function handleSeek(pct: number) {
-    const dur = durationRef.current;
-    const targetSec = Math.floor(dur * pct);
-    ytCmd(iframeRef.current, 'seekTo', [targetSec, true]);
-    elapsedRef.current = targetSec;
-    setElapsed(targetSec);
+    const dur = ytRef.current?.getDuration() ?? durationRef.current;
+    const target = Math.floor(dur * pct);
+    ytRef.current?.seekTo(target, true);
+    elapsedRef.current = target;
+    setElapsed(target);
     setProgress(pct);
-    stopTimer();
-    if (isPlaying) startTimer();
   }
 
   function handleVolume(v: number) {
     setVolume(v);
-    ytCmd(iframeRef.current, 'setVolume', [v]);
+    ytRef.current?.setVolume(v);
   }
 
   function handleShuffle(album: Album) {
@@ -244,22 +288,15 @@ export default function LibraryPage() {
     setShuffle(true);
   }
 
-  // Always-mounted hidden iframe for background audio
-  const hiddenIframe = (
-    <iframe
-      key="yt-audio-iframe"
-      ref={iframeRef}
-      title="yt-audio"
-      allow="autoplay; encrypted-media; fullscreen"
-      allowFullScreen
-      style={{ position: 'fixed', bottom: 0, left: 0, width: 1, height: 1, border: 'none', opacity: 0.01, pointerEvents: 'none', zIndex: -1 }}
-    />
+  // Always-mounted hidden div keeps YT player alive across React view changes
+  const ytHost = (
+    <div ref={ytDivRef} style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, zIndex: -1 }} />
   );
 
   // ─── ALBUM GRID ─────────────────────────────────────────────────────────────
   if (!openAlbum) return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0D0720 0%, #0D1547 100%)', paddingBottom: currentTrack ? 180 : 100 }}>
-      {hiddenIframe}
+      {ytHost}
 
       {/* Header */}
       <div style={{ padding: '56px 20px 20px' }}>
@@ -320,7 +357,7 @@ export default function LibraryPage() {
   const album = openAlbum;
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0D0720 0%, #0D1547 100%)', paddingBottom: currentTrack ? 180 : 100 }}>
-      {hiddenIframe}
+      {ytHost}
 
       {/* Ambient background for album color */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse at 50% 0%, ${album.color}20 0%, transparent 60%)`, zIndex: 0 }} />
