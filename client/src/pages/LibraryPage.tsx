@@ -240,6 +240,7 @@ export default function LibraryPage() {
   // Always-mounted hidden iframe for background audio
   const hiddenIframe = (
     <iframe
+      key="yt-audio-iframe"
       ref={iframeRef}
       title="yt-audio"
       allow="autoplay; encrypted-media"
