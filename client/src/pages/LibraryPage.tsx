@@ -136,7 +136,11 @@ export default function LibraryPage() {
       s.src = 'https://www.youtube.com/iframe_api';
       document.head.appendChild(s);
     }
-    return () => { stopTimer(); try { ytRef.current?.destroy(); } catch { /**/ } };
+    return () => {
+      stopTimer();
+      if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
+      try { ytRef.current?.destroy(); } catch { /**/ }
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function stopTimer() {
