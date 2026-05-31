@@ -115,8 +115,10 @@ export default function LibraryPage() {
   const durationRef = useRef(0);      // current track duration in seconds
   const repeatRef = useRef(repeat);
   const shuffleRef = useRef(shuffle);
+  const volumeRef = useRef(volume);
   repeatRef.current = repeat;
   shuffleRef.current = shuffle;
+  volumeRef.current = volume;
 
   const filteredAlbums = getAlbumsByCategory(category);
 
@@ -162,12 +164,17 @@ export default function LibraryPage() {
     // Change iframe src — autoplay=1 fires because user just tapped
     const iframe = iframeRef.current;
     if (iframe) {
-      iframe.src = `https://www.youtube.com/embed/${track.ytId}?autoplay=1&playsinline=1&enablejsapi=1&controls=0&rel=0&modestbranding=1`;
+      iframe.src = `https://www.youtube.com/embed/${track.ytId}?autoplay=1&playsinline=1&enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=0&volume=100`;
       iframe.onload = () => {
         setLoading(false);
-        // set initial volume via postMessage after load
-        setTimeout(() => ytCmd(iframe, 'setVolume', [volume]), 800);
         startTimer();
+        // Retry unMute + setVolume — YT iframe API initialises async after load
+        [300, 700, 1200, 2000].forEach(delay =>
+          setTimeout(() => {
+            ytCmd(iframe, 'unMute', []);
+            ytCmd(iframe, 'setVolume', [volumeRef.current]);
+          }, delay)
+        );
       };
     }
   }, [volume]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -236,8 +243,9 @@ export default function LibraryPage() {
       key="yt-audio-iframe"
       ref={iframeRef}
       title="yt-audio"
-      allow="autoplay; encrypted-media"
-      style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, border: 'none', opacity: 0, pointerEvents: 'none' }}
+      allow="autoplay; encrypted-media; fullscreen"
+      allowFullScreen
+      style={{ position: 'fixed', bottom: 0, left: 0, width: 1, height: 1, border: 'none', opacity: 0.01, pointerEvents: 'none', zIndex: -1 }}
     />
   );
 
