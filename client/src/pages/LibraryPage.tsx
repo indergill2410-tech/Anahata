@@ -123,7 +123,10 @@ export default function LibraryPage() {
 
   const filteredAlbums = getAlbumsByCategory(category);
 
-  useEffect(() => () => { stopTimer(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    stopTimer();
+    timeoutsRef.current.forEach(clearTimeout);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function stopTimer() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -162,23 +165,26 @@ export default function LibraryPage() {
     const dur = parseDuration(track.duration);
     durationRef.current = dur;
 
-    // Change iframe src — autoplay=1 fires because user just tapped
+    // Clear any pending unMute retries from previous track
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+
     const iframe = iframeRef.current;
     if (iframe) {
-      iframe.src = `https://www.youtube.com/embed/${track.ytId}?autoplay=1&playsinline=1&enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=0&volume=100`;
+      iframe.src = `https://www.youtube.com/embed/${track.ytId}?autoplay=1&playsinline=1&enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=0`;
       iframe.onload = () => {
         setLoading(false);
         startTimer();
-        // Retry unMute + setVolume — YT iframe API initialises async after load
-        [300, 700, 1200, 2000].forEach(delay =>
+        // YT enablejsapi initialises async — retry unMute+setVolume until it sticks
+        timeoutsRef.current = [300, 700, 1200, 2000].map(delay =>
           setTimeout(() => {
-            ytCmd(iframe, 'unMute', []);
-            ytCmd(iframe, 'setVolume', [volumeRef.current]);
+            ytCmd(iframeRef.current, 'unMute', []);
+            ytCmd(iframeRef.current, 'setVolume', [volumeRef.current]);
           }, delay)
         );
       };
     }
-  }, [volume]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function playTrack(track: Track, album: Album, queue?: Track[]) {
     triggerPlay(track, album, queue ?? album.tracks);
