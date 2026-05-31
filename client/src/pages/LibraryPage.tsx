@@ -153,7 +153,8 @@ export default function LibraryPage() {
   const [volume,       setVolume]       = useState(80);
   const [loading,      setLoading]      = useState(false);
   const [ytError,      setYtError]      = useState<string | null>(null);
-  const [iframeMode,   setIframeMode]   = useState(false); // fallback when YT API unavailable
+  const [iframeMode,   setIframeMode]   = useState(false);
+  const embedSkipCount = useRef(0); // guard against looping when whole album blocks embedding
 
   const ytRef            = useRef<YTPlayer | null>(null);
   const ytDivRef         = useRef<HTMLDivElement>(null);
@@ -226,6 +227,7 @@ export default function LibraryPage() {
     activeIdRef.current = track.id;
     setYtError(null);
     setIframeMode(false);
+    embedSkipCount.current = 0;
 
     stopTimer();
     if (createTimeoutRef.current) {
@@ -293,14 +295,26 @@ export default function LibraryPage() {
           onError: (e: { data: number }) => {
             setLoading(false); setIsPlaying(false);
             const code = e.data;
+            console.error('[YT] error code:', code);
+            // Auto-skip unembeddable videos (101/150) — try next track silently
+            if (code === 101 || code === 150) {
+              embedSkipCount.current += 1;
+              if (embedSkipCount.current >= 5) {
+                // Whole album seems blocked — fall back to iframe
+                setIframeMode(true);
+                setIsPlaying(true);
+                startTimer();
+              } else {
+                playNext();
+              }
+              return;
+            }
             const msg =
               code === 2   ? 'Invalid video ID.' :
               code === 5   ? 'HTML5 player error.' :
               code === 100 ? 'Video not found or private.' :
-              (code === 101 || code === 150) ? 'This video cannot be embedded. Try another track.' :
               `Playback error (code ${code}).`;
             setYtError(msg);
-            console.error('[YT] error code:', code, msg);
           },
         },
       });
