@@ -120,24 +120,18 @@ export default function LibraryPage() {
 
   const filteredAlbums = getAlbumsByCategory(category);
 
-  useEffect(() => () => { stopTimer(); }, []);
-
-  function stopTimer() {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-  }
-
-  function startTimer(dur: number) {
+  function startTimer() {
     stopTimer();
-    elapsedRef.current = 0;
     timerRef.current = setInterval(() => {
       elapsedRef.current += 1;
+      const dur = durationRef.current;
       if (dur > 0) setProgress(elapsedRef.current / dur);
       setElapsed(elapsedRef.current);
       if (elapsedRef.current >= dur && dur > 0) {
         stopTimer();
         setIsPlaying(false);
-        if (repeat) { restartCurrent(); }
-        else { advanceQueue(); }
+        if (repeatRef.current) { restartCurrent(); }
+        else { playNext(); }
       }
     }, 1000);
   }
