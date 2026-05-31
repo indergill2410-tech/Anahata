@@ -178,11 +178,7 @@ export default function LibraryPage() {
   const outerRing = ALBUMS.slice(6, 12);
 
   useEffect(() => {
-    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
-      const s = document.createElement('script');
-      s.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(s);
-    }
+    // YouTube IFrame API loaded via index.html <script> tag
     return () => {
       stopTimer();
       if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
