@@ -662,7 +662,6 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
     ytError: string | null;
     onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
-
   const totalSec  = parseDuration(track.duration);
   const remaining = Math.max(0, totalSec - elapsed);
 
@@ -681,8 +680,12 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
 
         {/* Error banner */}
         {ytError && (
-          <div style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', fontSize: 11, color: '#DC2626', fontWeight: 600 }}>
-            ⚠ {ytError}
+          <div style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
+            <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', textDecoration: 'none', whiteSpace: 'nowrap', padding: '2px 8px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, flexShrink: 0 }}>
+              Open YT ↗
+            </a>
           </div>
         )}
 
@@ -773,8 +776,12 @@ function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volum
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em', marginBottom: 4 }}>{track.title}</div>
           <div style={{ fontSize: 14, color: T.ink3 }}>{track.artist}</div>
           {ytError && (
-            <div style={{ marginTop: 10, padding: '8px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
-              ⚠ {ytError}
+            <div style={{ marginTop: 10, padding: '10px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
+              <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', textDecoration: 'none', padding: '4px 14px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10 }}>
+                Listen on YouTube ↗
+              </a>
             </div>
           )}
         </div>
