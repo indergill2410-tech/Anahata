@@ -153,6 +153,7 @@ export default function LibraryPage() {
   const [volume,       setVolume]       = useState(80);
   const [loading,      setLoading]      = useState(false);
   const [ytError,      setYtError]      = useState<string | null>(null);
+  const [iframeMode,   setIframeMode]   = useState(false); // fallback when YT API unavailable
 
   const ytRef            = useRef<YTPlayer | null>(null);
   const ytDivRef         = useRef<HTMLDivElement>(null);
@@ -224,6 +225,7 @@ export default function LibraryPage() {
     durationRef.current = parseDuration(track.duration);
     activeIdRef.current = track.id;
     setYtError(null);
+    setIframeMode(false);
 
     stopTimer();
     if (createTimeoutRef.current) {
@@ -246,9 +248,12 @@ export default function LibraryPage() {
       if (activeIdRef.current !== track.id) return;
       if (!window.YT?.Player) {
         apiWaitMs += 200;
-        if (apiWaitMs >= 10000) {
+        if (apiWaitMs >= 8000) {
+          // YT API unavailable — fall back to native iframe (audio still plays)
           setLoading(false);
-          setYtError('YouTube player failed to load. Check your internet connection.');
+          setIframeMode(true);
+          setIsPlaying(true);
+          startTimer();
           return;
         }
         createTimeoutRef.current = setTimeout(tryCreate, 200);
@@ -308,6 +313,7 @@ export default function LibraryPage() {
   }
 
   function togglePlay() {
+    if (iframeMode) return; // iframe controls are inside the iframe itself
     if (!ytRef.current) return;
     isPlaying ? ytRef.current.pauseVideo() : ytRef.current.playVideo();
   }
@@ -358,13 +364,28 @@ export default function LibraryPage() {
 
   // Always-mounted hidden div keeps YT player alive across view changes
   const ytHost = (
-    <div ref={ytDivRef} style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, zIndex: -1 }} />
+    <>
+      <div ref={ytDivRef} style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, zIndex: -1 }} />
+      {/* Iframe fallback when YT IFrame API is blocked — shows mini player at bottom */}
+      {iframeMode && currentTrack && (
+        <div style={{ position: 'fixed', bottom: 160, left: '50%', transform: 'translateX(-50%)', zIndex: 95, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(28,20,16,0.18)', border: `1px solid ${currentAlbum?.color ?? T.amber}40` }}>
+          <iframe
+            key={currentTrack.id}
+            src={`https://www.youtube.com/embed/${currentTrack.ytId}?autoplay=1&controls=1&playsinline=1&rel=0`}
+            width="280" height="158"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            style={{ display: 'block', border: 'none' }}
+          />
+        </div>
+      )}
+    </>
   );
 
   const miniPlayer = currentTrack && currentAlbum && (
     <MiniPlayer
       track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
-      progress={progress} elapsed={elapsed} ytError={ytError}
+      progress={progress} elapsed={elapsed} ytError={ytError} iframeMode={iframeMode}
       onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onExpand={() => setIsExpanded(true)}
     />
   );
@@ -654,9 +675,9 @@ export default function LibraryPage() {
 }
 
 // ─── Mini Player ─────────────────────────────────────────────────────────────
-function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, onPlay, onPrev, onNext, onExpand }:
+function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, iframeMode, onPlay, onPrev, onNext, onExpand }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    ytError: string | null;
+    ytError: string | null; iframeMode: boolean;
     onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
   const totalSec  = parseDuration(track.duration);
   const remaining = Math.max(0, totalSec - elapsed);
@@ -691,8 +712,8 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
             <OrbSphere color={album.color} accent={album.accent} size={40} glow={isPlaying} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.ink1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : T.ink3, marginTop: 1 }}>
-                {loading ? 'Loading…' : ytError ? 'Tap ⏭ to try next track' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
+              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : iframeMode ? T.amber : T.ink3, marginTop: 1 }}>
+                {loading ? 'Loading…' : ytError ? 'Tap ⏭ to try next track' : iframeMode ? 'Playing via YouTube player ↑' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
               </div>
             </div>
           </button>
