@@ -33,7 +33,7 @@ app.use(helmet({
   contentSecurityPolicy: isProd ? {
     directives: {
       defaultSrc:  ["'self'"],
-      scriptSrc:   ["'self'", "'unsafe-inline'", 'https://www.youtube.com', 'https://s.ytimg.com'],
+      scriptSrc:   ["'self'", 'https://www.youtube.com', 'https://s.ytimg.com'],
       frameSrc:    ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
       styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:     ["'self'", 'https://fonts.gstatic.com'],
