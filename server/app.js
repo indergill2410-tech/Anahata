@@ -18,6 +18,7 @@ const libraryRoutes    = require('./routes/library');
 const profileRoutes    = require('./routes/profile');
 const mixesRoutes      = require('./routes/mixes');
 const aiRoutes         = require('./routes/ai');
+const tracksRoutes     = require('./routes/tracks');
 const pb               = require('./services/pbClient');
 
 const app = express();
@@ -80,6 +81,7 @@ if (!isProd) {
 // ── Body parsing ───────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// Note: /api/tracks/upload uses multer for multipart — no express body limit applies
 
 // ── Static client (production) ─────────────────────────────────────────────
 if (isProd) {
@@ -101,6 +103,7 @@ app.use('/api/auth',       authRoutes);
 app.use('/api/sessions',   sessionRoutes);
 app.use('/api/meditation', meditationRoutes);
 app.use('/api/library',    libraryRoutes);
+app.use('/api/tracks',     tracksRoutes);   // R2-backed audio tracks
 app.use('/api/profile',    profileRoutes);
 app.use('/api/mixes',      mixesRoutes);
 app.use('/api/ai',         aiRoutes);

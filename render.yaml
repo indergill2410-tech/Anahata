@@ -51,3 +51,15 @@ services:
         sync: false
       - key: POCKETBASE_ADMIN_PASSWORD
         sync: false
+
+      # Cloudflare R2 (audio storage)
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: anahata-tracks
+      - key: R2_PUBLIC_URL
+        sync: false

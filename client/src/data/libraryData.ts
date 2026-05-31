@@ -5,6 +5,7 @@ export interface Track {
   duration: string;
   ytId: string;
   tags?: string[];
+  audioUrl?: string; // R2-backed audio URL (takes priority over ytId)
 }
 
 export interface Album {

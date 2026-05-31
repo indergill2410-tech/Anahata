@@ -16,19 +16,6 @@ function formatSecs(s: number): string {
   return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
-// ─── YouTube IFrame API types ────────────────────────────────────────────────
-declare global {
-  interface Window {
-    YT: { Player: new (el: HTMLElement, opts: object) => YTPlayer; PlayerState: Record<string, number> };
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-interface YTPlayer {
-  playVideo(): void; pauseVideo(): void; stopVideo(): void; destroy(): void;
-  seekTo(s: number, a: boolean): void; setVolume(v: number): void;
-  unMute(): void; getCurrentTime(): number; getDuration(): number;
-}
-
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
   bg:       '#FAF7F2',
@@ -40,20 +27,18 @@ const T = {
   ink4:     '#C4AFA4',
   amber:    '#D97706',
   amberLo:  'rgba(217,119,6,0.12)',
-  amberMid: 'rgba(217,119,6,0.25)',
   shadow:   '0 2px 16px rgba(28,20,16,0.08)',
   shadowLg: '0 12px 48px rgba(28,20,16,0.13)',
 };
 
-// ─── OrbSphere (CSS-only, no canvas) ─────────────────────────────────────────
+// ─── OrbSphere ────────────────────────────────────────────────────────────────
 function OrbSphere({ color, accent, size, pulse = false, glow = false }: {
   color: string; accent?: string; size: number; pulse?: boolean; glow?: boolean;
 }) {
-  const ac = accent || '#ffffff';
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `radial-gradient(circle at 35% 35%, ${ac}CC, ${color} 55%, ${color}88)`,
+      background: `radial-gradient(circle at 35% 35%, ${accent || '#ffffff'}CC, ${color} 55%, ${color}88)`,
       boxShadow: glow
         ? `0 0 ${size * 0.4}px ${color}55, inset 0 2px 8px rgba(255,255,255,0.3)`
         : `inset 0 2px 8px rgba(255,255,255,0.3), 0 4px 16px ${color}30`,
@@ -81,20 +66,19 @@ function WaveVisualizer({ color, active }: { color: string; active: boolean }) {
   );
 }
 
-// ─── Satellite orb (wrapper rotates, inner counter-rotates to stay upright) ──
+// ─── Satellite orb ────────────────────────────────────────────────────────────
 function SatelliteOrb({ album, index, ringSize, radius, duration, direction, isActive, onClick }: {
   album: Album; index: number; ringSize: number; radius: number; duration: number;
   direction: 'cw' | 'ccw'; isActive: boolean; onClick(): void;
 }) {
   const delay = -(index / ringSize) * duration;
-  const orbitAnim  = direction === 'cw'  ? 'lib-orbit-cw'  : 'lib-orbit-ccw';
-  const counterAnim= direction === 'cw'  ? 'lib-counter-cw' : 'lib-counter-ccw';
+  const orbitAnim   = direction === 'cw' ? 'lib-orbit-cw'   : 'lib-orbit-ccw';
+  const counterAnim = direction === 'cw' ? 'lib-counter-cw'  : 'lib-counter-ccw';
   const orbSize = radius < 150 ? 52 : 44;
 
   return (
     <div style={{
-      position: 'absolute',
-      top: '50%', left: '50%',
+      position: 'absolute', top: '50%', left: '50%',
       width: radius * 2, height: radius * 2,
       marginTop: -radius, marginLeft: -radius,
       borderRadius: '50%',
@@ -102,10 +86,8 @@ function SatelliteOrb({ album, index, ringSize, radius, duration, direction, isA
       animationDelay: `${delay}s`,
       pointerEvents: 'none',
     }}>
-      {/* child at top-center of the ring */}
       <div style={{
-        position: 'absolute',
-        top: 0, left: '50%',
+        position: 'absolute', top: 0, left: '50%',
         transform: 'translateX(-50%)',
         animation: `${counterAnim} ${duration}s linear infinite`,
         animationDelay: `${delay}s`,
@@ -127,8 +109,7 @@ function SatelliteOrb({ album, index, ringSize, radius, duration, direction, isA
             <OrbSphere color={album.color} accent={album.accent} size={orbSize} glow={isActive} />
           </div>
           <span style={{
-            fontSize: 8, fontWeight: 700, letterSpacing: '0.04em',
-            color: isActive ? album.color : T.ink3,
+            fontSize: 8, fontWeight: 700, color: isActive ? album.color : T.ink3,
             textAlign: 'center', maxWidth: 56, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{album.title}</span>
@@ -137,6 +118,10 @@ function SatelliteOrb({ album, index, ringSize, radius, duration, direction, isA
     </div>
   );
 }
+
+// ─── Audio source: R2 URL from PocketBase, fallback to audioUrl on track ────
+// Track type has audioUrl (R2) — if missing, ytId is used as YouTube fallback.
+// Priority: audioUrl (R2) > ytId (YouTube)
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function LibraryPage() {
@@ -152,23 +137,25 @@ export default function LibraryPage() {
   const [repeat,       setRepeat]       = useState(false);
   const [volume,       setVolume]       = useState(80);
   const [loading,      setLoading]      = useState(false);
-  const [ytError,      setYtError]      = useState<string | null>(null);
-  const [iframeMode,   setIframeMode]   = useState(false);
-  const embedSkipCount = useRef(0); // guard against looping when whole album blocks embedding
+  const [audioError,   setAudioError]   = useState<string | null>(null);
+  const [useYouTube,   setUseYouTube]   = useState(false); // true when no R2 URL available
 
-  const ytRef            = useRef<YTPlayer | null>(null);
-  const ytDivRef         = useRef<HTMLDivElement>(null);
+  // ── Refs ────────────────────────────────────────────────────────────────
+  const audioRef         = useRef<HTMLAudioElement | null>(null);
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
-  const createTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queueRef         = useRef<Track[]>([]);
-  const elapsedRef       = useRef(0);
-  const durationRef      = useRef(0);
-  const activeIdRef      = useRef('');
   const currentTrackRef  = useRef<Track | null>(null);
   const currentAlbumRef  = useRef<Album | null>(null);
   const repeatRef        = useRef(repeat);
   const shuffleRef       = useRef(shuffle);
   const volumeRef        = useRef(volume);
+  const activeIdRef      = useRef('');
+  // YouTube fallback refs (only used when track has no audioUrl)
+  const ytRef            = useRef<YTPlayer | null>(null);
+  const ytDivRef         = useRef<HTMLDivElement>(null);
+  const createTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const embedSkipCount   = useRef(0);
+
   currentTrackRef.current = currentTrack;
   currentAlbumRef.current = currentAlbum;
   repeatRef.current       = repeat;
@@ -180,14 +167,15 @@ export default function LibraryPage() {
   const outerRing = ALBUMS.slice(6, 12);
 
   useEffect(() => {
-    // YouTube IFrame API loaded via index.html <script> tag
     return () => {
       stopTimer();
+      cleanupAudio();
       if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
       try { ytRef.current?.destroy(); } catch { /**/ }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Timer ────────────────────────────────────────────────────────────────
   function stopTimer() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   }
@@ -195,95 +183,120 @@ export default function LibraryPage() {
   function startTimer() {
     stopTimer();
     timerRef.current = setInterval(() => {
-      elapsedRef.current += 1;
-      const dur = durationRef.current;
-      if (dur > 0) setProgress(elapsedRef.current / dur);
-      setElapsed(elapsedRef.current);
-      if (elapsedRef.current >= dur && dur > 0) {
-        stopTimer();
-        setIsPlaying(false);
-        if (repeatRef.current) restartCurrent();
-        else playNext();
+      const audio = audioRef.current;
+      if (audio && !audio.paused) {
+        const cur = audio.currentTime;
+        const dur = audio.duration || 0;
+        setElapsed(Math.floor(cur));
+        setProgress(dur > 0 ? cur / dur : 0);
       }
-    }, 1000);
+    }, 500);
   }
 
-  function restartCurrent() {
-    const t = currentTrackRef.current; const a = currentAlbumRef.current;
-    if (!t || !a) return;
-    triggerPlay(t, a, queueRef.current);
+  // ── Cleanup native audio ──────────────────────────────────────────────────
+  function cleanupAudio() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.src = '';
+    audio.oncanplay = null;
+    audio.onplay    = null;
+    audio.onpause   = null;
+    audio.onended   = null;
+    audio.onerror   = null;
+    audioRef.current = null;
   }
 
+  // ── Core: triggerPlay ────────────────────────────────────────────────────
   const triggerPlay = useCallback((track: Track, album: Album, queue: Track[]) => {
     setCurrentTrack(track);
     setCurrentAlbum(album);
-    queueRef.current = queue;
+    queueRef.current   = queue;
+    activeIdRef.current = track.id;
+    embedSkipCount.current = 0;
     setIsPlaying(false);
     setLoading(true);
     setProgress(0);
     setElapsed(0);
-    elapsedRef.current = 0;
-    durationRef.current = parseDuration(track.duration);
-    activeIdRef.current = track.id;
-    setYtError(null);
-    setIframeMode(false);
-    embedSkipCount.current = 0;
+    setAudioError(null);
 
     stopTimer();
-    if (createTimeoutRef.current) {
-      clearTimeout(createTimeoutRef.current);
-      createTimeoutRef.current = null;
-    }
+    // Destroy any previous YouTube player
+    if (createTimeoutRef.current) { clearTimeout(createTimeoutRef.current); createTimeoutRef.current = null; }
     try { ytRef.current?.destroy(); } catch { /**/ }
     ytRef.current = null;
 
+    // Prefer R2 audioUrl; fall back to YouTube if missing
+    const audioUrl = (track as Track & { audioUrl?: string }).audioUrl;
+
+    if (audioUrl) {
+      setUseYouTube(false);
+      playNativeAudio(track, album, queue, audioUrl);
+    } else {
+      setUseYouTube(true);
+      playYouTube(track, album, queue);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Native HTML5 Audio (R2) ───────────────────────────────────────────────
+  function playNativeAudio(track: Track, album: Album, queue: Track[], audioUrl: string) {
+    cleanupAudio();
+
+    const audio = new Audio(audioUrl);
+    audio.volume = volumeRef.current / 100;
+    audio.preload = 'auto';
+    audioRef.current = audio;
+
+    audio.oncanplay = () => {
+      if (activeIdRef.current !== track.id) return;
+      audio.play().catch(() => setAudioError('Playback blocked. Tap play to start.'));
+    };
+    audio.onplay = () => {
+      if (activeIdRef.current !== track.id) return;
+      setIsPlaying(true); setLoading(false); setAudioError(null);
+      startTimer();
+    };
+    audio.onpause = () => { setIsPlaying(false); stopTimer(); };
+    audio.onended = () => {
+      setIsPlaying(false); stopTimer();
+      if (repeatRef.current) { audio.currentTime = 0; audio.play(); }
+      else playNext();
+    };
+    audio.onerror = () => {
+      if (activeIdRef.current !== track.id) return;
+      setLoading(false); setAudioError('Failed to load audio. Check R2 URL.');
+    };
+  }
+
+  // ── YouTube IFrame API fallback (when no R2 URL) ──────────────────────────
+  function playYouTube(track: Track, album: Album, queue: Track[]) {
     const container = ytDivRef.current;
-    if (!container) { setLoading(false); setYtError('Player container not found'); return; }
+    if (!container) return;
     container.innerHTML = '';
     const div = document.createElement('div');
     container.appendChild(div);
 
-    // Timeout: if YT API never loads after 10s, surface an error
     let apiWaitMs = 0;
-
     function tryCreate() {
       if (activeIdRef.current !== track.id) return;
       if (!window.YT?.Player) {
         apiWaitMs += 200;
-        if (apiWaitMs >= 8000) {
-          // YT API unavailable — fall back to native iframe (audio still plays)
-          setLoading(false);
-          setIframeMode(true);
-          setIsPlaying(true);
-          startTimer();
-          return;
-        }
+        if (apiWaitMs >= 8000) { setLoading(false); setUseYouTube(false); return; }
         createTimeoutRef.current = setTimeout(tryCreate, 200);
         return;
       }
-
       ytRef.current = new window.YT.Player(div, {
         videoId: track.ytId,
         width: 320, height: 180,
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          playsinline: 1,
-          rel: 0,
-          modestbranding: 1,
-          origin: window.location.origin,
-        },
+        playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0, origin: window.location.origin },
         events: {
           onReady: (e: { target: YTPlayer }) => {
             if (activeIdRef.current !== track.id) return;
-            e.target.unMute();
-            e.target.setVolume(volumeRef.current);
-            e.target.playVideo();
+            e.target.unMute(); e.target.setVolume(volumeRef.current); e.target.playVideo();
           },
           onStateChange: (e: { data: number }) => {
-            const S = window.YT?.PlayerState;
-            if (!S) return;
-            if (e.data === S.PLAYING)   { setIsPlaying(true);  setLoading(false); setYtError(null); if (!timerRef.current) startTimer(); }
+            const S = window.YT?.PlayerState; if (!S) return;
+            if (e.data === S.PLAYING)   { setIsPlaying(true);  setLoading(false); if (!timerRef.current) startYtTimer(); }
             if (e.data === S.PAUSED)    { setIsPlaying(false); stopTimer(); }
             if (e.data === S.BUFFERING) { setLoading(true); }
             if (e.data === S.ENDED) {
@@ -293,47 +306,46 @@ export default function LibraryPage() {
             }
           },
           onError: (e: { data: number }) => {
-            setLoading(false); setIsPlaying(false);
-            const code = e.data;
-            console.error('[YT] error code:', code);
-            // Auto-skip unembeddable videos (101/150) — try next track silently
-            if (code === 101 || code === 150) {
-              embedSkipCount.current += 1;
-              if (embedSkipCount.current >= 5) {
-                // Whole album seems blocked — fall back to iframe
-                setIframeMode(true);
-                setIsPlaying(true);
-                startTimer();
-              } else {
-                playNext();
-              }
-              return;
+            if (e.data === 101 || e.data === 150) {
+              embedSkipCount.current++;
+              if (embedSkipCount.current < 5) playNext();
+            } else {
+              setLoading(false); setAudioError(`YouTube error (${e.data})`);
             }
-            const msg =
-              code === 2   ? 'Invalid video ID.' :
-              code === 5   ? 'HTML5 player error.' :
-              code === 100 ? 'Video not found or private.' :
-              `Playback error (code ${code}).`;
-            setYtError(msg);
           },
         },
       });
     }
     tryCreate();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function playTrack(track: Track, album: Album, queue?: Track[]) {
-    triggerPlay(track, album, queue ?? album.tracks);
   }
 
+  function startYtTimer() {
+    stopTimer();
+    timerRef.current = setInterval(() => {
+      const cur = ytRef.current?.getCurrentTime() ?? 0;
+      const dur = ytRef.current?.getDuration()   ?? durationFromTrack();
+      setElapsed(Math.floor(cur));
+      setProgress(dur > 0 ? cur / dur : 0);
+    }, 500);
+  }
+
+  function durationFromTrack() {
+    return parseDuration(currentTrackRef.current?.duration ?? '0');
+  }
+
+  // ── Playback controls ────────────────────────────────────────────────────
   function togglePlay() {
-    if (iframeMode) return; // iframe controls are inside the iframe itself
-    if (!ytRef.current) return;
-    isPlaying ? ytRef.current.pauseVideo() : ytRef.current.playVideo();
+    if (useYouTube) {
+      if (!ytRef.current) return;
+      isPlaying ? ytRef.current.pauseVideo() : ytRef.current.playVideo();
+    } else {
+      const audio = audioRef.current; if (!audio) return;
+      isPlaying ? audio.pause() : audio.play();
+    }
   }
 
   function playNext() {
-    const q = queueRef.current;
+    const q     = queueRef.current;
     const track = currentTrackRef.current;
     const album = currentAlbumRef.current;
     if (!track || !album || q.length === 0) return;
@@ -346,60 +358,58 @@ export default function LibraryPage() {
   }
 
   function playPrev() {
-    const q = queueRef.current;
+    const q        = queueRef.current;
     const curTrack = currentTrackRef.current;
     const curAlbum = currentAlbumRef.current;
     if (!curTrack || !curAlbum || q.length === 0) return;
-    const cur = ytRef.current?.getCurrentTime() ?? elapsedRef.current;
-    if (cur > 3) { ytRef.current?.seekTo(0, true); return; }
+    const cur = useYouTube
+      ? (ytRef.current?.getCurrentTime() ?? 0)
+      : (audioRef.current?.currentTime ?? 0);
+    if (cur > 3) {
+      if (useYouTube) ytRef.current?.seekTo(0, true);
+      else if (audioRef.current) { audioRef.current.currentTime = 0; }
+      return;
+    }
     const idx = q.findIndex(t => t.id === curTrack.id);
     if (idx > 0) triggerPlay(q[idx - 1], curAlbum, q);
   }
 
   function handleSeek(pct: number) {
-    const dur = ytRef.current?.getDuration() ?? durationRef.current;
-    const target = Math.floor(dur * pct);
-    ytRef.current?.seekTo(target, true);
-    elapsedRef.current = target;
-    setElapsed(target);
+    if (useYouTube) {
+      const dur = ytRef.current?.getDuration() ?? durationFromTrack();
+      ytRef.current?.seekTo(Math.floor(dur * pct), true);
+    } else {
+      const audio = audioRef.current; if (!audio) return;
+      audio.currentTime = audio.duration * pct;
+    }
     setProgress(pct);
   }
 
   function handleVolume(v: number) {
     setVolume(v);
-    ytRef.current?.setVolume(v);
+    if (useYouTube) ytRef.current?.setVolume(v);
+    else if (audioRef.current) audioRef.current.volume = v / 100;
   }
 
   function handleShuffle(album: Album) {
     const shuffled = [...album.tracks].sort(() => Math.random() - 0.5);
-    playTrack(shuffled[0], album, shuffled);
+    triggerPlay(shuffled[0], album, shuffled);
     setShuffle(true);
   }
 
-  // Always-mounted hidden div keeps YT player alive across view changes
+  function playTrack(track: Track, album: Album, queue?: Track[]) {
+    triggerPlay(track, album, queue ?? album.tracks);
+  }
+
+  // ── Always-mounted YT hidden div (only used for YouTube fallback) ─────────
   const ytHost = (
-    <>
-      <div ref={ytDivRef} style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, zIndex: -1 }} />
-      {/* Iframe fallback when YT IFrame API is blocked — shows mini player at bottom */}
-      {iframeMode && currentTrack && (
-        <div style={{ position: 'fixed', bottom: 160, left: '50%', transform: 'translateX(-50%)', zIndex: 95, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(28,20,16,0.18)', border: `1px solid ${currentAlbum?.color ?? T.amber}40` }}>
-          <iframe
-            key={currentTrack.id}
-            src={`https://www.youtube.com/embed/${currentTrack.ytId}?autoplay=1&controls=1&playsinline=1&rel=0`}
-            width="280" height="158"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            style={{ display: 'block', border: 'none' }}
-          />
-        </div>
-      )}
-    </>
+    <div ref={ytDivRef} style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, zIndex: -1 }} />
   );
 
   const miniPlayer = currentTrack && currentAlbum && (
     <MiniPlayer
       track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
-      progress={progress} elapsed={elapsed} ytError={ytError} iframeMode={iframeMode}
+      progress={progress} elapsed={elapsed} audioError={audioError} useYouTube={useYouTube}
       onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onExpand={() => setIsExpanded(true)}
     />
   );
@@ -408,26 +418,23 @@ export default function LibraryPage() {
     <FullPlayer
       track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
       progress={progress} elapsed={elapsed} volume={volume} shuffle={shuffle} repeat={repeat}
-      ytError={ytError}
+      audioError={audioError} useYouTube={useYouTube}
       onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onSeek={handleSeek}
       onVolume={handleVolume} onShuffle={() => setShuffle(s => !s)}
       onRepeat={() => setRepeat(r => !r)} onCollapse={() => setIsExpanded(false)}
     />
   );
 
-  // ─── ALBUM DETAIL ──────────────────────────────────────────────────────────
+  // ── ALBUM DETAIL ──────────────────────────────────────────────────────────
   if (openAlbum) {
     const album = openAlbum;
     return (
       <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100 }}>
         {ytHost}
-
-        {/* Soft color bloom at top */}
         <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
           background: `radial-gradient(ellipse 70% 40% at 50% -10%, ${album.color}18 0%, transparent 70%)` }} />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
-          {/* Back button */}
           <div style={{ padding: '56px 20px 0' }}>
             <button onClick={() => setOpenAlbum(null)} style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -440,67 +447,37 @@ export default function LibraryPage() {
             </button>
           </div>
 
-          {/* Album header */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '28px 24px 28px', textAlign: 'center' }}>
-            <div style={{
-              padding: 6, borderRadius: '50%',
-              background: `radial-gradient(circle, ${album.color}15, transparent 70%)`,
-              animation: 'lib-orb-pulse 4s ease-in-out infinite',
-            }}>
+            <div style={{ padding: 6, borderRadius: '50%', background: `radial-gradient(circle, ${album.color}15, transparent 70%)`, animation: 'lib-orb-pulse 4s ease-in-out infinite' }}>
               <OrbSphere color={album.color} accent={album.accent} size={140}
                 pulse={currentAlbum?.id === album.id && isPlaying} glow={currentAlbum?.id === album.id} />
             </div>
-
             <div>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: album.color, marginBottom: 8 }}>{album.genre}</div>
               <h2 style={{ margin: '0 0 4px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em' }}>{album.title}</h2>
               <p style={{ margin: '0 0 8px', fontSize: 13, color: T.ink3 }}>{album.subtitle}</p>
               <p style={{ margin: 0, fontSize: 12, color: T.ink4, lineHeight: 1.7, maxWidth: 320 }}>{album.description}</p>
             </div>
-
-            {/* Wave visualizer when active */}
             {currentAlbum?.id === album.id && <WaveVisualizer color={album.color} active={isPlaying && !loading} />}
-
-            {/* Action buttons */}
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-              <button onClick={() => playTrack(album.tracks[0], album)} style={{
-                height: 46, padding: '0 28px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                background: album.color, color: 'white',
-                fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 700,
-                boxShadow: `0 6px 24px ${album.color}50`, display: 'flex', alignItems: 'center', gap: 8,
-                transition: 'transform 0.15s, box-shadow 0.15s',
-              }}>
+              <button onClick={() => playTrack(album.tracks[0], album)} style={{ height: 46, padding: '0 28px', borderRadius: 14, border: 'none', cursor: 'pointer', background: album.color, color: 'white', fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 700, boxShadow: `0 6px 24px ${album.color}50`, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12 }}>▶</span> Play All
               </button>
-              <button onClick={() => handleShuffle(album)} style={{
-                height: 46, padding: '0 22px', borderRadius: 14, cursor: 'pointer',
-                border: `1.5px solid ${album.color}50`,
-                background: `${album.color}12`, color: album.color,
-                fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 700,
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
+              <button onClick={() => handleShuffle(album)} style={{ height: 46, padding: '0 22px', borderRadius: 14, cursor: 'pointer', border: `1.5px solid ${album.color}50`, background: `${album.color}12`, color: album.color, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 ⇄ Shuffle
               </button>
             </div>
           </div>
 
-          {/* Track list */}
           <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             {album.tracks.map((track, idx) => {
               const active = currentTrack?.id === track.id && currentAlbum?.id === album.id;
+              const hasR2 = !!(track as Track & { audioUrl?: string }).audioUrl;
               return (
                 <button key={track.id}
                   onClick={() => active ? togglePlay() : playTrack(track, album)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '13px 16px', borderRadius: 16, cursor: 'pointer',
-                    background: active ? `${album.color}10` : T.bg1,
-                    border: `1.5px solid ${active ? album.color + '40' : T.bg2}`,
-                    transition: 'all 0.2s', textAlign: 'left', fontFamily: 'inherit',
-                    boxShadow: active ? `0 0 20px ${album.color}18` : T.shadow,
-                  }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderRadius: 16, cursor: 'pointer', background: active ? `${album.color}10` : T.bg1, border: `1.5px solid ${active ? album.color + '40' : T.bg2}`, transition: 'all 0.2s', textAlign: 'left', fontFamily: 'inherit', boxShadow: active ? `0 0 20px ${album.color}18` : T.shadow }}>
 
-                  {/* Number / visualizer */}
                   <div style={{ width: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {active && isPlaying
                       ? <WaveVisualizer color={album.color} active />
@@ -510,20 +487,22 @@ export default function LibraryPage() {
                     }
                   </div>
 
-                  {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: active ? album.color : T.ink1, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
                     <div style={{ fontSize: 11, color: T.ink3, marginTop: 2 }}>{track.artist}</div>
                   </div>
 
-                  {/* Tag */}
+                  {/* R2 badge — shows audio source */}
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 8, background: hasR2 ? 'rgba(34,197,94,0.12)' : 'rgba(217,119,6,0.1)', color: hasR2 ? '#16A34A' : T.ink4, border: `1px solid ${hasR2 ? 'rgba(34,197,94,0.3)' : 'rgba(217,119,6,0.2)'}`, flexShrink: 0 }}>
+                    {hasR2 ? 'R2' : 'YT'}
+                  </span>
+
                   {track.tags?.[0] && (
                     <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 8, background: `${album.color}15`, color: album.color, border: `1px solid ${album.color}25`, flexShrink: 0, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                       {track.tags[0]}
                     </span>
                   )}
 
-                  {/* Duration */}
                   <span style={{ fontSize: 11, color: T.ink4, fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
                     {active && loading ? '···' : track.duration}
                   </span>
@@ -539,24 +518,20 @@ export default function LibraryPage() {
     );
   }
 
-  // ─── LIBRARY HOME — Sacred Mandala ────────────────────────────────────────
-  const centralColor = currentAlbum?.color ?? T.amber;
+  // ── LIBRARY HOME — Sacred Mandala ─────────────────────────────────────────
+  const centralColor  = currentAlbum?.color ?? T.amber;
   const centralAccent = currentAlbum?.accent;
-  const mandalaSize = 460; // total zone width
-  const centerSize  = 80;
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100, overflowX: 'hidden' }}>
       {ytHost}
 
-      {/* Ambient mandala bloom */}
       <div style={{ position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100vw', height: '60vh', pointerEvents: 'none', zIndex: 0,
         background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${centralColor}12 0%, transparent 70%)`,
         transition: 'background 1s ease',
       }} />
 
       <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* Header */}
         <div style={{ padding: '56px 20px 12px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em' }}>Library</h1>
@@ -569,69 +544,25 @@ export default function LibraryPage() {
           )}
         </div>
 
-        {/* ── Sacred Mandala ── */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: mandalaSize, position: 'relative', margin: '0 0 8px' }}>
+        {/* Sacred Mandala */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: 460, position: 'relative', margin: '0 0 8px' }}>
+          <div style={{ position: 'absolute', borderRadius: '50%', width: 390, height: 390, border: `1px dashed ${T.ink4}55` }} />
+          <div style={{ position: 'absolute', borderRadius: '50%', width: 262, height: 262, border: `1px dashed ${T.ink4}40` }} />
+          <div style={{ position: 'absolute', borderRadius: '50%', width: 100, height: 100, border: `1.5px solid ${centralColor}40`, boxShadow: `0 0 24px ${centralColor}20`, transition: 'border-color 1s, box-shadow 1s' }} />
 
-          {/* Outer dashed orbital ring */}
-          <div style={{
-            position: 'absolute', borderRadius: '50%',
-            width: 390, height: 390,
-            border: `1px dashed ${T.ink4}55`,
-          }} />
-          {/* Inner dashed orbital ring */}
-          <div style={{
-            position: 'absolute', borderRadius: '50%',
-            width: 262, height: 262,
-            border: `1px dashed ${T.ink4}40`,
-          }} />
-          {/* Glow ring */}
-          <div style={{
-            position: 'absolute', borderRadius: '50%',
-            width: 100, height: 100,
-            border: `1.5px solid ${centralColor}40`,
-            boxShadow: `0 0 24px ${centralColor}20`,
-            transition: 'border-color 1s, box-shadow 1s',
-          }} />
-
-          {/* Outer ring orbs — 6 albums, counter-clockwise, r=195 */}
           {outerRing.map((album, i) => (
-            <SatelliteOrb
-              key={album.id} album={album} index={i} ringSize={6}
-              radius={195} duration={65} direction="ccw"
-              isActive={currentAlbum?.id === album.id}
-              onClick={() => setOpenAlbum(album)}
-            />
+            <SatelliteOrb key={album.id} album={album} index={i} ringSize={6} radius={195} duration={65} direction="ccw" isActive={currentAlbum?.id === album.id} onClick={() => setOpenAlbum(album)} />
           ))}
-
-          {/* Inner ring orbs — 6 albums, clockwise, r=131 */}
           {innerRing.map((album, i) => (
-            <SatelliteOrb
-              key={album.id} album={album} index={i} ringSize={6}
-              radius={131} duration={42} direction="cw"
-              isActive={currentAlbum?.id === album.id}
-              onClick={() => setOpenAlbum(album)}
-            />
+            <SatelliteOrb key={album.id} album={album} index={i} ringSize={6} radius={131} duration={42} direction="cw" isActive={currentAlbum?.id === album.id} onClick={() => setOpenAlbum(album)} />
           ))}
 
-          {/* Central orb */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-            cursor: currentAlbum ? 'pointer' : 'default',
-          }} onClick={() => currentAlbum && setIsExpanded(true)}>
-            <div style={{
-              borderRadius: '50%',
-              boxShadow: `0 0 40px ${centralColor}35, 0 0 0 6px ${T.bg}, 0 0 0 7px ${centralColor}30`,
-              animation: 'lib-orb-pulse 3s ease-in-out infinite',
-              transition: 'box-shadow 1s ease',
-            }}>
-              <OrbSphere color={centralColor} accent={centralAccent} size={centerSize} glow pulse />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: currentAlbum ? 'pointer' : 'default' }}
+            onClick={() => currentAlbum && setIsExpanded(true)}>
+            <div style={{ borderRadius: '50%', boxShadow: `0 0 40px ${centralColor}35, 0 0 0 6px ${T.bg}, 0 0 0 7px ${centralColor}30`, animation: 'lib-orb-pulse 3s ease-in-out infinite', transition: 'box-shadow 1s ease' }}>
+              <OrbSphere color={centralColor} accent={centralAccent} size={80} glow pulse />
             </div>
-            <div style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: T.ink3, textTransform: 'uppercase',
-              textAlign: 'center', maxWidth: 80,
-            }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: T.ink3, textTransform: 'uppercase', textAlign: 'center', maxWidth: 80 }}>
               {currentAlbum ? currentAlbum.title : 'Anahata'}
             </div>
           </div>
@@ -640,15 +571,9 @@ export default function LibraryPage() {
         {/* Category chips */}
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 16px 16px', scrollbarWidth: 'none' }}>
           {CATEGORIES.map(c => (
-            <button key={c} onClick={() => setCategory(c)} style={{
-              flexShrink: 0, padding: '7px 16px', borderRadius: 20, cursor: 'pointer',
-              border: category === c ? `1.5px solid ${T.amber}70` : `1px solid ${T.bg2}`,
-              background: category === c ? T.amberLo : T.bg1,
-              color: category === c ? T.amber : T.ink3,
-              fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-              transition: 'all 0.2s', whiteSpace: 'nowrap',
-              boxShadow: category === c ? `0 0 12px ${T.amber}20` : T.shadow,
-            }}>{c}</button>
+            <button key={c} onClick={() => setCategory(c)} style={{ flexShrink: 0, padding: '7px 16px', borderRadius: 20, cursor: 'pointer', border: category === c ? `1.5px solid ${T.amber}70` : `1px solid ${T.bg2}`, background: category === c ? T.amberLo : T.bg1, color: category === c ? T.amber : T.ink3, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', transition: 'all 0.2s', whiteSpace: 'nowrap', boxShadow: category === c ? `0 0 12px ${T.amber}20` : T.shadow }}>
+              {c}
+            </button>
           ))}
         </div>
 
@@ -657,16 +582,8 @@ export default function LibraryPage() {
           {filteredAlbums.map(album => {
             const isActive = currentAlbum?.id === album.id && !!currentTrack;
             return (
-              <div key={album.id} onClick={() => setOpenAlbum(album)} style={{
-                position: 'relative', background: T.bg1,
-                border: `1.5px solid ${isActive ? album.color + '50' : T.bg2}`,
-                borderRadius: 20, overflow: 'hidden', cursor: 'pointer',
-                transition: 'all 0.25s',
-                boxShadow: isActive ? `0 4px 28px ${album.color}22` : T.shadow,
-              }}>
-                {isActive && (
-                  <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, width: 7, height: 7, borderRadius: '50%', background: album.color, boxShadow: `0 0 8px ${album.color}`, animation: 'lib-orb-pulse 1.4s ease-in-out infinite' }} />
-                )}
+              <div key={album.id} onClick={() => setOpenAlbum(album)} style={{ position: 'relative', background: T.bg1, border: `1.5px solid ${isActive ? album.color + '50' : T.bg2}`, borderRadius: 20, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.25s', boxShadow: isActive ? `0 4px 28px ${album.color}22` : T.shadow }}>
+                {isActive && <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 2, width: 7, height: 7, borderRadius: '50%', background: album.color, boxShadow: `0 0 8px ${album.color}`, animation: 'lib-orb-pulse 1.4s ease-in-out infinite' }} />}
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 12px' }}>
                   <OrbSphere color={album.color} accent={album.accent} size={80} glow={isActive} />
                 </div>
@@ -688,57 +605,56 @@ export default function LibraryPage() {
   );
 }
 
-// ─── Mini Player ─────────────────────────────────────────────────────────────
-function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, iframeMode, onPlay, onPrev, onNext, onExpand }:
+// ─── YouTube types (still needed for fallback) ────────────────────────────────
+declare global {
+  interface Window {
+    YT: { Player: new (el: HTMLElement, opts: object) => YTPlayer; PlayerState: Record<string, number> };
+  }
+}
+interface YTPlayer {
+  playVideo(): void; pauseVideo(): void; stopVideo(): void; destroy(): void;
+  seekTo(s: number, a: boolean): void; setVolume(v: number): void;
+  unMute(): void; getCurrentTime(): number; getDuration(): number;
+}
+
+// ─── Mini Player ──────────────────────────────────────────────────────────────
+function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, audioError, useYouTube, onPlay, onPrev, onNext, onExpand }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    ytError: string | null; iframeMode: boolean;
+    audioError: string | null; useYouTube: boolean;
     onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
+
   const totalSec  = parseDuration(track.duration);
   const remaining = Math.max(0, totalSec - elapsed);
 
   return (
     <div style={{ position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
-      <div style={{
-        background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)',
-        borderRadius: 22, border: `1.5px solid ${ytError ? '#EF4444' : album.color + '30'}`,
-        boxShadow: `0 -2px 32px rgba(28,20,16,0.1), 0 0 0 1px rgba(28,20,16,0.04), 0 8px 32px ${album.color}18`,
-        overflow: 'hidden',
-      }}>
-        {/* Progress bar */}
-        <div style={{ height: 3, background: T.bg2 }}>
-          <div style={{ height: '100%', width: `${progress * 100}%`, background: album.color, transition: 'width 1s linear', borderRadius: 99 }} />
+      <div style={{ background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)', borderRadius: 22, border: `1.5px solid ${audioError ? '#EF4444' : album.color + '30'}`, boxShadow: `0 -2px 32px rgba(28,20,16,0.1), 0 8px 32px ${album.color}18`, overflow: 'hidden' }}>
+        <div style={{ height: 3, background: '#F0EBE3' }}>
+          <div style={{ height: '100%', width: `${progress * 100}%`, background: album.color, transition: 'width 0.5s linear', borderRadius: 99 }} />
         </div>
 
-        {/* Error banner */}
-        {ytError && (
+        {audioError && (
           <div style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
-            <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', textDecoration: 'none', whiteSpace: 'nowrap', padding: '2px 8px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, flexShrink: 0 }}>
-              Open YT ↗
-            </a>
+            <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>⚠ {audioError}</span>
           </div>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
-          {/* Tap to expand */}
           <button onClick={onExpand} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', minWidth: 0, padding: 0 }}>
             <OrbSphere color={album.color} accent={album.accent} size={40} glow={isPlaying} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: T.ink1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : iframeMode ? T.amber : T.ink3, marginTop: 1 }}>
-                {loading ? 'Loading…' : ytError ? 'Tap ⏭ to try next track' : iframeMode ? 'Playing via YouTube player ↑' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1410', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+              <div style={{ fontSize: 11, color: '#8B6F5E', marginTop: 1 }}>
+                {loading ? 'Loading…' : useYouTube ? `YT · ${formatSecs(elapsed)}` : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
               </div>
             </div>
           </button>
-
-          {/* Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-            <button onClick={onPrev} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${T.bg2}`, background: T.bg1, cursor: 'pointer', fontSize: 13, color: T.ink3, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏮</button>
-            <button onClick={onPlay} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', background: loading ? T.bg2 : album.color, color: loading ? T.ink3 : 'white', fontSize: loading ? 10 : 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: loading ? 'none' : `0 4px 18px ${album.color}55`, transition: 'all 0.2s' }}>
+            <button onClick={onPrev} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid #F0EBE3`, background: '#FFFFFF', cursor: 'pointer', fontSize: 13, color: '#8B6F5E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>⏮</button>
+            <button onClick={onPlay} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', background: loading ? '#F0EBE3' : album.color, color: loading ? '#8B6F5E' : 'white', fontSize: loading ? 10 : 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: loading ? 'none' : `0 4px 18px ${album.color}55`, transition: 'all 0.2s' }}>
               {loading ? '···' : isPlaying ? '▐▐' : '▶'}
             </button>
-            <button onClick={onNext} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${T.bg2}`, background: T.bg1, cursor: 'pointer', fontSize: 13, color: T.ink3, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏭</button>
+            <button onClick={onNext} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid #F0EBE3`, background: '#FFFFFF', cursor: 'pointer', fontSize: 13, color: '#8B6F5E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>⏭</button>
           </div>
         </div>
       </div>
@@ -746,11 +662,11 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
   );
 }
 
-// ─── Full Player ─────────────────────────────────────────────────────────────
+// ─── Full Player ──────────────────────────────────────────────────────────────
 function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volume, shuffle, repeat,
-  ytError, onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse }:
+  audioError, useYouTube, onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    volume: number; shuffle: boolean; repeat: boolean; ytError: string | null;
+    volume: number; shuffle: boolean; repeat: boolean; audioError: string | null; useYouTube: boolean;
     onPlay(): void; onPrev(): void; onNext(): void; onSeek(p: number): void;
     onVolume(v: number): void; onShuffle(): void; onRepeat(): void; onCollapse(): void }) {
 
@@ -763,93 +679,63 @@ function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volum
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 150, display: 'flex', flexDirection: 'column', background: T.bg, overflowY: 'auto' }}>
-      {/* Ambient bloom */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
-        background: `radial-gradient(ellipse 80% 50% at 50% 20%, ${album.color}20 0%, transparent 65%)` }} />
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '120%', height: '35%', pointerEvents: 'none', zIndex: 0,
-        background: `radial-gradient(ellipse at 50% 100%, ${album.color}12 0%, transparent 70%)` }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 150, display: 'flex', flexDirection: 'column', background: '#FAF7F2', overflowY: 'auto' }}>
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: `radial-gradient(ellipse 80% 50% at 50% 20%, ${album.color}20 0%, transparent 65%)` }} />
 
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
-        {/* Header bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '52px 22px 16px' }}>
-          <button onClick={onCollapse} style={{ width: 40, height: 40, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer', background: T.bg1, color: T.ink2, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>
-            ↓
-          </button>
+          <button onClick={onCollapse} style={{ width: 40, height: 40, borderRadius: '50%', border: `1px solid #F0EBE3`, cursor: 'pointer', background: '#FFFFFF', color: '#4A3828', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>↓</button>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: album.color }}>Now Playing</div>
-            <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>{album.title}</div>
+            <div style={{ fontSize: 11, color: '#8B6F5E', marginTop: 2 }}>{useYouTube ? 'YouTube' : 'R2 Audio'} · {album.title}</div>
           </div>
           <div style={{ width: 40 }} />
         </div>
 
-        {/* Orb */}
         <div style={{ display: 'flex', justifyContent: 'center', padding: '0 24px 20px' }}>
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-            <div style={{
-              padding: 12, borderRadius: '50%',
-              background: `radial-gradient(circle, ${album.color}18, transparent 70%)`,
-              animation: 'lib-orb-pulse 4s ease-in-out infinite',
-            }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+            <div style={{ padding: 12, borderRadius: '50%', background: `radial-gradient(circle, ${album.color}18, transparent 70%)`, animation: 'lib-orb-pulse 4s ease-in-out infinite' }}>
               <OrbSphere color={album.color} accent={album.accent} size={220} glow pulse={isPlaying && !loading} />
             </div>
-            {loading && (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: 13, color: T.ink3, fontWeight: 600, letterSpacing: '0.08em', background: 'rgba(250,247,242,0.85)', padding: '6px 14px', borderRadius: 20 }}>
-                Loading…
-              </div>
-            )}
             <WaveVisualizer color={album.color} active={isPlaying && !loading} />
           </div>
         </div>
 
-        {/* Track info */}
         <div style={{ padding: '0 28px 20px', textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em', marginBottom: 4 }}>{track.title}</div>
-          <div style={{ fontSize: 14, color: T.ink3 }}>{track.artist}</div>
-          {ytError && (
-            <div style={{ marginTop: 10, padding: '10px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
-              <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', textDecoration: 'none', padding: '4px 14px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10 }}>
-                Listen on YouTube ↗
-              </a>
+          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: '#1C1410', letterSpacing: '-0.02em', marginBottom: 4 }}>{track.title}</div>
+          <div style={{ fontSize: 14, color: '#8B6F5E' }}>{track.artist}</div>
+          {audioError && (
+            <div style={{ marginTop: 10, padding: '8px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 12, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
+              ⚠ {audioError}
             </div>
           )}
         </div>
 
-        {/* Progress */}
         <div style={{ padding: '0 28px 8px' }}>
-          <div onClick={handleProgressClick} style={{ height: 6, background: T.bg2, borderRadius: 99, cursor: 'pointer', position: 'relative', marginBottom: 10 }}>
-            <div style={{ height: '100%', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${album.color}, ${album.color}BB)`, borderRadius: 99, transition: 'width 1s linear' }} />
-            <div style={{ position: 'absolute', top: '50%', left: `${progress * 100}%`, transform: 'translate(-50%, -50%)', width: 18, height: 18, borderRadius: '50%', background: album.color, boxShadow: `0 0 14px ${album.color}70`, border: `2px solid ${T.bg}`, transition: 'left 1s linear' }} />
+          <div onClick={handleProgressClick} style={{ height: 6, background: '#F0EBE3', borderRadius: 99, cursor: 'pointer', position: 'relative', marginBottom: 10 }}>
+            <div style={{ height: '100%', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${album.color}, ${album.color}BB)`, borderRadius: 99, transition: 'width 0.5s linear' }} />
+            <div style={{ position: 'absolute', top: '50%', left: `${progress * 100}%`, transform: 'translate(-50%, -50%)', width: 18, height: 18, borderRadius: '50%', background: album.color, boxShadow: `0 0 14px ${album.color}70`, border: `2px solid #FAF7F2`, transition: 'left 0.5s linear' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, color: T.ink4, fontFamily: "'JetBrains Mono', monospace" }}>{formatSecs(elapsed)}</span>
-            <span style={{ fontSize: 11, color: T.ink4, fontFamily: "'JetBrains Mono', monospace" }}>−{formatSecs(remaining)}</span>
+            <span style={{ fontSize: 11, color: '#C4AFA4', fontFamily: "'JetBrains Mono', monospace" }}>{formatSecs(elapsed)}</span>
+            <span style={{ fontSize: 11, color: '#C4AFA4', fontFamily: "'JetBrains Mono', monospace" }}>−{formatSecs(remaining)}</span>
           </div>
         </div>
 
-        {/* Main controls */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '16px 28px 18px' }}>
-          <button onClick={onShuffle} style={{ width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', background: shuffle ? T.amberLo : T.bg1, color: shuffle ? T.amber : T.ink3, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: shuffle ? `1.5px solid ${T.amber}50` : `1px solid ${T.bg2}`, transition: 'all 0.2s', boxShadow: T.shadow }}>
-            ⇄
-          </button>
-          <button onClick={onPrev} style={{ width: 56, height: 56, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer', background: T.bg1, color: T.ink2, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏮</button>
-          <button onClick={onPlay} style={{ width: 76, height: 76, borderRadius: '50%', border: 'none', cursor: 'pointer', background: loading ? T.bg2 : album.color, color: loading ? T.ink3 : 'white', fontSize: loading ? 12 : 24, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: loading ? T.shadow : `0 8px 32px ${album.color}60`, transition: 'all 0.3s' }}>
+          <button onClick={onShuffle} style={{ width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', background: shuffle ? 'rgba(217,119,6,0.12)' : '#FFFFFF', color: shuffle ? '#D97706' : '#8B6F5E', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: shuffle ? `1.5px solid rgba(217,119,6,0.5)` : `1px solid #F0EBE3`, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>⇄</button>
+          <button onClick={onPrev} style={{ width: 56, height: 56, borderRadius: '50%', border: `1px solid #F0EBE3`, cursor: 'pointer', background: '#FFFFFF', color: '#4A3828', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>⏮</button>
+          <button onClick={onPlay} style={{ width: 76, height: 76, borderRadius: '50%', border: 'none', cursor: 'pointer', background: loading ? '#F0EBE3' : album.color, color: loading ? '#8B6F5E' : 'white', fontSize: loading ? 12 : 24, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: loading ? '0 2px 8px rgba(28,20,16,0.07)' : `0 8px 32px ${album.color}60`, transition: 'all 0.3s' }}>
             {loading ? '···' : isPlaying ? '▐▐' : '▶'}
           </button>
-          <button onClick={onNext} style={{ width: 56, height: 56, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer', background: T.bg1, color: T.ink2, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏭</button>
-          <button onClick={onRepeat} style={{ width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', background: repeat ? T.amberLo : T.bg1, color: repeat ? T.amber : T.ink3, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: repeat ? `1.5px solid ${T.amber}50` : `1px solid ${T.bg2}`, transition: 'all 0.2s', boxShadow: T.shadow }}>
-            ↻
-          </button>
+          <button onClick={onNext} style={{ width: 56, height: 56, borderRadius: '50%', border: `1px solid #F0EBE3`, cursor: 'pointer', background: '#FFFFFF', color: '#4A3828', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>⏭</button>
+          <button onClick={onRepeat} style={{ width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', background: repeat ? 'rgba(217,119,6,0.12)' : '#FFFFFF', color: repeat ? '#D97706' : '#8B6F5E', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: repeat ? `1.5px solid rgba(217,119,6,0.5)` : `1px solid #F0EBE3`, transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(28,20,16,0.07)' }}>↻</button>
         </div>
 
-        {/* Volume */}
         <div style={{ padding: '0 32px 44px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.ink4} strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
-          <input type="range" min={0} max={100} value={volume} onChange={e => onVolume(Number(e.target.value))}
-            style={{ flex: 1, accentColor: album.color, height: 4, cursor: 'pointer' }} />
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.ink4} strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4AFA4" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+          <input type="range" min={0} max={100} value={volume} onChange={e => onVolume(Number(e.target.value))} style={{ flex: 1, accentColor: album.color, height: 4, cursor: 'pointer' }} />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4AFA4" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         </div>
       </div>
     </div>
