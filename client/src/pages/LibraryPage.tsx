@@ -116,6 +116,7 @@ export default function LibraryPage() {
   const repeatRef = useRef(repeat);
   const shuffleRef = useRef(shuffle);
   const volumeRef = useRef(volume);
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   repeatRef.current = repeat;
   shuffleRef.current = shuffle;
   volumeRef.current = volume;
