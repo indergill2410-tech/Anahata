@@ -152,6 +152,7 @@ export default function LibraryPage() {
   const [repeat,       setRepeat]       = useState(false);
   const [volume,       setVolume]       = useState(80);
   const [loading,      setLoading]      = useState(false);
+  const [ytError,      setYtError]      = useState<string | null>(null);
 
   const ytRef            = useRef<YTPlayer | null>(null);
   const ytDivRef         = useRef<HTMLDivElement>(null);
@@ -226,6 +227,7 @@ export default function LibraryPage() {
     elapsedRef.current = 0;
     durationRef.current = parseDuration(track.duration);
     activeIdRef.current = track.id;
+    setYtError(null);
 
     stopTimer();
     if (createTimeoutRef.current) {
@@ -236,19 +238,38 @@ export default function LibraryPage() {
     ytRef.current = null;
 
     const container = ytDivRef.current;
-    if (!container) return;
+    if (!container) { setLoading(false); setYtError('Player container not found'); return; }
     container.innerHTML = '';
     const div = document.createElement('div');
     container.appendChild(div);
 
+    // Timeout: if YT API never loads after 10s, surface an error
+    let apiWaitMs = 0;
+
     function tryCreate() {
       if (activeIdRef.current !== track.id) return;
-      if (!window.YT?.Player) { createTimeoutRef.current = setTimeout(tryCreate, 200); return; }
+      if (!window.YT?.Player) {
+        apiWaitMs += 200;
+        if (apiWaitMs >= 10000) {
+          setLoading(false);
+          setYtError('YouTube player failed to load. Check your internet connection.');
+          return;
+        }
+        createTimeoutRef.current = setTimeout(tryCreate, 200);
+        return;
+      }
 
       ytRef.current = new window.YT.Player(div, {
         videoId: track.ytId,
-        width: '100%', height: '100%',
-        playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0, modestbranding: 1 },
+        width: 320, height: 180,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          origin: window.location.origin,
+        },
         events: {
           onReady: (e: { target: YTPlayer }) => {
             if (activeIdRef.current !== track.id) return;
@@ -259,7 +280,7 @@ export default function LibraryPage() {
           onStateChange: (e: { data: number }) => {
             const S = window.YT?.PlayerState;
             if (!S) return;
-            if (e.data === S.PLAYING)   { setIsPlaying(true);  setLoading(false); if (!timerRef.current) startTimer(); }
+            if (e.data === S.PLAYING)   { setIsPlaying(true);  setLoading(false); setYtError(null); if (!timerRef.current) startTimer(); }
             if (e.data === S.PAUSED)    { setIsPlaying(false); stopTimer(); }
             if (e.data === S.BUFFERING) { setLoading(true); }
             if (e.data === S.ENDED) {
@@ -268,7 +289,18 @@ export default function LibraryPage() {
               else playNext();
             }
           },
-          onError: () => { setLoading(false); setIsPlaying(false); },
+          onError: (e: { data: number }) => {
+            setLoading(false); setIsPlaying(false);
+            const code = e.data;
+            const msg =
+              code === 2   ? 'Invalid video ID.' :
+              code === 5   ? 'HTML5 player error.' :
+              code === 100 ? 'Video not found or private.' :
+              (code === 101 || code === 150) ? 'This video cannot be embedded. Try another track.' :
+              `Playback error (code ${code}).`;
+            setYtError(msg);
+            console.error('[YT] error code:', code, msg);
+          },
         },
       });
     }
@@ -336,7 +368,7 @@ export default function LibraryPage() {
   const miniPlayer = currentTrack && currentAlbum && (
     <MiniPlayer
       track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
-      progress={progress} elapsed={elapsed}
+      progress={progress} elapsed={elapsed} ytError={ytError}
       onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onExpand={() => setIsExpanded(true)}
     />
   );
@@ -345,6 +377,7 @@ export default function LibraryPage() {
     <FullPlayer
       track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
       progress={progress} elapsed={elapsed} volume={volume} shuffle={shuffle} repeat={repeat}
+      ytError={ytError}
       onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onSeek={handleSeek}
       onVolume={handleVolume} onShuffle={() => setShuffle(s => !s)}
       onRepeat={() => setRepeat(r => !r)} onCollapse={() => setIsExpanded(false)}
@@ -625,8 +658,9 @@ export default function LibraryPage() {
 }
 
 // ─── Mini Player ─────────────────────────────────────────────────────────────
-function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPlay, onPrev, onNext, onExpand }:
+function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, onPlay, onPrev, onNext, onExpand }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
+    ytError: string | null;
     onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
 
   const totalSec  = parseDuration(track.duration);
@@ -636,7 +670,7 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPla
     <div style={{ position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
       <div style={{
         background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)',
-        borderRadius: 22, border: `1.5px solid ${album.color}30`,
+        borderRadius: 22, border: `1.5px solid ${ytError ? '#EF4444' : album.color + '30'}`,
         boxShadow: `0 -2px 32px rgba(28,20,16,0.1), 0 0 0 1px rgba(28,20,16,0.04), 0 8px 32px ${album.color}18`,
         overflow: 'hidden',
       }}>
@@ -645,14 +679,21 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPla
           <div style={{ height: '100%', width: `${progress * 100}%`, background: album.color, transition: 'width 1s linear', borderRadius: 99 }} />
         </div>
 
+        {/* Error banner */}
+        {ytError && (
+          <div style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', fontSize: 11, color: '#DC2626', fontWeight: 600 }}>
+            ⚠ {ytError}
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
           {/* Tap to expand */}
           <button onClick={onExpand} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', minWidth: 0, padding: 0 }}>
             <OrbSphere color={album.color} accent={album.accent} size={40} glow={isPlaying} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.ink1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-              <div style={{ fontSize: 11, color: T.ink3, marginTop: 1 }}>
-                {loading ? 'Loading…' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
+              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : T.ink3, marginTop: 1 }}>
+                {loading ? 'Loading…' : ytError ? 'Tap ⏭ to try next track' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
               </div>
             </div>
           </button>
@@ -673,9 +714,9 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPla
 
 // ─── Full Player ─────────────────────────────────────────────────────────────
 function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volume, shuffle, repeat,
-  onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse }:
+  ytError, onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    volume: number; shuffle: boolean; repeat: boolean;
+    volume: number; shuffle: boolean; repeat: boolean; ytError: string | null;
     onPlay(): void; onPrev(): void; onNext(): void; onSeek(p: number): void;
     onVolume(v: number): void; onShuffle(): void; onRepeat(): void; onCollapse(): void }) {
 
@@ -731,6 +772,11 @@ function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volum
         <div style={{ padding: '0 28px 20px', textAlign: 'center' }}>
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em', marginBottom: 4 }}>{track.title}</div>
           <div style={{ fontSize: 14, color: T.ink3 }}>{track.artist}</div>
+          {ytError && (
+            <div style={{ marginTop: 10, padding: '8px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
+              ⚠ {ytError}
+            </div>
+          )}
         </div>
 
         {/* Progress */}
