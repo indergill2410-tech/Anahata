@@ -113,6 +113,10 @@ export default function LibraryPage() {
   const queueRef  = useRef<Track[]>([]);
   const elapsedRef = useRef(0);       // mirror for timer closure
   const durationRef = useRef(0);      // current track duration in seconds
+  const repeatRef = useRef(repeat);
+  const shuffleRef = useRef(shuffle);
+  repeatRef.current = repeat;
+  shuffleRef.current = shuffle;
 
   const filteredAlbums = getAlbumsByCategory(category);
 
