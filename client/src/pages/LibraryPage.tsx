@@ -173,7 +173,7 @@ export default function LibraryPage() {
         setLoading(false);
         // set initial volume via postMessage after load
         setTimeout(() => ytCmd(iframe, 'setVolume', [volume]), 800);
-        startTimer(dur);
+        startTimer();
       };
     }
   }, [volume]); // eslint-disable-line react-hooks/exhaustive-deps
