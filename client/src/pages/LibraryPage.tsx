@@ -120,6 +120,12 @@ export default function LibraryPage() {
 
   const filteredAlbums = getAlbumsByCategory(category);
 
+  useEffect(() => () => { stopTimer(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function stopTimer() {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }
+
   function startTimer() {
     stopTimer();
     timerRef.current = setInterval(() => {
@@ -139,18 +145,6 @@ export default function LibraryPage() {
   function restartCurrent() {
     if (!currentTrack || !currentAlbum) return;
     triggerPlay(currentTrack, currentAlbum, queueRef.current);
-  }
-
-  function advanceQueue() {
-    const q = queueRef.current;
-    if (!currentTrack || q.length === 0) return;
-    const idx = q.findIndex(t => t.id === currentTrack.id);
-    if (shuffle) {
-      const next = q[Math.floor(Math.random() * q.length)];
-      triggerPlay(next, currentAlbum!, q);
-    } else if (idx < q.length - 1) {
-      triggerPlay(q[idx + 1], currentAlbum!, q);
-    }
   }
 
   const triggerPlay = useCallback((track: Track, album: Album, queue: Track[]) => {
@@ -190,7 +184,7 @@ export default function LibraryPage() {
       setIsPlaying(false);
     } else {
       ytCmd(iframeRef.current, 'playVideo');
-      startTimer(durationRef.current - elapsedRef.current);
+      startTimer();
       setIsPlaying(true);
     }
   }
@@ -199,7 +193,7 @@ export default function LibraryPage() {
     const q = queueRef.current;
     if (!currentTrack || !currentAlbum || q.length === 0) return;
     const idx = q.findIndex(t => t.id === currentTrack.id);
-    if (shuffle) {
+    if (shuffleRef.current) {
       triggerPlay(q[Math.floor(Math.random() * q.length)], currentAlbum, q);
     } else if (idx < q.length - 1) {
       triggerPlay(q[idx + 1], currentAlbum, q);
