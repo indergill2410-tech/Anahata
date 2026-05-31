@@ -4,6 +4,7 @@ import { ALBUMS, CATEGORIES, TOTAL_TRACKS, getAlbumsByCategory, Album, Track } f
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function parseDuration(s: string): number {
   if (s.includes('min')) return parseInt(s) * 60;
+  if (s.includes('hr')) return parseInt(s) * 3600;
   const parts = s.split(':').map(Number);
   if (parts.length === 2) return parts[0] * 60 + parts[1];
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
