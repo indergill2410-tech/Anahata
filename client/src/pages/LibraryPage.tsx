@@ -181,6 +181,10 @@ export default function LibraryPage() {
     activeIdRef.current = track.id;
 
     stopTimer();
+    if (createTimeoutRef.current) {
+      clearTimeout(createTimeoutRef.current);
+      createTimeoutRef.current = null;
+    }
     try { ytRef.current?.destroy(); } catch { /**/ }
     ytRef.current = null;
 
