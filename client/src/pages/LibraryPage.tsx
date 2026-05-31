@@ -113,19 +113,24 @@ export default function LibraryPage() {
   const [volume,       setVolume]       = useState(80);
   const [loading,      setLoading]      = useState(false);
 
-  const ytRef       = useRef<YTPlayer | null>(null);
-  const ytDivRef    = useRef<HTMLDivElement>(null);
-  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const queueRef    = useRef<Track[]>([]);
-  const elapsedRef  = useRef(0);
-  const durationRef = useRef(0);
-  const activeIdRef = useRef('');  // race guard: ignore onReady from superseded tracks
-  const repeatRef   = useRef(repeat);
-  const shuffleRef  = useRef(shuffle);
-  const volumeRef   = useRef(volume);
-  repeatRef.current  = repeat;
-  shuffleRef.current = shuffle;
-  volumeRef.current  = volume;
+  const ytRef            = useRef<YTPlayer | null>(null);
+  const ytDivRef         = useRef<HTMLDivElement>(null);
+  const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const createTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queueRef         = useRef<Track[]>([]);
+  const elapsedRef       = useRef(0);
+  const durationRef      = useRef(0);
+  const activeIdRef      = useRef('');
+  const currentTrackRef  = useRef<Track | null>(null);
+  const currentAlbumRef  = useRef<Album | null>(null);
+  const repeatRef        = useRef(repeat);
+  const shuffleRef       = useRef(shuffle);
+  const volumeRef        = useRef(volume);
+  currentTrackRef.current  = currentTrack;
+  currentAlbumRef.current  = currentAlbum;
+  repeatRef.current        = repeat;
+  shuffleRef.current       = shuffle;
+  volumeRef.current        = volume;
 
   const filteredAlbums = getAlbumsByCategory(category);
 
@@ -164,8 +169,9 @@ export default function LibraryPage() {
   }
 
   function restartCurrent() {
-    if (!currentTrack || !currentAlbum) return;
-    triggerPlay(currentTrack, currentAlbum, queueRef.current);
+    const t = currentTrackRef.current; const a = currentAlbumRef.current;
+    if (!t || !a) return;
+    triggerPlay(t, a, queueRef.current);
   }
 
   const triggerPlay = useCallback((track: Track, album: Album, queue: Track[]) => {
@@ -196,7 +202,7 @@ export default function LibraryPage() {
 
     function tryCreate() {
       if (activeIdRef.current !== track.id) return; // newer tap superseded this one
-      if (!window.YT?.Player) { setTimeout(tryCreate, 200); return; }
+      if (!window.YT?.Player) { createTimeoutRef.current = setTimeout(tryCreate, 200); return; }
 
       ytRef.current = new window.YT.Player(div, {
         videoId: track.ytId,
@@ -240,22 +246,26 @@ export default function LibraryPage() {
 
   function playNext() {
     const q = queueRef.current;
-    if (!currentTrack || !currentAlbum || q.length === 0) return;
-    const idx = q.findIndex(t => t.id === currentTrack.id);
+    const track = currentTrackRef.current;
+    const album = currentAlbumRef.current;
+    if (!track || !album || q.length === 0) return;
+    const idx = q.findIndex(t => t.id === track.id);
     if (shuffleRef.current) {
-      triggerPlay(q[Math.floor(Math.random() * q.length)], currentAlbum, q);
+      triggerPlay(q[Math.floor(Math.random() * q.length)], album, q);
     } else if (idx < q.length - 1) {
-      triggerPlay(q[idx + 1], currentAlbum, q);
+      triggerPlay(q[idx + 1], album, q);
     }
   }
 
   function playPrev() {
     const q = queueRef.current;
-    if (!currentTrack || !currentAlbum || q.length === 0) return;
+    const curTrack = currentTrackRef.current;
+    const curAlbum = currentAlbumRef.current;
+    if (!curTrack || !curAlbum || q.length === 0) return;
     const cur = ytRef.current?.getCurrentTime() ?? elapsedRef.current;
     if (cur > 3) { ytRef.current?.seekTo(0, true); return; }
-    const idx = q.findIndex(t => t.id === currentTrack.id);
-    if (idx > 0) triggerPlay(q[idx - 1], currentAlbum, q);
+    const idx = q.findIndex(t => t.id === curTrack.id);
+    if (idx > 0) triggerPlay(q[idx - 1], curAlbum, q);
   }
 
   function handleSeek(pct: number) {
