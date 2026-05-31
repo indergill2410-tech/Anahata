@@ -129,7 +129,7 @@ async function downloadAndUpload(track, index) {
     // Multipart upload for large files
     const { UploadId } = await R2.send(new CreateMultipartUploadCommand({
       Bucket: BUCKET, Key: key, ContentType: 'audio/mpeg',
-      Metadata: { title: track.title, artist: track.artist },
+      Metadata: { title: track.title.replace(/[^\x00-\x7F]/g, ''), artist: track.artist.replace(/[^\x00-\x7F]/g, '') },
     }));
     const parts = [];
     const fd = fs.openSync(tmpFile, 'r');
@@ -155,7 +155,7 @@ async function downloadAndUpload(track, index) {
     const body = fs.readFileSync(tmpFile);
     await R2.send(new PutObjectCommand({
       Bucket: BUCKET, Key: key, Body: body, ContentType: 'audio/mpeg',
-      Metadata: { title: track.title, artist: track.artist },
+      Metadata: { title: track.title.replace(/[^\x00-\x7F]/g, ''), artist: track.artist.replace(/[^\x00-\x7F]/g, '') },
     }));
   }
 
