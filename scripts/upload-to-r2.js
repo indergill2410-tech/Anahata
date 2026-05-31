@@ -19,7 +19,7 @@ const { execSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { S3Client, PutObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, HeadObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } = require('@aws-sdk/client-s3');
 
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
@@ -122,14 +122,42 @@ async function downloadAndUpload(track, index) {
   }
 
   console.log(`       Uploading to R2...`);
-  const body = fs.readFileSync(tmpFile);
-  await R2.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: body,
-    ContentType: 'audio/mpeg',
-    Metadata: { title: track.title, artist: track.artist },
-  }));
+  const fileSize = fs.statSync(tmpFile).size;
+  const PART_SIZE = 10 * 1024 * 1024; // 10MB per part
+
+  if (fileSize > PART_SIZE) {
+    // Multipart upload for large files
+    const { UploadId } = await R2.send(new CreateMultipartUploadCommand({
+      Bucket: BUCKET, Key: key, ContentType: 'audio/mpeg',
+      Metadata: { title: track.title, artist: track.artist },
+    }));
+    const parts = [];
+    const fd = fs.openSync(tmpFile, 'r');
+    let partNumber = 1;
+    for (let offset = 0; offset < fileSize; offset += PART_SIZE) {
+      const length = Math.min(PART_SIZE, fileSize - offset);
+      const buf = Buffer.alloc(length);
+      fs.readSync(fd, buf, 0, length, offset);
+      const { ETag } = await R2.send(new UploadPartCommand({
+        Bucket: BUCKET, Key: key, UploadId, PartNumber: partNumber, Body: buf,
+      }));
+      parts.push({ PartNumber: partNumber, ETag });
+      process.stdout.write(`       Part ${partNumber} done\r`);
+      partNumber++;
+    }
+    fs.closeSync(fd);
+    await R2.send(new CompleteMultipartUploadCommand({
+      Bucket: BUCKET, Key: key, UploadId,
+      MultipartUpload: { Parts: parts },
+    }));
+    console.log(`       All ${parts.length} parts uploaded`);
+  } else {
+    const body = fs.readFileSync(tmpFile);
+    await R2.send(new PutObjectCommand({
+      Bucket: BUCKET, Key: key, Body: body, ContentType: 'audio/mpeg',
+      Metadata: { title: track.title, artist: track.artist },
+    }));
+  }
 
   fs.unlinkSync(tmpFile);
   const url = `${PUBLIC_URL}/${key}`;
