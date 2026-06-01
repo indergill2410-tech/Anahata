@@ -572,7 +572,7 @@ const TRACKS = [
   // ============================================================
   // EXTENDED TRACKS to reach 111 total — more Fusion + Indian
   // ============================================================
-  ...Array.from({ length: 36 }, (_, i) => {
+  ...Array.from({ length: 41 }, (_, i) => {
     const n = i + 16;
     const cats = [CATEGORIES.FUSION, CATEGORIES.INDIAN, CATEGORIES.THETA, CATEGORIES.ALPHA, CATEGORIES.DELTA];
     const instSets = [
