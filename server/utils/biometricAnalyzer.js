@@ -61,4 +61,4 @@ function selectBinauralTone(state, hrv) {
   return Math.max(0.5, base + offset);
 }
 
-module.exports = { analyzeBiometrics, hrvBinauralOffset, selectBinauralTone, BRAINWAVE_STATES };
+module.exports = { analyzeBiometrics, hrvBinauralOffset, selectBinauralTone };
