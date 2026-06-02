@@ -245,6 +245,13 @@ export default function LibraryPage() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
+      audioRef.current.oncanplay = null;
+      audioRef.current.onplay = null;
+      audioRef.current.onpause = null;
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.ontimeupdate = null;
+      audioRef.current.onloadedmetadata = null;
       audioRef.current = null;
     }
     try { ytRef.current?.destroy(); } catch { /**/ }
@@ -258,6 +265,20 @@ export default function LibraryPage() {
       audioRef.current = audio;
       audio.src = track.audioUrl;
       audio.volume = volumeRef.current / 100;
+
+      const cleanupAudio = () => {
+        audio.onerror = null;
+        audio.oncanplay = null;
+        audio.onplay = null;
+        audio.onpause = null;
+        audio.onended = null;
+        audio.ontimeupdate = null;
+        audio.onloadedmetadata = null;
+        audio.pause();
+        audio.src = '';
+        if (audioRef.current === audio) audioRef.current = null;
+      };
+
       audio.oncanplay = () => {
         if (activeIdRef.current !== track.id) return;
         setLoading(false);
@@ -266,32 +287,34 @@ export default function LibraryPage() {
       audio.onplay = () => {
         if (activeIdRef.current !== track.id) return;
         setIsPlaying(true);
-        if (!timerRef.current) startTimer();
       };
-      audio.onpause = () => {
-        setIsPlaying(false);
-        stopTimer();
-      };
+      audio.onpause = () => { setIsPlaying(false); };
       audio.onended = () => {
         setIsPlaying(false);
-        stopTimer();
-        if (repeatRef.current) { audio.currentTime = 0; audio.play(); }
+        if (repeatRef.current) { audio.currentTime = 0; audio.play().catch(() => {}); }
         else playNext();
       };
+      audio.ontimeupdate = () => {
+        if (activeIdRef.current !== track.id) return;
+        const cur = audio.currentTime;
+        elapsedRef.current = cur;
+        setElapsed(Math.floor(cur));
+        const dur = audio.duration || durationRef.current;
+        if (dur > 0) setProgress(cur / dur);
+      };
       audio.onerror = () => {
+        cleanupAudio();
         setLoading(false);
         setIsPlaying(false);
         setYtError('Failed to load audio. Trying YouTube...');
-        // Fallback to YouTube
         isNativeAudioRef.current = false;
         setupYouTubePlayer();
       };
       audio.onloadedmetadata = () => {
-        if (activeIdRef.current === track.id) {
-          durationRef.current = audio.duration;
-        }
+        if (activeIdRef.current === track.id) durationRef.current = audio.duration;
       };
       audio.play().catch(() => {
+        cleanupAudio();
         setLoading(false);
         setYtError('Failed to play audio. Trying YouTube...');
         isNativeAudioRef.current = false;
