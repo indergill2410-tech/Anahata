@@ -156,6 +156,14 @@ export default function LibraryPage() {
 
   const ytRef            = useRef<YTPlayer | null>(null);
   const audioRef         = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
   const ytDivRef         = useRef<HTMLDivElement>(null);
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const createTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
