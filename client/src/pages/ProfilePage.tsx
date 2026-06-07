@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { useJournalSummary } from '../hooks/useJournalSummary';
+import { useUserDashboard } from '../hooks/useUserDashboard';
 
 type PrefKey = 'binaural' | 'reminders' | 'haptics' | 'autoSession';
 
@@ -29,22 +29,42 @@ function readPref(key: PrefKey, fallback: boolean) {
   }
 }
 
-function formatDate(key?: string) {
-  if (!key) return 'No entries yet';
-  const [year, month, day] = key.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function compactNumber(value: number) {
   if (value >= 1000) return `${Math.round(value / 100) / 10}k`;
   return String(value);
+}
+
+function shortText(text = '', max = 132) {
+  const clean = text.trim();
+  if (!clean) return 'No note yet.';
+  return clean.length > max ? `${clean.slice(0, max)}...` : clean;
+}
+
+function formatDate(value?: string) {
+  if (!value) return 'No activity yet';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'No activity yet';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatMinutes(minutes: number) {
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
 
 function Toggle({ label, desc, value, onChange }: ToggleProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(23,18,10,0.06)', gap: 16 }}>
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)', margin: 0 }}>{label}</p>
+        <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink1)', margin: 0 }}>{label}</p>
         {desc && <p style={{ fontSize: 11, color: 'var(--ink3)', margin: '2px 0 0' }}>{desc}</p>}
       </div>
       <button
@@ -55,7 +75,6 @@ function Toggle({ label, desc, value, onChange }: ToggleProps) {
           height: 26,
           borderRadius: 13,
           border: 'none',
-          cursor: 'pointer',
           background: value ? 'var(--violet)' : 'rgba(23,18,10,0.12)',
           position: 'relative',
           transition: 'background 0.25s ease',
@@ -80,41 +99,36 @@ function Toggle({ label, desc, value, onChange }: ToggleProps) {
   );
 }
 
-function StatRing({ value, max, label, color, unit = '' }: { value: number; max: number; label: string; color: string; unit?: string }) {
-  const r = 28;
-  const circ = 2 * Math.PI * r;
-  const pct = Math.min(value / max, 1);
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-      <div style={{ position: 'relative', width: 72, height: 72 }}>
-        <svg width="72" height="72" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)' }}>
-          <circle cx="36" cy="36" r={r} fill="none" stroke={`${color}20`} strokeWidth="5" />
-          <circle
-            cx="36"
-            cy="36"
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth="5"
-            strokeDasharray={circ}
-            strokeDashoffset={circ * (1 - pct)}
-            strokeLinecap="round"
-            style={{ transition: 'stroke-dashoffset 1s ease' }}
-          />
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 15, fontWeight: 900, color, fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1 }}>{compactNumber(value)}{unit}</span>
-        </div>
-      </div>
-      <span style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700, letterSpacing: '0.04em', textAlign: 'center' }}>{label}</span>
+    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', fontFamily: "'Space Grotesk', sans-serif" }}>
+      {children}
     </div>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function MetricTile({ label, value, color, note }: { label: string; value: string; color: string; note?: string }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', fontFamily: "'Space Grotesk', sans-serif" }}>
-      {children}
+    <div style={{ borderRadius: 16, padding: 14, background: '#FFFFFF', border: `1px solid ${color}24`, boxShadow: '0 2px 10px rgba(23,18,10,0.045)', minWidth: 0 }}>
+      <div style={{ width: 18, height: 18, borderRadius: '50%', background: color, boxShadow: `0 0 14px ${color}42`, marginBottom: 10 }} />
+      <div style={{ fontSize: 24, lineHeight: 1, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 800, marginTop: 5 }}>{label}</div>
+      {note && <div style={{ fontSize: 10, color, fontWeight: 800, marginTop: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{note}</div>}
+    </div>
+  );
+}
+
+function ActivityRow({ color, title, meta, body }: { color: string; title: string; meta: string; body: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid rgba(23,18,10,0.055)' }}>
+      <span style={{ width: 28, height: 28, borderRadius: '50%', background: color, boxShadow: `0 0 12px ${color}36`, flexShrink: 0 }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 2 }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{title}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800, flexShrink: 0 }}>{meta}</div>
+        </div>
+        <p style={{ margin: 0, color: 'var(--ink3)', fontSize: 12, lineHeight: 1.55 }}>{body}</p>
+      </div>
     </div>
   );
 }
@@ -122,7 +136,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function ProfilePage() {
   const { user, logout } = useAuth();
   const { success } = useToast();
-  const { summary, loading: journalLoading, error: journalError, isCloud } = useJournalSummary(140);
+  const dashboard = useUserDashboard();
+  const summary = dashboard.journal.summary;
   const [prefs, setPrefs] = useState<Record<PrefKey, boolean>>({
     binaural: readPref('binaural', true),
     reminders: readPref('reminders', false),
@@ -137,143 +152,154 @@ export default function ProfilePage() {
   }
 
   const initials = (user?.name?.[0] || user?.email?.[0] || '?').toUpperCase();
-  const topMood = summary.topMood ? MOOD_LABELS[summary.topMood] : null;
-  const recent = summary.lastEntry;
-  const milestones = [
-    { label: 'First reflection', unlocked: summary.totalEntries > 0, color: '#7048E8', hint: 'Save one entry' },
-    { label: 'Seven-day rhythm', unlocked: summary.streak >= 7, color: '#F59F00', hint: `${Math.min(summary.streak, 7)}/7 days` },
-    { label: 'Dream keeper', unlocked: summary.dreamCount >= 3, color: '#6366F1', hint: `${Math.min(summary.dreamCount, 3)}/3 dreams` },
-    { label: 'Deep writer', unlocked: summary.totalWords >= 1000, color: '#0CA678', hint: `${Math.min(summary.totalWords, 1000)}/1000 words` },
-  ];
+  const topMood = summary.topMood ? MOOD_LABELS[summary.topMood] : 'Not enough data';
+  const latestJournal = summary.lastEntry;
+  const latestDream = dashboard.dreamEntries[0];
+  const latestSession = dashboard.sessions[0];
+  const latestPlay = dashboard.library.recentPlay;
+  const sessionMinutes = dashboard.totals.sessionMinutes;
+  const topBrainwave = dashboard.sessionStats.topBrainwaveState || 'New practice';
 
   return (
     <div className="dashboard fade-in" style={{ gap: 16 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 6 }}>
         <div style={{
-          width: 78,
-          height: 78,
+          width: 64,
+          height: 64,
           borderRadius: '50%',
           background: 'linear-gradient(135deg, #7048E8, #3B5BDB)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 30,
+          fontSize: 25,
           fontWeight: 900,
           color: '#fff',
-          boxShadow: '0 10px 30px rgba(112,72,232,0.42)',
+          boxShadow: '0 10px 30px rgba(112,72,232,0.38)',
           fontFamily: "'Space Grotesk', sans-serif",
+          flexShrink: 0,
         }}>{initials}</div>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>
-            {user?.name || 'Meditator'}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 25, fontWeight: 900, color: 'var(--ink1)', letterSpacing: '0' }}>
+            Your dashboard
+          </h1>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {user?.name || 'Meditator'} - {user?.email}
           </p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--ink3)' }}>{user?.email}</p>
         </div>
+        <span style={{ borderRadius: 999, padding: '6px 9px', background: dashboard.loading ? 'rgba(217,119,6,0.08)' : 'rgba(12,166,120,0.08)', color: dashboard.loading ? '#D97706' : '#0CA678', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>
+          {dashboard.loading ? 'Syncing' : 'Saved'}
+        </span>
       </div>
 
-      <div className="card" style={{ padding: '18px 16px', borderRadius: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <SectionTitle>Your practice</SectionTitle>
-          <span style={{ fontSize: 10, fontWeight: 800, color: isCloud ? '#0CA678' : '#D97706', textTransform: 'uppercase' }}>
-            {journalLoading ? 'Syncing' : isCloud ? 'Account saved' : 'Device saved'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-around', gap: 8 }}>
-          <StatRing value={summary.streak} max={30} label="Day streak" color="#F59F00" />
-          <StatRing value={summary.totalEntries} max={100} label="Entries" color="#7048E8" />
-          <StatRing value={summary.totalWords} max={5000} label="Words" color="#0CA678" />
-        </div>
-        {topMood && (
-          <div style={{ marginTop: 14, textAlign: 'center', fontSize: 12, color: 'var(--ink3)' }}>
-            Most frequent mood: <span style={{ fontWeight: 800, color: 'var(--ink1)' }}>{topMood}</span>
-          </div>
-        )}
-        {journalError && <p style={{ margin: '12px 0 0', fontSize: 11, color: '#D97706', textAlign: 'center' }}>Showing cached journal memory.</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+        <MetricTile label="Journal entries" value={compactNumber(dashboard.totals.journalEntries)} color="#7048E8" note={`${summary.streak} day streak`} />
+        <MetricTile label="Dream logs" value={compactNumber(dashboard.totals.dreamLogs)} color="#6366F1" note={dashboard.dreamLucidityAverage ? `${dashboard.dreamLucidityAverage}/5 lucidity` : 'Start tonight'} />
+        <MetricTile label="Sessions" value={compactNumber(dashboard.totals.sessions)} color="#0CA678" note={formatMinutes(sessionMinutes)} />
+        <MetricTile label="Music plays" value={compactNumber(dashboard.totals.plays)} color="#D97706" note={`${dashboard.totals.favourites} favourites`} />
       </div>
 
       <div className="card" style={{ padding: 16, borderRadius: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-          <SectionTitle>Journal memory</SectionTitle>
-          <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 700 }}>{formatDate(recent?.entry_date)}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <SectionTitle>Practice memory</SectionTitle>
+          <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 800 }}>{formatDate(latestJournal?.entry_date)}</span>
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {[
-            { label: 'Check-ins', value: summary.checkinCount, color: '#7048E8' },
-            { label: 'Daily', value: summary.dailyCount, color: '#D97706' },
-            { label: 'Dreams', value: summary.dreamCount, color: '#6366F1' },
+            { label: 'Words', value: compactNumber(summary.totalWords), color: '#7048E8' },
+            { label: 'Mood', value: topMood, color: '#E64980' },
+            { label: 'Brainwave', value: topBrainwave, color: '#0CA678' },
           ].map(item => (
-            <div key={item.label} style={{ borderRadius: 14, padding: '11px 8px', background: `${item.color}0F`, border: `1px solid ${item.color}24`, textAlign: 'center' }}>
-              <div style={{ fontSize: 18, lineHeight: 1.1, fontWeight: 900, color: item.color, fontFamily: "'Space Grotesk', sans-serif" }}>{item.value}</div>
+            <div key={item.label} style={{ borderRadius: 14, padding: '11px 8px', background: `${item.color}0F`, border: `1px solid ${item.color}24`, minWidth: 0 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.2, fontWeight: 900, color: item.color, fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
               <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800, marginTop: 4 }}>{item.label}</div>
             </div>
           ))}
         </div>
-
-        {recent ? (
-          <div style={{ borderRadius: 16, padding: 14, background: 'rgba(23,18,10,0.035)', border: '1px solid rgba(23,18,10,0.06)' }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-              Latest {recent.entry_type}
-            </div>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--ink2)', lineHeight: 1.65 }}>
-              {recent.text.length > 140 ? `${recent.text.slice(0, 140)}...` : recent.text}
-            </p>
-          </div>
+        {latestJournal ? (
+          <ActivityRow
+            color={latestJournal.entry_type === 'dream' ? '#6366F1' : latestJournal.entry_type === 'daily' ? '#D97706' : '#7048E8'}
+            title={`Latest ${latestJournal.entry_type}`}
+            meta={formatDate(latestJournal.entry_date)}
+            body={shortText(latestJournal.text)}
+          />
         ) : (
-          <div style={{ borderRadius: 16, padding: 18, background: 'rgba(112,72,232,0.06)', border: '1px dashed rgba(112,72,232,0.22)', textAlign: 'center', color: 'var(--ink3)', fontSize: 13 }}>
-            Your profile will grow as journal entries are saved.
+          <div style={{ borderRadius: 16, padding: 18, background: 'rgba(112,72,232,0.06)', border: '1px dashed rgba(112,72,232,0.22)', color: 'var(--ink3)', fontSize: 13, textAlign: 'center' }}>
+            Save a journal entry and your dashboard will start building a personal memory map.
           </div>
         )}
+        {dashboard.error && <p style={{ margin: 0, fontSize: 11, color: '#D97706' }}>Some dashboard data is cached until the next sync.</p>}
+      </div>
 
-        {summary.topTags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            {summary.topTags.map(item => (
-              <span key={item.tag} style={{ borderRadius: 999, padding: '6px 10px', background: 'rgba(112,72,232,0.08)', color: 'var(--violet)', fontSize: 11, fontWeight: 800 }}>
-                {item.tag} x{item.count}
-              </span>
-            ))}
-          </div>
+      <div className="card" style={{ padding: 16, borderRadius: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <SectionTitle>Dream logs</SectionTitle>
+          <span style={{ fontSize: 11, fontWeight: 900, color: '#6366F1' }}>{dashboard.totals.dreamLogs} total</span>
+        </div>
+        {latestDream ? (
+          <>
+            <ActivityRow color="#6366F1" title="Latest dream" meta={formatDate(latestDream.entry_date)} body={shortText(latestDream.text)} />
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', paddingTop: 2 }}>
+              {latestDream.tags.slice(0, 6).map(tag => (
+                <span key={tag} style={{ borderRadius: 999, padding: '6px 10px', background: 'rgba(99,102,241,0.08)', color: '#6366F1', fontSize: 11, fontWeight: 900 }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p style={{ margin: 0, color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>Dreams saved from the Journal will appear here as a private dream log.</p>
         )}
       </div>
 
       <div className="card" style={{ padding: 16, borderRadius: 20 }}>
-        <SectionTitle>Milestones</SectionTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9, marginTop: 12 }}>
-          {milestones.map(item => (
-            <div key={item.label} style={{
-              borderRadius: 15,
-              padding: 12,
-              border: `1px solid ${item.unlocked ? `${item.color}35` : 'rgba(23,18,10,0.07)'}`,
-              background: item.unlocked ? `${item.color}10` : '#FFFFFF',
-              opacity: item.unlocked ? 1 : 0.72,
-            }}>
-              <div style={{ width: 18, height: 18, borderRadius: '50%', background: item.unlocked ? item.color : 'var(--bg3)', marginBottom: 8, boxShadow: item.unlocked ? `0 0 14px ${item.color}45` : 'none' }} />
-              <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--ink1)', lineHeight: 1.25 }}>{item.label}</div>
-              <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3, fontWeight: 700 }}>{item.unlocked ? 'Unlocked' : item.hint}</div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <SectionTitle>Sessions</SectionTitle>
+          <span style={{ fontSize: 11, fontWeight: 900, color: '#0CA678' }}>{formatMinutes(sessionMinutes)}</span>
         </div>
+        {latestSession ? (
+          <ActivityRow
+            color="#0CA678"
+            title={`${latestSession.brainwave_state || 'Meditation'} session`}
+            meta={formatDate(latestSession.created || latestSession.created_at)}
+            body={`${latestSession.heart_rate || '-'} bpm average - ${formatMinutes(Math.round((latestSession.duration_seconds || 0) / 60))}`}
+          />
+        ) : (
+          <p style={{ margin: 0, color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>Completed meditation sessions will collect here with brainwave, duration, and heart data.</p>
+        )}
       </div>
 
-      <div className="card" style={{ padding: '4px 18px', borderRadius: 20 }}>
-        <Toggle label="Binaural beats" desc="Stereo headphones recommended" value={prefs.binaural} onChange={v => setPref('binaural', v)} />
-        <Toggle label="Daily reminders" desc="A small nudge to return" value={prefs.reminders} onChange={v => setPref('reminders', v)} />
-        <Toggle label="Haptic feedback" desc="Vibrate on connect events" value={prefs.haptics} onChange={v => setPref('haptics', v)} />
-        <Toggle label="Auto-start session" desc="Begin when watch connects" value={prefs.autoSession} onChange={v => setPref('autoSession', v)} />
+      <div className="card" style={{ padding: 16, borderRadius: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <SectionTitle>Music memory</SectionTitle>
+          <span style={{ fontSize: 11, fontWeight: 900, color: '#D97706' }}>{dashboard.library.totalPlays} plays</span>
+        </div>
+        {latestPlay ? (
+          <>
+            <ActivityRow color={latestPlay.albumColor} title={latestPlay.title} meta={formatDate(latestPlay.created)} body={`${latestPlay.artist} - ${latestPlay.albumTitle}`} />
+            <div style={{ marginTop: 4, borderRadius: 14, background: 'rgba(217,119,6,0.07)', border: '1px solid rgba(217,119,6,0.18)', padding: 12, fontSize: 12, color: 'var(--ink2)' }}>
+              Most returned-to album: <strong>{dashboard.library.topAlbum || 'Still discovering'}</strong>
+            </div>
+          </>
+        ) : (
+          <p style={{ margin: 0, color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>Library plays and favourite tracks will shape your music memory once listening is recorded.</p>
+        )}
       </div>
 
-      <div className="card" style={{ padding: '14px 18px', borderRadius: 20 }}>
-        <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.9, margin: 0 }}>
-          Anahata v1.0.0<br />
-          PocketBase account memory, binaural beats, Indian classical layers, and Solfeggio textures.
-        </p>
+      <div className="card" style={{ padding: 16, borderRadius: 20 }}>
+        <SectionTitle>Personal settings</SectionTitle>
+        <div style={{ marginTop: 6 }}>
+          <Toggle label="Binaural beats" desc="Stereo headphones recommended" value={prefs.binaural} onChange={v => setPref('binaural', v)} />
+          <Toggle label="Daily reminders" desc="A small nudge to return" value={prefs.reminders} onChange={v => setPref('reminders', v)} />
+          <Toggle label="Haptic feedback" desc="Vibrate on connection events" value={prefs.haptics} onChange={v => setPref('haptics', v)} />
+          <Toggle label="Auto-start session" desc="Begin when watch connects" value={prefs.autoSession} onChange={v => setPref('autoSession', v)} />
+        </div>
       </div>
 
       <button className="btn" onClick={logout} style={{
         width: '100%',
         height: 46,
         fontSize: 13,
-        fontWeight: 700,
+        fontWeight: 800,
         color: '#D9480F',
         background: 'rgba(217,72,15,0.07)',
         border: '1px solid rgba(217,72,15,0.2)',
