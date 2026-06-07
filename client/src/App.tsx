@@ -18,6 +18,7 @@ import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 
 type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
+type PageProps = Record<string, unknown>;
 
 function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
   const label = tab === 'profile' ? 'your dashboard' : 'your session history';
@@ -118,15 +119,15 @@ function Inner() {
   const PROTECTED: Tab[] = ['profile'];
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
 
-  const PAGES: Record<Tab, React.ComponentType<Record<string, unknown>>> = {
-    journey: JourneyPage,
-    library: LibraryPage,
-    studio: StudioPage,
-    journal: JournalPage,
-    profile: ProfilePage,
+  const PAGES: Record<Tab, React.ComponentType<PageProps>> = {
+    journey: JourneyPage as React.ComponentType<PageProps>,
+    library: LibraryPage as React.ComponentType<PageProps>,
+    studio: StudioPage as React.ComponentType<PageProps>,
+    journal: JournalPage as React.ComponentType<PageProps>,
+    profile: ProfilePage as React.ComponentType<PageProps>,
   };
   const Page = PAGES[tab];
-  const pageProps: Record<string, unknown> = tab === 'library'
+  const pageProps: PageProps = tab === 'library'
     ? { onTabChange: handleTabChange }
     : tab === 'journal'
       ? { onRequireAuth: openAuth }
