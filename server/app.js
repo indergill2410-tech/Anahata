@@ -18,6 +18,7 @@ const libraryRoutes    = require('./routes/library');
 const profileRoutes    = require('./routes/profile');
 const mixesRoutes      = require('./routes/mixes');
 const journalRoutes    = require('./routes/journal');
+const biometricsRoutes = require('./routes/biometrics');
 const aiRoutes         = require('./routes/ai');
 const pb               = require('./services/pbClient');
 
@@ -78,7 +79,7 @@ if (!isProd) {
   }));
 }
 
-// Body parsing. Journals and guest imports need more than tiny API payloads.
+// Body parsing. Journals and biometric payloads need more than tiny API payloads.
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
@@ -105,6 +106,7 @@ app.use('/api/library',    libraryRoutes);
 app.use('/api/profile',    profileRoutes);
 app.use('/api/mixes',      mixesRoutes);
 app.use('/api/journal',    journalRoutes);
+app.use('/api/biometrics', biometricsRoutes);
 app.use('/api/ai',         aiRoutes);
 
 // Health check (deep)
