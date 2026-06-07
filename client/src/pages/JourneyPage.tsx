@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import OrbVisualizer from '../components/OrbVisualizer';
 import AnahataOrb, { OrbId } from '../components/AnahataOrb';
-import BreathingGuide from '../components/BreathingGuide';
+import BreathingGuide, { type BreathingPattern } from '../components/BreathingGuide';
 import NowPlayingBar from '../components/NowPlayingBar';
 import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useBluetooth } from '../hooks/useBluetooth';
 import { useSimulator } from '../hooks/useSimulator';
+import { useBiometricCoach } from '../hooks/useBiometricCoach';
 import { useToast } from '../context/ToastContext';
+import { type BiometricSource } from '../services/biometricCoach';
 
 const BW_COLOR: Record<string, string> = {
   Delta:'#3B5BDB', Theta:'#7048E8', Alpha:'#0CA678', Beta:'#3B5BDB', Gamma:'#F59F00',
@@ -25,24 +27,37 @@ function fmtElapsed(s: number): string {
 }
 
 interface Ripple { id: number; x: number; y: number; color: string; }
+type BreathSession = { mode: 'start' | 'coach'; cycles: number; pattern?: BreathingPattern; title?: string };
 
 export default function JourneyPage() {
   const engine = useSoundEngine();
   const ws     = useWebSocket();
   const ble    = useBluetooth();
   const sim    = useSimulator();
-  const { info } = useToast();
+  const { info, success } = useToast();
 
-  const [demoMode,   setDemoMode]   = useState(false);
-  const [showBreath, setShowBreath] = useState(false);
-  const [started,    setStarted]    = useState(false);
-  const [wsMsg,      setWsMsg]      = useState<{ heartRate?: number } | null>(null);
-  const [ripples,    setRipples]    = useState<Ripple[]>([]);
+  const [demoMode,      setDemoMode]      = useState(false);
+  const [breathSession, setBreathSession] = useState<BreathSession | null>(null);
+  const [started,       setStarted]       = useState(false);
+  const [wsMsg,         setWsMsg]         = useState<{ heartRate?: number } | null>(null);
+  const [ripples,       setRipples]       = useState<Ripple[]>([]);
   const orbRef = useRef<HTMLDivElement>(null);
 
   const heartRate = ble.status === 'connected' ? ble.heartRate
                   : demoMode                   ? sim.heartRate
                   : wsMsg?.heartRate ?? null;
+  const biometricSource: BiometricSource = ble.status === 'connected' ? 'watch'
+                                      : demoMode                       ? 'demo'
+                                      : typeof wsMsg?.heartRate === 'number' ? 'websocket'
+                                      : 'manual';
+  const coach = useBiometricCoach({
+    heartRate,
+    source: biometricSource,
+    deviceName: ble.deviceName,
+    battery: ble.battery,
+    enabled: Boolean(heartRate),
+  });
+  const advice = coach.advice;
 
   useEffect(() => {
     if (heartRate && ws.status === 'connected') ws.send({ type:'biometric', heartRate });
@@ -68,27 +83,57 @@ export default function JourneyPage() {
 
   function handleOrbTap(e: React.MouseEvent<HTMLDivElement>) {
     spawnRipple(e);
-    if (!started) setShowBreath(true);
+    if (!started) setBreathSession({ mode: 'start', cycles: 2 });
     else engine.togglePlay();
   }
 
   function onBreathingComplete() {
-    setShowBreath(false);
-    setStarted(true);
-    engine.start();
+    const mode = breathSession?.mode;
+    setBreathSession(null);
+    if (mode === 'start') {
+      setStarted(true);
+      engine.start();
+    } else if (mode === 'coach') {
+      info('Breath reset complete');
+    }
   }
 
   function toggleDemo() {
     if (demoMode) { sim.stop(); setDemoMode(false); }
-    else { sim.start(); setDemoMode(true); info('Demo mode — simulating biometrics'); }
+    else { sim.start(); setDemoMode(true); info('Demo mode - simulating biometrics'); }
+  }
+
+  function startCoachBreath() {
+    if (!advice) return;
+    setBreathSession({
+      mode: 'coach',
+      pattern: advice.breathing,
+      cycles: advice.breathing.cycles,
+      title: advice.breathing.label,
+    });
+  }
+
+  function applyCoachMusic() {
+    if (!advice) return;
+    const label = (INTENTIONS as Record<string, { label: string }>)[advice.music.intention]?.label || advice.music.intention;
+    engine.applyIntention(advice.music.intention);
+    engine.setBpm(advice.music.tempo);
+    success(`${label} tuned for ${advice.music.brainwave}`);
   }
 
   const bwColor = BW_COLOR[engine.brainwave] || '#A855F7';
   const bwGlow  = BW_GLOW[engine.brainwave]  || 'rgba(168,85,247,0.35)';
 
   return (
-    <div className="journey-root">
-      {showBreath && <BreathingGuide onComplete={onBreathingComplete} cycles={2} />}
+    <div className="journey-root" style={{ overflowX: 'hidden', overflowY: 'auto', paddingBottom: advice ? 210 : 150 }}>
+      {breathSession && (
+        <BreathingGuide
+          onComplete={onBreathingComplete}
+          cycles={breathSession.cycles}
+          pattern={breathSession.pattern}
+          title={breathSession.title}
+        />
+      )}
 
       {/* Header status row */}
       <div style={{ marginTop:20, marginBottom:4, display:'flex', alignItems:'center', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
@@ -116,7 +161,7 @@ export default function JourneyPage() {
       <div ref={orbRef} onClick={handleOrbTap}
         style={{
           position:'relative', marginTop:12, cursor:'pointer', userSelect:'none',
-          filter: engine.isPlaying ? `drop-shadow(0 8px 40px rgba(112,72,232,0.18))` : 'none',
+          filter: engine.isPlaying ? `drop-shadow(0 8px 40px ${bwGlow})` : 'none',
           transition:'filter 0.8s ease',
         }}
       >
@@ -180,6 +225,66 @@ export default function JourneyPage() {
         </div>
       )}
 
+      {advice && (
+        <div style={{
+          width:'calc(100% - 36px)', maxWidth:430, marginTop:14,
+          background:'rgba(255,255,255,0.94)', border:`1px solid ${advice.metrics.zone.color}28`,
+          borderRadius:18, boxShadow:'0 8px 28px rgba(23,18,10,0.08)', padding:13,
+          display:'flex', flexDirection:'column', gap:10,
+        }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9, minWidth:0 }}>
+              <span style={{ width:10, height:10, borderRadius:'50%', background:advice.metrics.zone.color, boxShadow:`0 0 14px ${advice.metrics.zone.color}70`, flexShrink:0 }} />
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:900, color:'var(--ink1)', fontFamily:"'Space Grotesk', sans-serif", whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                  Smart coach
+                </div>
+                <div style={{ fontSize:10, color:'var(--ink3)', fontWeight:800, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                  {advice.metrics.zone.label} · {advice.metrics.trend.label} · {advice.confidence}% confidence
+                </div>
+              </div>
+            </div>
+            <div style={{ borderRadius:999, padding:'6px 10px', background:`${advice.metrics.zone.color}12`, color:advice.metrics.zone.color, fontSize:13, fontWeight:900, fontFamily:'JetBrains Mono, monospace', flexShrink:0 }}>
+              {advice.metrics.heartRate} BPM
+            </div>
+          </div>
+
+          <p style={{ margin:0, color:'var(--ink2)', fontSize:12, lineHeight:1.5 }}>
+            {advice.primaryAction}
+          </p>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <div style={{ minWidth:0, borderRadius:14, padding:'9px 10px', background:'rgba(12,166,120,0.07)', border:'1px solid rgba(12,166,120,0.16)' }}>
+              <div style={{ fontSize:10, color:'#0CA678', fontWeight:900 }}>Breath</div>
+              <div style={{ fontSize:12, color:'var(--ink1)', fontWeight:900, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{advice.breathing.pattern}</div>
+            </div>
+            <div style={{ minWidth:0, borderRadius:14, padding:'9px 10px', background:'rgba(112,72,232,0.07)', border:'1px solid rgba(112,72,232,0.16)' }}>
+              <div style={{ fontSize:10, color:'#7048E8', fontWeight:900 }}>Music</div>
+              <div style={{ fontSize:12, color:'var(--ink1)', fontWeight:900, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{advice.music.brainwave} · {advice.music.tempo} BPM</div>
+            </div>
+          </div>
+
+          {advice.cautions.length > 0 && (
+            <p style={{ margin:0, color:'#D97706', fontSize:11, lineHeight:1.45 }}>{advice.cautions[0]}</p>
+          )}
+
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={applyCoachMusic} style={{
+              flex:1, height:36, borderRadius:12, border:'none', background:'var(--violet)', color:'#fff',
+              fontSize:12, fontWeight:900, boxShadow:'0 4px 14px rgba(112,72,232,0.25)'
+            }}>
+              Apply music
+            </button>
+            <button onClick={startCoachBreath} style={{
+              flex:1, height:36, borderRadius:12, border:'1px solid rgba(12,166,120,0.22)', background:'rgba(12,166,120,0.08)', color:'#0CA678',
+              fontSize:12, fontWeight:900
+            }}>
+              Try breath
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bottom status bar */}
       <div style={{
         position:'absolute', bottom:118, left:0, right:0,
@@ -187,7 +292,7 @@ export default function JourneyPage() {
       }}>
         {/* BLE Heart Rate */}
         <button
-          onClick={ble.status==='connected' ? ble.disconnect : ble.status==='disconnected' ? ble.connect : undefined}
+          onClick={ble.status==='connected' ? ble.disconnect : ble.status==='disconnected' || ble.status==='idle' ? ble.connect : undefined}
           style={{
             display:'flex', alignItems:'center', gap:7, padding:'8px 16px',
             borderRadius:22, fontFamily:'inherit', cursor:'pointer',
@@ -203,7 +308,7 @@ export default function JourneyPage() {
             width:7, height:7, borderRadius:'50%',
             background: ble.status==='connected' ? 'var(--teal)' : ble.status==='connecting' ? 'var(--amber)' : 'var(--ink4)',
           }} />
-          {ble.status==='connected' ? `${ble.heartRate||'–'} BPM` : ble.status==='connecting' ? 'Connecting…' : '♡ Heart Rate'}
+          {ble.status==='connected' ? `${ble.heartRate||'-'} BPM` : ble.status==='connecting' ? 'Connecting...' : 'Heart Rate'}
         </button>
 
         {/* Demo toggle */}
@@ -217,7 +322,7 @@ export default function JourneyPage() {
             boxShadow: 'var(--shadow)',
           }}
         >
-          {demoMode ? '⚡ DEMO ON' : 'DEMO'}
+          {demoMode ? 'DEMO ON' : 'DEMO'}
         </button>
 
         {/* WS status */}
