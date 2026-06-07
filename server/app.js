@@ -1,5 +1,5 @@
 /**
- * Anahata — Express App
+ * Anahata - Express App
  */
 
 const express    = require('express');
@@ -17,17 +17,18 @@ const meditationRoutes = require('./routes/meditation');
 const libraryRoutes    = require('./routes/library');
 const profileRoutes    = require('./routes/profile');
 const mixesRoutes      = require('./routes/mixes');
+const journalRoutes    = require('./routes/journal');
 const aiRoutes         = require('./routes/ai');
 const pb               = require('./services/pbClient');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
-// ── Sentry request handler (must be first middleware) ──────────────────────
+// Sentry request handler (must be first middleware)
 const Sentry = getSentry();
 if (Sentry) app.use(Sentry.Handlers.requestHandler());
 
-// ── Security headers ───────────────────────────────────────────────────────
+// Security headers
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: isProd ? {
@@ -44,7 +45,7 @@ app.use(helmet({
   } : false
 }));
 
-// ── CORS ───────────────────────────────────────────────────────────────────
+// CORS
 const ALLOWED_ORIGINS = isProd
   ? (process.env.ALLOWED_ORIGINS || 'https://anahata-backend.fly.dev,https://anahata.onrender.com').split(',')
   : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
@@ -59,7 +60,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// ── Rate limiting ──────────────────────────────────────────────────────────
+// Rate limiting
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 150,
@@ -68,7 +69,7 @@ app.use('/api/', rateLimit({
   message: { error: 'Too many requests. Please slow down.' }
 }));
 
-// ── HTTP request logging ───────────────────────────────────────────────────
+// HTTP request logging
 if (!isProd) {
   app.use(morgan('dev'));
 } else {
@@ -77,18 +78,18 @@ if (!isProd) {
   }));
 }
 
-// ── Body parsing ───────────────────────────────────────────────────────────
+// Body parsing
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// ── Static client (production) ─────────────────────────────────────────────
+// Static client (production)
 if (isProd) {
   const distPath = path.join(__dirname, '../client/dist');
   app.use(express.static(distPath, {
     maxAge: '1y',
     etag: true,
     setHeaders(res, filePath) {
-      // HTML must never be cached — always fresh for SPA routing
+      // HTML must never be cached; always fresh for SPA routing.
       if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       }
@@ -96,16 +97,17 @@ if (isProd) {
   }));
 }
 
-// ── API Routes ─────────────────────────────────────────────────────────────
+// API Routes
 app.use('/api/auth',       authRoutes);
 app.use('/api/sessions',   sessionRoutes);
 app.use('/api/meditation', meditationRoutes);
 app.use('/api/library',    libraryRoutes);
 app.use('/api/profile',    profileRoutes);
 app.use('/api/mixes',      mixesRoutes);
+app.use('/api/journal',    journalRoutes);
 app.use('/api/ai',         aiRoutes);
 
-// ── Health check (deep) ────────────────────────────────────────────────────
+// Health check (deep)
 app.get('/health', async (req, res) => {
   const checks = { api: 'ok', db: process.env.POCKETBASE_URL ? 'checking' : 'not_configured', uptime: process.uptime() };
   let status = 200;
@@ -132,19 +134,19 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// ── SPA fallback (production) ──────────────────────────────────────────────
+// SPA fallback (production)
 if (isProd) {
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });
 }
 
-// ── Sentry error handler (must be before generic error handler) ───────────
+// Sentry error handler (must be before generic error handler)
 if (Sentry) app.use(Sentry.Handlers.errorHandler());
 
-// ── Global error handler ───────────────────────────────────────────────────
+// Global error handler
 app.use((err, req, res, next) => {
-  // Normalize PocketBase ClientResponseError
+  // Normalize PocketBase ClientResponseError.
   const statusCode = err.status || err.statusCode || 500;
   const message = isProd && statusCode === 500
     ? 'Internal server error'
