@@ -1,10 +1,12 @@
 /**
- * Anahata — Music Library API Routes
+ * Anahata - Music Library API Routes
  *
- * GET  /api/library              — All tracks (with filter/sort/search/pagination)
- * GET  /api/library/categories   — All categories with counts
- * GET  /api/library/:id          — Single track by ID
- * GET  /api/library/recommend    — Recommend tracks by current biometrics
+ * GET  /api/library              - All tracks (with filter/sort/search/pagination)
+ * GET  /api/library/categories   - All categories with counts
+ * GET  /api/library/recommend    - Recommend tracks by current biometrics
+ * GET  /api/library/favourites   - User favourites
+ * GET  /api/library/plays        - User play history
+ * GET  /api/library/:id          - Single track by ID
  */
 
 const express = require('express');
@@ -20,8 +22,8 @@ router.get('/', (req, res) => {
 
   const { category, brainwave, instrument, search, sort = 'title', page = 1, limit = 20 } = req.query;
 
-  if (category)   results = results.filter(t => t.category === category);
-  if (brainwave)  results = results.filter(t => t.brainwave === brainwave);
+  if (category) results = results.filter(t => t.category === category);
+  if (brainwave) results = results.filter(t => t.brainwave === brainwave);
   if (instrument) results = results.filter(t => t.instruments.includes(instrument.toLowerCase()));
 
   if (search) {
@@ -33,11 +35,10 @@ router.get('/', (req, res) => {
     );
   }
 
-  // Sorting
-  if (sort === 'duration')  results.sort((a, b) => b.duration - a.duration);
-  if (sort === 'bpm')       results.sort((a, b) => (a.bpm || 0) - (b.bpm || 0));
-  if (sort === 'binaural')  results.sort((a, b) => (a.binauralHz || 0) - (b.binauralHz || 0));
-  if (sort === 'title')     results.sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === 'duration') results.sort((a, b) => b.duration - a.duration);
+  if (sort === 'bpm') results.sort((a, b) => (a.bpm || 0) - (b.bpm || 0));
+  if (sort === 'binaural') results.sort((a, b) => (a.binauralHz || 0) - (b.binauralHz || 0));
+  if (sort === 'title') results.sort((a, b) => a.title.localeCompare(b.title));
 
   const total = results.length;
   const pageNum = parseInt(page);
@@ -53,8 +54,8 @@ router.get('/', (req, res) => {
       limit: limitNum,
       pages: Math.ceil(total / limitNum),
       hasNext: start + limitNum < total,
-      hasPrev: pageNum > 1
-    }
+      hasPrev: pageNum > 1,
+    },
   });
 });
 
@@ -73,72 +74,64 @@ router.get('/recommend', (req, res) => {
   let pool = [...TRACKS];
 
   if (brainwave) {
-    // Primary: exact match; fallback: adjacent state
     const exact = pool.filter(t => t.brainwave === brainwave);
     pool = exact.length >= 3 ? exact : pool;
   }
 
   if (heartRate) {
     const hr = parseInt(heartRate);
-    // Prefer longer, slower tracks for high HR; shorter for low HR
     pool.sort((a, b) => hr > 80
-      ? b.duration - a.duration   // high HR → favour longer calming tracks
+      ? b.duration - a.duration
       : a.duration - b.duration
     );
   }
 
-  // Shuffle top candidates for variety
   const top = pool.slice(0, 20);
   const shuffled = top.sort(() => Math.random() - 0.5);
 
   res.json({ recommended: shuffled.slice(0, 6) });
 });
 
-// ── Favourites (must be before /:id) ──────────────────────────────────────
-
-// GET /api/library/favourites — list user's favourited tracks
+// GET /api/library/favourites - list user's favourited tracks
 router.get('/favourites', requireAuth, async (req, res, next) => {
   try {
     if (!pb) return res.json({ favourites: [] });
     const result = await pb.collection('library_favourites').getList(1, 200, {
       filter: `user_id = "${req.user.userId}"`,
-      sort: '-created'
+      sort: '-created',
     });
     res.json({ favourites: result.items });
   } catch (err) { next(err); }
 });
 
-// POST /api/library/favourites/:trackId — add a favourite
+// POST /api/library/favourites/:trackId - add a favourite
 router.post('/favourites/:trackId', requireAuth, async (req, res, next) => {
   try {
     const { trackId } = req.params;
-    if (!TRACKS.find(t => t.id === trackId)) {
-      return res.status(404).json({ error: 'Track not found.' });
-    }
+    if (!trackId) return res.status(400).json({ error: 'trackId is required.' });
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
 
-    // Check if already favourited
     const existing = await pb.collection('library_favourites').getList(1, 1, {
-      filter: `user_id = "${req.user.userId}" && track_id = "${trackId}"`
+      filter: `user_id = "${req.user.userId}" && track_id = "${trackId}"`,
     });
     if (existing.items.length > 0) {
       return res.status(409).json({ error: 'Track already in favourites.' });
     }
 
     const fav = await pb.collection('library_favourites').create({
-      user_id:  req.user.userId,
-      track_id: trackId
+      user_id: req.user.userId,
+      track_id: trackId,
     });
     res.status(201).json({ favourite: fav });
   } catch (err) { next(err); }
 });
 
-// DELETE /api/library/favourites/:trackId — remove a favourite
+// DELETE /api/library/favourites/:trackId - remove a favourite
 router.delete('/favourites/:trackId', requireAuth, async (req, res, next) => {
   try {
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
     const existing = await pb.collection('library_favourites').getList(1, 1, {
-      filter: `user_id = "${req.user.userId}" && track_id = "${req.params.trackId}"`
+      filter: `user_id = "${req.user.userId}" && track_id = "${req.params.trackId}"`,
     });
     if (!existing.items.length) {
       return res.status(404).json({ error: 'Favourite not found.' });
@@ -148,21 +141,29 @@ router.delete('/favourites/:trackId', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── Play tracking ──────────────────────────────────────────────────────────
+// GET /api/library/plays - list user's recent play history
+router.get('/plays', requireAuth, async (req, res, next) => {
+  try {
+    if (!pb) return res.json({ plays: [] });
+    const result = await pb.collection('library_plays').getList(1, 100, {
+      filter: `user_id = "${req.user.userId}"`,
+      sort: '-created',
+    });
+    res.json({ plays: result.items });
+  } catch (err) { next(err); }
+});
 
-// POST /api/library/plays — record a track play
+// POST /api/library/plays - record a track play
 router.post('/plays', requireAuth, async (req, res, next) => {
   try {
     const { track_id, duration_played } = req.body;
     if (!track_id) return res.status(400).json({ error: 'track_id is required.' });
-    if (!TRACKS.find(t => t.id === track_id)) {
-      return res.status(404).json({ error: 'Track not found.' });
-    }
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
+
     const play = await pb.collection('library_plays').create({
-      user_id:        req.user.userId,
+      user_id: req.user.userId,
       track_id,
-      duration_played: duration_played || 0
+      duration_played: duration_played || 0,
     });
     res.status(201).json({ play });
   } catch (err) { next(err); }
