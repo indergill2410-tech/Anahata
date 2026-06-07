@@ -3,6 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { useJournalSummary } from './useJournalSummary';
 import { createUserActivityApi, LibraryFavourite, LibraryPlay, MeditationSession, SessionStats } from '../services/userActivityApi';
 import { summarizeLibraryActivity } from '../services/libraryMemory';
+import { BiometricSummary, createBiometricApi } from '../services/biometricCoach';
+
+const EMPTY_BIOMETRICS: BiometricSummary = {
+  samples: [],
+  latestSample: null,
+  latestAdvice: null,
+  advice: null,
+};
 
 function newestDate(session: MeditationSession) {
   return session.created || session.created_at || '';
@@ -12,10 +20,12 @@ export function useUserDashboard() {
   const { isAuthenticated, authFetch } = useAuth();
   const journal = useJournalSummary(180);
   const api = useMemo(() => createUserActivityApi(authFetch), [authFetch]);
+  const biometricApi = useMemo(() => createBiometricApi(authFetch), [authFetch]);
   const [sessions, setSessions] = useState<MeditationSession[]>([]);
   const [sessionStats, setSessionStats] = useState<SessionStats>({});
   const [plays, setPlays] = useState<LibraryPlay[]>([]);
   const [favourites, setFavourites] = useState<LibraryFavourite[]>([]);
+  const [biometrics, setBiometrics] = useState<BiometricSummary>(EMPTY_BIOMETRICS);
   const [loadingActivity, setLoadingActivity] = useState(isAuthenticated);
   const [activityError, setActivityError] = useState<string | null>(null);
 
@@ -25,6 +35,7 @@ export function useUserDashboard() {
       setSessionStats({});
       setPlays([]);
       setFavourites([]);
+      setBiometrics(EMPTY_BIOMETRICS);
       setActivityError(null);
       setLoadingActivity(false);
       return;
@@ -32,23 +43,25 @@ export function useUserDashboard() {
 
     setLoadingActivity(true);
     try {
-      const [sessionData, statsData, playData, favouriteData] = await Promise.all([
+      const [sessionData, statsData, playData, favouriteData, biometricData] = await Promise.all([
         api.sessions(),
         api.sessionStats(),
         api.plays(),
         api.favourites(),
+        biometricApi.summary(),
       ]);
       setSessions((sessionData.sessions || []).sort((a, b) => newestDate(b).localeCompare(newestDate(a))));
       setSessionStats(statsData.stats || {});
       setPlays(playData.plays || []);
       setFavourites(favouriteData.favourites || []);
+      setBiometrics(biometricData || EMPTY_BIOMETRICS);
       setActivityError(null);
     } catch (err) {
       setActivityError((err as Error).message || 'Could not load dashboard activity');
     } finally {
       setLoadingActivity(false);
     }
-  }, [api, isAuthenticated]);
+  }, [api, biometricApi, isAuthenticated]);
 
   useEffect(() => {
     refreshActivity();
@@ -75,6 +88,7 @@ export function useUserDashboard() {
     sessions,
     sessionStats,
     library,
+    biometrics,
     loading: journal.loading || loadingActivity,
     error: journal.error || activityError,
     refresh: async () => {
@@ -87,6 +101,7 @@ export function useUserDashboard() {
       plays: library.totalPlays,
       favourites: library.favouriteCount,
       sessionMinutes: Math.round(totalSessionSeconds / 60),
+      biometricSamples: biometrics.samples.length,
     },
   };
 }
