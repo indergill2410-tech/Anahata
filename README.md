@@ -1,28 +1,44 @@
-# 🪷 Anahata
+# Anahata
 
-> AI-powered biometric meditation with adaptive Indian classical music
+AI-powered biometric meditation with adaptive Indian classical music.
 
-[![CI](https://github.com/indergill2410-tech/Anahata/actions/workflows/ci.yml/badge.svg)](https://github.com/indergill2410-tech/Anahata/actions)
+Anahata reads heart-rate style biometric input, maps it to brainwave states, and adapts the meditation experience through raga-inspired sound, binaural frequencies, breath pacing, journaling, and personal session history.
 
-## What it does
+## What It Does
 
-Anahata reads your heart rate in real time via Bluetooth and adapts the music to guide your nervous system into meditation. The deeper you breathe, the slower and deeper the music becomes.
-
-- 🫀 **Live biometrics** — Bluetooth HR monitor or demo simulation mode
-- 🎵 **111 meditation tracks** — binaural beats + Indian classical (sitar, bansuri, tanpura, santoor…)
-- 🧠 **Brainwave mapping** — Delta / Theta / Alpha / Beta / Gamma states
-- 📱 **PWA** — install to home screen, works offline
-- 🔐 **Auth** — JWT login/register with auto-expiry
+- Live biometric meditation with WebSocket support
+- 111 meditation tracks with R2 audio URLs and YouTube fallback playback
+- Brainwave mapping across Delta, Theta, Alpha, Beta, and Gamma states
+- Raga-inspired journeys, sound studio controls, and saved mixes
+- Private account login/register through PocketBase users
+- PocketBase-backed session, library, profile, mix, and journal storage
+- Guest-friendly local journaling before sign in
+- PWA/mobile-ready React app
 
 ## Stack
 
 | Layer | Tech |
-|-------|------|
-| Frontend | React 18 + Vite 5 + PWA |
+| ----- | ---- |
+| Frontend | React 18 + Vite 5 + PWA + Capacitor |
 | Backend | Node.js + Express + WebSocket |
-| Database | Supabase (Postgres + Auth + RLS) |
-| Deploy | Render (Blueprint) |
+| Database/Auth | PocketBase |
+| Storage | PocketBase collections + R2 audio URLs |
 | Tests | Jest + Supertest |
+
+## Data Storage
+
+Anahata uses PocketBase as the app database. Do not configure this app against Supabase unless the code is intentionally migrated.
+
+PocketBase collections created by `pb-migrations/setup-collections.js`:
+
+- `users` with Anahata profile fields
+- `meditation_sessions`
+- `library_favourites`
+- `library_plays`
+- `user_mixes`
+- `journal_entries`
+
+The journal supports `checkin`, `daily`, and `dream` entry types. Guest entries can live in browser localStorage, but signed-in users should sync private journal data to PocketBase through `/api/journal`.
 
 ## Quick Start
 
@@ -33,59 +49,49 @@ cd Anahata
 
 # 2. Environment
 cp .env.example .env
-# Fill in SUPABASE_URL, SUPABASE_ANON_KEY, JWT_SECRET
+# Fill in JWT_SECRET, POCKETBASE_URL, and PocketBase admin credentials.
 
 # 3. Install all deps
 npm run install:all
 
-# 4. Run Supabase schema
-# Paste supabase/schema.sql into your Supabase SQL Editor
+# 4. Start PocketBase separately
+# Local default: http://localhost:8090
 
-# 5. Dev (runs server + client concurrently)
+# 5. Create PocketBase collections
+node pb-migrations/setup-collections.js
+
+# 6. Dev server
 npm run dev
-
-# Server: http://localhost:3001
-# Client: http://localhost:5173
 ```
 
-## Docker
-
-```bash
-cp .env.example .env  # fill in values
-docker-compose up
-```
-
-## Testing
-
-```bash
-npm test                 # run all tests
-npm run test:coverage    # with coverage report
-```
-
-## Deploy to Render
-
-The `render.yaml` Blueprint is preconfigured. Push to main → Render auto-deploys.
-
-1. Connect repo in Render dashboard
-2. Add environment variables (SUPABASE_URL, SUPABASE_ANON_KEY, JWT_SECRET)
-3. Deploy
-
-## PWA Icons
-
-Generate icons before deploying:
-
-```bash
-npx pwa-asset-generator logo.svg ./client/public/icons
-```
-
-See `client/public/icons/README.md` for details.
+Server: `http://localhost:3001`
+Client: `http://localhost:5173`
+PocketBase admin UI: `http://localhost:8090/_/`
 
 ## Environment Variables
 
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `SUPABASE_URL` | ✅ | Your Supabase project URL |
-| `SUPABASE_ANON_KEY` | ✅ | Supabase anon public key |
-| `JWT_SECRET` | ✅ | Random secret ≥32 chars |
-| `PORT` | ❌ | Server port (default 3001) |
-| `NODE_ENV` | ❌ | `development` or `production` |
+| -------- | -------- | ----------- |
+| `JWT_SECRET` | Yes | Strong random secret, minimum 32 chars |
+| `POCKETBASE_URL` | Yes | PocketBase instance URL |
+| `POCKETBASE_ADMIN_EMAIL` | Setup only | PocketBase admin email for collection setup |
+| `POCKETBASE_ADMIN_PASSWORD` | Setup only | PocketBase admin password for collection setup |
+| `VITE_WS_URL` | No | Client WebSocket URL, default local dev is `ws://localhost:3001/ws` |
+| `SENTRY_DSN` | No | Optional error reporting |
+| `PORT` | No | Server port, default `3001` |
+| `NODE_ENV` | No | `development` or `production` |
+
+## Testing
+
+```bash
+npm test
+npm run test:coverage
+```
+
+## Production Notes
+
+- Set a real `JWT_SECRET`; never use the example value in production.
+- Set `POCKETBASE_URL` to the production PocketBase host.
+- Run the PocketBase setup script after provisioning a new database.
+- Keep `/api/journal`, `/api/profile`, `/api/sessions`, `/api/mixes`, and private library endpoints protected by JWT auth.
+- Do not commit `.env`.
