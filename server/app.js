@@ -78,9 +78,9 @@ if (!isProd) {
   }));
 }
 
-// Body parsing
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// Body parsing. Journals and guest imports need more than tiny API payloads.
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
 // Static client (production)
 if (isProd) {
