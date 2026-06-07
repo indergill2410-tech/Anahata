@@ -1,36 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { createJournalApi, JournalEntry, JournalEntryPayload, JournalEntryType } from '../services/journalApi';
+import { createJournalApi, JournalEntryPayload, JournalEntryType } from '../services/journalApi';
+import {
+  cleanJournalTags,
+  countJournalWords,
+  JournalMemoryEntry,
+  memoryEntryToPayload,
+  mirrorJournalEntriesToLocal,
+  mirrorJournalEntryToLocal,
+  normalizeRemoteJournalEntry,
+  readLocalJournalEntries,
+  summarizeJournalEntries,
+} from '../services/journalMemory';
 
 type JournalTab = JournalEntryType;
 
-type UnifiedEntry = {
-  id?: string;
-  entry_type: JournalTab;
-  entry_date: string;
-  mood?: number | null;
-  lucidity?: number | null;
-  title?: string;
-  text: string;
-  follow_up?: string;
-  prompt?: string;
-  cta?: string;
-  tags: string[];
-  metadata: Record<string, unknown>;
-  source: 'local' | 'remote';
+type JournalPageProps = {
+  onRequireAuth?: () => void;
 };
 
-type CheckinStore = Record<string, { date?: string; mood?: number; text?: string; followUp?: string; follow_up?: string; tags?: string[]; cta?: string }>;
-type DailyStore = Record<string, { date?: string; type?: string; text?: string; wordCount?: number }>;
-type DreamStore = Record<string, { date?: string; lucidity?: number; emotions?: string[]; symbols?: string[]; text?: string }>;
-
-const CHECKIN_KEY = 'anahata_journal';
-const DAILY_KEY = 'anahata_daily';
-const DREAM_KEY = 'anahata_dreams';
+const PENDING_KEY = 'anahata_pending_journal';
 
 const TAB_META: Record<JournalTab, { label: string; color: string; sub: string }> = {
-  checkin: { label: 'Check-in', color: '#7048E8', sub: 'Mood, tags, and a gentle reflection.' },
+  checkin: { label: 'Check-in', color: '#7048E8', sub: 'Mood, tags, and one honest reflection.' },
   daily: { label: 'Daily', color: '#D97706', sub: 'A deeper page for the day.' },
   dream: { label: 'Dreams', color: '#6366F1', sub: 'Capture dream fragments before they fade.' },
 };
@@ -92,182 +85,28 @@ function formatDate(key: string, style: 'short' | 'long' = 'long') {
     : { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-function readStore<T>(key: string): T {
-  try { return JSON.parse(localStorage.getItem(key) || '{}') as T; }
-  catch { return {} as T; }
-}
-
-function writeStore<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function cleanTags(tags: unknown): string[] {
-  if (!Array.isArray(tags)) return [];
-  return tags.map(tag => String(tag).trim()).filter(Boolean).slice(0, 40);
-}
-
-function wordCount(text: string) {
-  const clean = text.trim();
-  return clean ? clean.split(/\s+/).length : 0;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function readLocalEntries(): UnifiedEntry[] {
-  const checkins = readStore<CheckinStore>(CHECKIN_KEY);
-  const daily = readStore<DailyStore>(DAILY_KEY);
-  const dreams = readStore<DreamStore>(DREAM_KEY);
-
-  const entries: UnifiedEntry[] = [];
-
-  Object.entries(checkins).forEach(([date, entry]) => {
-    entries.push({
-      entry_type: 'checkin',
-      entry_date: date,
-      mood: entry.mood ?? null,
-      title: 'Daily check-in',
-      text: entry.text || '',
-      follow_up: entry.follow_up || entry.followUp || '',
-      cta: entry.cta || '',
-      tags: cleanTags(entry.tags),
-      metadata: {},
-      source: 'local',
-    });
-  });
-
-  Object.entries(daily).forEach(([date, entry]) => {
-    entries.push({
-      entry_type: 'daily',
-      entry_date: date,
-      title: DAILY_TYPES.find(type => type.id === entry.type)?.label || 'Daily entry',
-      text: entry.text || '',
-      prompt: DAILY_PROMPTS[new Date(date).getDay()] || '',
-      tags: [],
-      metadata: { daily_type: entry.type || 'freewrite', word_count: entry.wordCount || wordCount(entry.text || '') },
-      source: 'local',
-    });
-  });
-
-  Object.entries(dreams).forEach(([date, entry]) => {
-    const emotions = cleanTags(entry.emotions);
-    const symbols = cleanTags(entry.symbols);
-    entries.push({
-      entry_type: 'dream',
-      entry_date: date,
-      lucidity: entry.lucidity ?? null,
-      title: 'Dream journal',
-      text: entry.text || '',
-      tags: [...emotions, ...symbols],
-      metadata: { emotions, symbols },
-      source: 'local',
-    });
-  });
-
-  return entries.sort((a, b) => b.entry_date.localeCompare(a.entry_date));
-}
-
-function persistLocalEntry(entry: UnifiedEntry) {
-  if (entry.entry_type === 'checkin') {
-    const store = readStore<CheckinStore>(CHECKIN_KEY);
-    store[entry.entry_date] = {
-      date: entry.entry_date,
-      mood: entry.mood || 0,
-      text: entry.text,
-      followUp: entry.follow_up || '',
-      tags: entry.tags,
-      cta: entry.cta || '',
-    };
-    writeStore(CHECKIN_KEY, store);
-    return;
-  }
-
-  if (entry.entry_type === 'daily') {
-    const store = readStore<DailyStore>(DAILY_KEY);
-    const dailyType = typeof entry.metadata.daily_type === 'string' ? entry.metadata.daily_type : 'freewrite';
-    store[entry.entry_date] = {
-      date: entry.entry_date,
-      type: dailyType,
-      text: entry.text,
-      wordCount: wordCount(entry.text),
-    };
-    writeStore(DAILY_KEY, store);
-    return;
-  }
-
-  const store = readStore<DreamStore>(DREAM_KEY);
-  store[entry.entry_date] = {
-    date: entry.entry_date,
-    lucidity: entry.lucidity || 0,
-    emotions: cleanTags(entry.metadata.emotions),
-    symbols: cleanTags(entry.metadata.symbols),
-    text: entry.text,
-  };
-  writeStore(DREAM_KEY, store);
-}
-
-function remoteToUnified(entry: JournalEntry): UnifiedEntry {
-  return {
-    id: entry.id,
-    entry_type: entry.entry_type,
-    entry_date: entry.entry_date,
-    mood: entry.mood ?? null,
-    lucidity: entry.lucidity ?? null,
-    title: entry.title || '',
-    text: entry.text || '',
-    follow_up: entry.follow_up || '',
-    prompt: entry.prompt || '',
-    cta: entry.cta || '',
-    tags: cleanTags(entry.tags),
-    metadata: asRecord(entry.metadata),
-    source: 'remote',
-  };
-}
-
-function toPayload(entry: UnifiedEntry): JournalEntryPayload {
-  return {
-    entry_type: entry.entry_type,
-    entry_date: entry.entry_date,
-    mood: entry.mood ?? null,
-    lucidity: entry.lucidity ?? null,
-    title: entry.title || '',
-    text: entry.text || '',
-    follow_up: entry.follow_up || '',
-    prompt: entry.prompt || '',
-    cta: entry.cta || '',
-    tags: entry.tags || [],
-    metadata: entry.metadata || {},
-  };
-}
-
-function sameEntry(a: UnifiedEntry, b: UnifiedEntry) {
-  return a.entry_type === b.entry_type && a.entry_date === b.entry_date;
-}
-
-function computeStreak(entries: UnifiedEntry[]) {
-  const dates = new Set(entries.map(entry => entry.entry_date));
-  let streak = 0;
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-
-  while (true) {
-    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-    if (!dates.has(key)) break;
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
-}
-
 function tone(color: string, alpha = '14') {
   return `${color}${alpha}`;
 }
 
+function sameEntry(a: JournalMemoryEntry, b: JournalMemoryEntry) {
+  return a.entry_type === b.entry_type && a.entry_date === b.entry_date;
+}
+
+function readPendingDraft(): JournalEntryPayload | null {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as JournalEntryPayload;
+    return parsed?.entry_type && parsed?.entry_date ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', fontFamily: "'Space Grotesk', sans-serif" }}>
       {children}
     </div>
   );
@@ -284,7 +123,7 @@ function Chip({ active, color, children, onClick }: { active: boolean; color: st
         borderRadius: 999,
         padding: '7px 13px',
         fontSize: 12,
-        fontWeight: 800,
+        fontWeight: 900,
         fontFamily: "'Space Grotesk', sans-serif",
         boxShadow: active ? `0 4px 14px ${tone(color, '24')}` : '0 1px 6px rgba(23,18,10,0.04)',
       }}
@@ -294,45 +133,48 @@ function Chip({ active, color, children, onClick }: { active: boolean; color: st
   );
 }
 
-export default function JournalPage() {
+export default function JournalPage({ onRequireAuth }: JournalPageProps) {
   const { isAuthenticated, authFetch } = useAuth();
   const { success, error, info } = useToast();
+  const initialPending = useMemo(() => readPendingDraft(), []);
+  const skipHydrateRef = useRef(Boolean(initialPending));
   const api = useMemo(() => createJournalApi(authFetch), [authFetch]);
 
-  const [activeTab, setActiveTab] = useState<JournalTab>('checkin');
-  const [selectedDate, setSelectedDate] = useState(todayKey());
-  const [localEntries, setLocalEntries] = useState<UnifiedEntry[]>(() => readLocalEntries());
-  const [remoteEntries, setRemoteEntries] = useState<UnifiedEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<JournalTab>(initialPending?.entry_type || 'checkin');
+  const [selectedDate, setSelectedDate] = useState(initialPending?.entry_date || todayKey());
+  const [localEntries, setLocalEntries] = useState<JournalMemoryEntry[]>(() => readLocalJournalEntries());
+  const [remoteEntries, setRemoteEntries] = useState<JournalMemoryEntry[]>([]);
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
 
-  const [draft, setDraft] = useState('');
-  const [followUp, setFollowUp] = useState('');
-  const [mood, setMood] = useState(3);
-  const [cta, setCta] = useState('day');
-  const [tags, setTags] = useState<string[]>([]);
-  const [dailyType, setDailyType] = useState('prompt');
-  const [lucidity, setLucidity] = useState(3);
-  const [emotions, setEmotions] = useState<string[]>([]);
-  const [symbols, setSymbols] = useState<string[]>([]);
+  const [draft, setDraft] = useState(initialPending?.text || '');
+  const [followUp, setFollowUp] = useState(initialPending?.follow_up || '');
+  const [mood, setMood] = useState(initialPending?.mood || 3);
+  const [cta, setCta] = useState(initialPending?.cta || 'day');
+  const [tags, setTags] = useState<string[]>(cleanJournalTags(initialPending?.tags));
+  const [dailyType, setDailyType] = useState(typeof initialPending?.metadata?.daily_type === 'string' ? initialPending.metadata.daily_type : 'prompt');
+  const [lucidity, setLucidity] = useState(initialPending?.lucidity || 3);
+  const [emotions, setEmotions] = useState<string[]>(cleanJournalTags(initialPending?.metadata?.emotions));
+  const [symbols, setSymbols] = useState<string[]>(cleanJournalTags(initialPending?.metadata?.symbols));
 
   const entries = isAuthenticated ? remoteEntries : localEntries;
+  const summary = useMemo(() => summarizeJournalEntries(entries), [entries]);
   const currentEntry = entries.find(entry => entry.entry_type === activeTab && entry.entry_date === selectedDate);
   const currentMeta = TAB_META[activeTab];
   const prompt = DAILY_PROMPTS[new Date(`${selectedDate}T00:00:00`).getDay()] || DAILY_PROMPTS[0];
 
-  const refreshLocal = useCallback(() => setLocalEntries(readLocalEntries()), []);
+  const refreshLocal = useCallback(() => setLocalEntries(readLocalJournalEntries()), []);
 
   const refreshRemote = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoadingRemote(true);
     try {
-      const data = await api.list({ limit: 100 });
-      const next = data.entries.map(remoteToUnified);
+      const data = await api.list({ limit: 140 });
+      const next = data.entries.map(normalizeRemoteJournalEntry);
       setRemoteEntries(next);
-      next.forEach(persistLocalEntry);
+      mirrorJournalEntriesToLocal(data.entries);
       refreshLocal();
     } catch (err) {
       error((err as Error).message || 'Could not load journal');
@@ -348,6 +190,10 @@ export default function JournalPage() {
   }, [isAuthenticated, refreshLocal, refreshRemote]);
 
   useEffect(() => {
+    if (skipHydrateRef.current) {
+      skipHydrateRef.current = false;
+      return;
+    }
     setDraft(currentEntry?.text || '');
     setFollowUp(currentEntry?.follow_up || '');
     setMood(currentEntry?.mood || 3);
@@ -355,8 +201,8 @@ export default function JournalPage() {
     setTags(currentEntry?.tags || []);
     setDailyType(typeof currentEntry?.metadata.daily_type === 'string' ? currentEntry.metadata.daily_type : 'prompt');
     setLucidity(currentEntry?.lucidity || 3);
-    setEmotions(cleanTags(currentEntry?.metadata.emotions));
-    setSymbols(cleanTags(currentEntry?.metadata.symbols));
+    setEmotions(cleanJournalTags(currentEntry?.metadata.emotions));
+    setSymbols(cleanJournalTags(currentEntry?.metadata.symbols));
   }, [activeTab, currentEntry?.id, currentEntry?.entry_date, currentEntry?.entry_type, selectedDate]);
 
   const unsyncedLocalEntries = useMemo(() => {
@@ -372,22 +218,12 @@ export default function JournalPage() {
       .sort((a, b) => b.entry_date.localeCompare(a.entry_date));
   }, [activeTab, entries, search]);
 
-  const totalWords = entries.reduce((sum, entry) => sum + wordCount(entry.text), 0);
-  const streak = computeStreak(entries);
-
   function toggle(list: string[], value: string, setter: (next: string[]) => void) {
     setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
   }
 
-  async function handleSave() {
-    const text = draft.trim();
-    if (!text) {
-      info('Write a few words first.');
-      return;
-    }
-
-    const entry: UnifiedEntry = {
-      id: currentEntry?.id,
+  function buildPayload(text: string): JournalEntryPayload {
+    return {
       entry_type: activeTab,
       entry_date: selectedDate,
       title: activeTab === 'daily'
@@ -401,28 +237,38 @@ export default function JournalPage() {
       lucidity: activeTab === 'dream' ? lucidity : null,
       tags: activeTab === 'checkin' ? tags : activeTab === 'dream' ? [...emotions, ...symbols] : [],
       metadata: activeTab === 'daily'
-        ? { daily_type: dailyType, word_count: wordCount(text) }
+        ? { daily_type: dailyType, word_count: countJournalWords(text) }
         : activeTab === 'dream'
           ? { emotions, symbols }
           : {},
-      source: isAuthenticated ? 'remote' : 'local',
     };
+  }
+
+  async function handleSave() {
+    const text = draft.trim();
+    if (!text) {
+      info('Write a few words first.');
+      return;
+    }
+
+    const payload = buildPayload(text);
+
+    if (!isAuthenticated) {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
+      info('Create an account to save this journal to your dashboard.');
+      onRequireAuth?.();
+      return;
+    }
 
     setSaving(true);
     try {
-      persistLocalEntry(entry);
+      const saved = await api.save(payload);
+      const remote = normalizeRemoteJournalEntry(saved.entry);
+      setRemoteEntries(prev => [remote, ...prev.filter(item => !sameEntry(item, remote))]);
+      mirrorJournalEntryToLocal(saved.entry);
       refreshLocal();
-
-      if (isAuthenticated) {
-        const saved = await api.save(toPayload(entry));
-        const remote = remoteToUnified(saved.entry);
-        setRemoteEntries(prev => [remote, ...prev.filter(item => !sameEntry(item, remote))]);
-        persistLocalEntry(remote);
-        refreshLocal();
-        success('Journal saved to your account');
-      } else {
-        success('Journal saved on this device');
-      }
+      localStorage.removeItem(PENDING_KEY);
+      success('Journal saved to your dashboard');
     } catch (err) {
       error((err as Error).message || 'Could not save journal');
     } finally {
@@ -434,8 +280,7 @@ export default function JournalPage() {
     if (!unsyncedLocalEntries.length) return;
     setSyncing(true);
     try {
-      const payloads = unsyncedLocalEntries.map(toPayload);
-      const result = await api.importEntries(payloads);
+      const result = await api.importEntries(unsyncedLocalEntries.map(memoryEntryToPayload));
       success(`Synced ${result.count} local entr${result.count === 1 ? 'y' : 'ies'}`);
       await refreshRemote();
     } catch (err) {
@@ -451,7 +296,7 @@ export default function JournalPage() {
     <div className="dashboard fade-in" style={{ gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
         <div>
-          <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 27, fontWeight: 800, color: 'var(--ink1)', letterSpacing: '-0.02em' }}>
+          <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 27, fontWeight: 900, color: 'var(--ink1)', letterSpacing: '0' }}>
             Journal
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink3)' }}>{formatDate(selectedDate)}</p>
@@ -461,9 +306,15 @@ export default function JournalPage() {
           disabled={!isAuthenticated || loadingRemote}
           title={isAuthenticated ? 'Refresh journal' : 'Sign in to sync'}
           style={{
-            height: 38, minWidth: 38, borderRadius: 12,
-            border: '1px solid var(--border)', background: '#FFFFFF', color: currentMeta.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            height: 38,
+            minWidth: 38,
+            borderRadius: 12,
+            border: '1px solid var(--border)',
+            background: '#FFFFFF',
+            color: currentMeta.color,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             opacity: isAuthenticated ? 1 : 0.45,
           }}
         >
@@ -478,30 +329,30 @@ export default function JournalPage() {
 
       <div className="card" style={{ padding: 16, borderRadius: 20, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{entries.length}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700 }}>Entries</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{summary.totalEntries}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800 }}>Entries</div>
         </div>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#F59F00', fontFamily: "'Space Grotesk', sans-serif" }}>{streak}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700 }}>Day streak</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: '#F59F00', fontFamily: "'Space Grotesk', sans-serif" }}>{summary.streak}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800 }}>Day streak</div>
         </div>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: currentMeta.color, fontFamily: "'Space Grotesk', sans-serif" }}>{totalWords}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700 }}>Words</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: currentMeta.color, fontFamily: "'Space Grotesk', sans-serif" }}>{summary.totalWords}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800 }}>Words</div>
         </div>
       </div>
 
       {!isAuthenticated && (
         <div style={{ borderRadius: 18, padding: '13px 15px', background: 'rgba(112,72,232,0.07)', border: '1px solid rgba(112,72,232,0.16)', color: 'var(--ink2)', fontSize: 12, lineHeight: 1.65 }}>
-          Guest entries are saved on this device. Sign in when you want private cloud sync across devices.
+          You can write here now. When you save, Anahata will ask you to create or sign in to an account so this entry joins your private dashboard.
         </div>
       )}
 
       {isAuthenticated && unsyncedLocalEntries.length > 0 && (
         <div style={{ borderRadius: 18, padding: 14, background: 'rgba(245,159,0,0.08)', border: '1px solid rgba(245,159,0,0.22)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink1)' }}>{unsyncedLocalEntries.length} local entr{unsyncedLocalEntries.length === 1 ? 'y' : 'ies'} ready to sync</div>
-            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Bring guest writing into your PocketBase account.</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)' }}>{unsyncedLocalEntries.length} local entr{unsyncedLocalEntries.length === 1 ? 'y' : 'ies'} ready to sync</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Bring older device-only writing into this account.</div>
           </div>
           <button onClick={handleImportLocal} disabled={syncing} className="btn-primary" style={{ padding: '10px 16px', fontSize: 12, boxShadow: '0 4px 14px rgba(245,159,0,0.25)', background: '#D97706' }}>
             {syncing ? 'Syncing' : 'Sync'}
@@ -526,7 +377,7 @@ export default function JournalPage() {
                 boxShadow: active ? `0 5px 18px ${tone(meta.color, '24')}` : 'none',
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontSize: 12,
-                fontWeight: 800,
+                fontWeight: 900,
               }}
             >
               {meta.label}
@@ -544,13 +395,15 @@ export default function JournalPage() {
               key={date}
               onClick={() => setSelectedDate(date)}
               style={{
-                flex: '0 0 auto', minWidth: 66, height: 48,
+                flex: '0 0 auto',
+                minWidth: 66,
+                height: 48,
                 borderRadius: 15,
                 border: `1.5px solid ${selected ? currentMeta.color : 'rgba(23,18,10,0.07)'}`,
                 background: selected ? tone(currentMeta.color, '10') : '#FFFFFF',
                 color: selected ? currentMeta.color : 'var(--ink2)',
                 fontSize: 11,
-                fontWeight: 800,
+                fontWeight: 900,
                 fontFamily: "'Space Grotesk', sans-serif",
                 position: 'relative',
               }}
@@ -568,8 +421,8 @@ export default function JournalPage() {
             <SectionLabel>{currentMeta.label}</SectionLabel>
             <p style={{ margin: '5px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.sub}</p>
           </div>
-          <span style={{ padding: '5px 10px', borderRadius: 999, background: tone(currentMeta.color, '10'), color: currentMeta.color, fontSize: 10, fontWeight: 800 }}>
-            {isAuthenticated ? 'Cloud sync' : 'Device only'}
+          <span style={{ padding: '5px 10px', borderRadius: 999, background: tone(currentMeta.color, '10'), color: currentMeta.color, fontSize: 10, fontWeight: 900 }}>
+            {isAuthenticated ? 'Dashboard save' : 'Account required'}
           </span>
         </div>
 
@@ -588,7 +441,7 @@ export default function JournalPage() {
                     background: mood === item.value ? tone(item.color, '12') : '#FFFFFF',
                     color: mood === item.value ? item.color : 'var(--ink3)',
                     fontSize: 10,
-                    fontWeight: 800,
+                    fontWeight: 900,
                     fontFamily: "'Space Grotesk', sans-serif",
                   }}
                 >
@@ -617,8 +470,8 @@ export default function JournalPage() {
         {activeTab === 'daily' && (
           <>
             <div style={{ borderRadius: 18, padding: 16, background: '#17120A', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,159,0,0.75)', marginBottom: 8 }}>Daily reflection</div>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 800, lineHeight: 1.4 }}>{prompt}</div>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,159,0,0.75)', marginBottom: 8 }}>Daily reflection</div>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.4 }}>{prompt}</div>
             </div>
             <SectionLabel>Writing mode</SectionLabel>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -667,7 +520,7 @@ export default function JournalPage() {
             value={draft}
             onChange={e => setDraft(e.target.value)}
             rows={activeTab === 'daily' ? 7 : 5}
-            placeholder={activeTab === 'dream' ? "Write the image, feeling, place, or fragment..." : 'Begin anywhere. A few honest words are enough.'}
+            placeholder={activeTab === 'dream' ? 'Write the image, feeling, place, or fragment...' : 'Begin anywhere. A few honest words are enough.'}
             style={{ resize: 'vertical', minHeight: 132, borderRadius: 17, lineHeight: 1.75 }}
           />
         </label>
@@ -686,9 +539,9 @@ export default function JournalPage() {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 2 }}>
-          <span style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace" }}>{wordCount(draft)} words</span>
-          <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ minWidth: 132, height: 44, background: `linear-gradient(135deg, ${currentMeta.color}, #3B5BDB)` }}>
-            {saving ? 'Saving' : currentEntry ? 'Update entry' : 'Save entry'}
+          <span style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace" }}>{countJournalWords(draft)} words</span>
+          <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ minWidth: 150, height: 44, background: `linear-gradient(135deg, ${currentMeta.color}, #3B5BDB)` }}>
+            {saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update entry' : 'Save entry' : 'Create account to save'}
           </button>
         </div>
       </div>
@@ -707,7 +560,7 @@ export default function JournalPage() {
 
         {filteredHistory.length === 0 ? (
           <div style={{ borderRadius: 18, border: '1px dashed rgba(23,18,10,0.14)', padding: 22, textAlign: 'center', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>
-            No {currentMeta.label.toLowerCase()} entries yet. Save one above and this space will become your archive.
+            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} entries yet. Save one above and this space will become your archive.` : 'Sign in to start saving a private journal archive.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -716,20 +569,27 @@ export default function JournalPage() {
                 key={`${entry.entry_type}-${entry.entry_date}-${entry.id || 'local'}`}
                 onClick={() => { setActiveTab(entry.entry_type); setSelectedDate(entry.entry_date); }}
                 style={{
-                  width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '13px 14px', borderRadius: 17, border: '1px solid rgba(23,18,10,0.07)', background: '#FFFFFF',
+                  width: '100%',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '13px 14px',
+                  borderRadius: 17,
+                  border: '1px solid rgba(23,18,10,0.07)',
+                  background: '#FFFFFF',
                   boxShadow: '0 2px 8px rgba(23,18,10,0.04)',
                 }}
               >
                 <span style={{ width: 28, height: 28, borderRadius: '50%', background: TAB_META[entry.entry_type].color, boxShadow: `0 0 12px ${tone(TAB_META[entry.entry_type].color, '45')}`, flexShrink: 0 }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{formatDate(entry.entry_date, 'short')}</span>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{formatDate(entry.entry_date, 'short')}</span>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--ink3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {entry.text || entry.title || 'Untitled entry'}
                   </span>
                 </span>
-                <span style={{ fontSize: 10, color: entry.source === 'remote' ? '#0CA678' : '#D97706', fontWeight: 800, textTransform: 'uppercase' }}>
-                  {entry.source === 'remote' ? 'Synced' : 'Local'}
+                <span style={{ fontSize: 10, color: entry.source === 'remote' ? '#0CA678' : '#D97706', fontWeight: 900, textTransform: 'uppercase' }}>
+                  {entry.source === 'remote' ? 'Saved' : 'Local'}
                 </span>
               </button>
             ))}
