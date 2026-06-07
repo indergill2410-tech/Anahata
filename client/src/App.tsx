@@ -20,19 +20,24 @@ import TopBar from './components/TopBar';
 type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
 
 function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
-  const label = tab === 'profile' ? 'your profile' : 'your session history';
+  const label = tab === 'profile' ? 'your dashboard' : 'your session history';
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
       flex:1, padding:'48px 24px', textAlign:'center', gap:16 }}>
-      <div style={{ fontSize:48 }}>🔒</div>
-      <h2 style={{ fontSize:20, fontWeight:800, color:'var(--t1)', margin:0, letterSpacing:'-0.02em' }}>
+      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(112,72,232,0.1)', border: '1px solid rgba(112,72,232,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--violet)' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+        </svg>
+      </div>
+      <h2 style={{ fontSize:20, fontWeight:800, color:'var(--t1)', margin:0, letterSpacing:'0' }}>
         Sign in to view {label}
       </h2>
-      <p style={{ fontSize:13, color:'var(--t3)', margin:0, maxWidth:260 }}>
-        Create a free account or sign in to unlock your personal data and history.
+      <p style={{ fontSize:13, color:'var(--t3)', margin:0, maxWidth:280 }}>
+        Create a free account or sign in to unlock private data, saved journals, sessions, and dashboard memory.
       </p>
       <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
-        Sign In / Register
+        Sign in / Register
       </button>
     </div>
   );
@@ -53,12 +58,12 @@ function AIFloatButton({ onClick }: { onClick: () => void }) {
 function Inner() {
   const { isAuthenticated, loading } = useAuth();
   const engine = useSoundEngine();
-  const [tab,      setTab]      = useState<Tab>('journey');
-  const [prevTab,  setPrevTab]  = useState<Tab>('journey');
+  const [tab, setTab] = useState<Tab>('journey');
+  const [prevTab, setPrevTab] = useState<Tab>('journey');
   const [seenLanding, setSeenLanding] = useState(false);
   const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
   const [showAuth, setShowAuth] = useState(false);
-  const [showAI,   setShowAI]   = useState(false);
+  const [showAI, setShowAI] = useState(false);
 
   React.useEffect(() => { if (isAuthenticated) setShowAuth(false); }, [isAuthenticated]);
 
@@ -93,6 +98,7 @@ function Inner() {
 
   const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
   const handleBack = () => { setTab(prevTab === tab ? 'journey' : prevTab); setPrevTab('journey'); };
+  const openAuth = () => setShowAuth(true);
 
   if (loading) {
     return (
@@ -105,9 +111,7 @@ function Inner() {
     );
   }
 
-  if (!seenLanding) return (
-    <LandingPage onEnter={() => setSeenLanding(true)} />
-  );
+  if (!seenLanding) return <LandingPage onEnter={() => setSeenLanding(true)} />;
   if (showAuth && !isAuthenticated) return <AuthPage onBack={() => setShowAuth(false)} />;
   if (isAuthenticated && !onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
 
@@ -115,21 +119,29 @@ function Inner() {
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
 
   const PAGES: Record<Tab, React.ComponentType<Record<string, unknown>>> = {
-    journey: JourneyPage, library: LibraryPage, studio: StudioPage, journal: JournalPage, profile: ProfilePage,
+    journey: JourneyPage,
+    library: LibraryPage,
+    studio: StudioPage,
+    journal: JournalPage,
+    profile: ProfilePage,
   };
   const Page = PAGES[tab];
-  const pageProps: Record<string, unknown> = tab === 'library' ? { onTabChange: handleTabChange } : {};
+  const pageProps: Record<string, unknown> = tab === 'library'
+    ? { onTabChange: handleTabChange }
+    : tab === 'journal'
+      ? { onRequireAuth: openAuth }
+      : {};
 
   return (
     <>
       <AntiGravityCanvas brainwave={engine.brainwave} isPlaying={engine.isPlaying} bpm={engine.bpm} />
 
       <div className="page">
-        <TopBar tab={tab} onSignIn={() => setShowAuth(true)} onBack={tab !== 'journey' ? handleBack : undefined} />
+        <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
         <ErrorBoundary>
           <div key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
             {needsAuth
-              ? <AuthPrompt onSignIn={() => setShowAuth(true)} tab={tab} />
+              ? <AuthPrompt onSignIn={openAuth} tab={tab} />
               : <Page {...pageProps} />
             }
           </div>
@@ -137,10 +149,8 @@ function Inner() {
         <BottomNav active={tab} onChange={handleTabChange} />
       </div>
 
-      {/* AI float button — always visible */}
       <AIFloatButton onClick={() => setShowAI(true)} />
 
-      {/* AI dialog */}
       {showAI && (
         <AIMixDialog
           onClose={() => setShowAI(false)}
