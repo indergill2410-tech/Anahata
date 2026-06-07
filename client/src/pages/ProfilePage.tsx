@@ -60,6 +60,13 @@ function formatMinutes(minutes: number) {
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
 
+function sourceLabel(source?: string) {
+  if (source === 'watch') return 'Smart watch';
+  if (source === 'demo') return 'Demo signal';
+  if (source === 'websocket') return 'Live stream';
+  return 'Manual signal';
+}
+
 function Toggle({ label, desc, value, onChange }: ToggleProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(23,18,10,0.06)', gap: 16 }}>
@@ -157,8 +164,10 @@ export default function ProfilePage() {
   const latestDream = dashboard.dreamEntries[0];
   const latestSession = dashboard.sessions[0];
   const latestPlay = dashboard.library.recentPlay;
+  const latestBiometric = dashboard.biometrics.latestSample || dashboard.biometrics.samples[0];
+  const biometricAdvice = dashboard.biometrics.advice;
   const sessionMinutes = dashboard.totals.sessionMinutes;
-  const topBrainwave = dashboard.sessionStats.topBrainwaveState || 'New practice';
+  const topBrainwave = dashboard.sessionStats.topBrainwaveState || biometricAdvice?.music.brainwave || 'New practice';
 
   return (
     <div className="dashboard fade-in" style={{ gap: 16 }}>
@@ -196,6 +205,50 @@ export default function ProfilePage() {
         <MetricTile label="Dream logs" value={compactNumber(dashboard.totals.dreamLogs)} color="#6366F1" note={dashboard.dreamLucidityAverage ? `${dashboard.dreamLucidityAverage}/5 lucidity` : 'Start tonight'} />
         <MetricTile label="Sessions" value={compactNumber(dashboard.totals.sessions)} color="#0CA678" note={formatMinutes(sessionMinutes)} />
         <MetricTile label="Music plays" value={compactNumber(dashboard.totals.plays)} color="#D97706" note={`${dashboard.totals.favourites} favourites`} />
+      </div>
+
+      <div className="card" style={{ padding: 16, borderRadius: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <SectionTitle>Smart watch</SectionTitle>
+          <span style={{ fontSize: 11, color: biometricAdvice?.metrics.zone.color || 'var(--ink3)', fontWeight: 900 }}>
+            {dashboard.totals.biometricSamples} samples
+          </span>
+        </div>
+        {biometricAdvice ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr 1fr', gap: 8 }}>
+              <div style={{ borderRadius: 14, padding: '11px 9px', background: `${biometricAdvice.metrics.zone.color}10`, border: `1px solid ${biometricAdvice.metrics.zone.color}24`, minWidth: 0 }}>
+                <div style={{ fontSize: 22, lineHeight: 1, fontWeight: 900, color: biometricAdvice.metrics.zone.color, fontFamily: "'Space Grotesk', sans-serif" }}>{biometricAdvice.metrics.heartRate}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800, marginTop: 5 }}>BPM</div>
+              </div>
+              <div style={{ borderRadius: 14, padding: '11px 9px', background: 'rgba(12,166,120,0.07)', border: '1px solid rgba(12,166,120,0.18)', minWidth: 0 }}>
+                <div style={{ fontSize: 13, lineHeight: 1.2, fontWeight: 900, color: '#0CA678', fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{biometricAdvice.breathing.label}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800, marginTop: 5 }}>{biometricAdvice.breathing.pattern}</div>
+              </div>
+              <div style={{ borderRadius: 14, padding: '11px 9px', background: 'rgba(112,72,232,0.07)', border: '1px solid rgba(112,72,232,0.18)', minWidth: 0 }}>
+                <div style={{ fontSize: 13, lineHeight: 1.2, fontWeight: 900, color: '#7048E8', fontFamily: "'Space Grotesk', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{biometricAdvice.music.brainwave}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800, marginTop: 5 }}>{biometricAdvice.music.tempo} BPM music</div>
+              </div>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: 'var(--ink2)' }}>{biometricAdvice.primaryAction}</p>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              <span style={{ borderRadius: 999, padding: '6px 10px', background: `${biometricAdvice.metrics.zone.color}10`, color: biometricAdvice.metrics.zone.color, fontSize: 11, fontWeight: 900 }}>
+                {biometricAdvice.metrics.zone.label}
+              </span>
+              <span style={{ borderRadius: 999, padding: '6px 10px', background: 'rgba(59,91,219,0.08)', color: '#3B5BDB', fontSize: 11, fontWeight: 900 }}>
+                {biometricAdvice.metrics.trend.label}
+              </span>
+              <span style={{ borderRadius: 999, padding: '6px 10px', background: 'rgba(23,18,10,0.05)', color: 'var(--ink3)', fontSize: 11, fontWeight: 900 }}>
+                {sourceLabel(biometricAdvice.metrics.source)} - {formatDate(latestBiometric?.captured_at || latestBiometric?.created)}
+              </span>
+            </div>
+            {biometricAdvice.cautions[0] && <p style={{ margin: 0, color: '#D97706', fontSize: 11, lineHeight: 1.45 }}>{biometricAdvice.cautions[0]}</p>}
+          </>
+        ) : (
+          <p style={{ margin: 0, color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>
+            Saved biometric recommendations will appear after your first watch, demo, or live-stream session in Journey.
+          </p>
+        )}
       </div>
 
       <div className="card" style={{ padding: 16, borderRadius: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
