@@ -29,7 +29,7 @@ Anahata reads heart-rate style biometric input, maps it to brainwave states, and
 
 Anahata uses PocketBase as the app database. Do not configure this app against Supabase unless the code is intentionally migrated.
 
-PocketBase collections created by `pb-migrations/setup-collections.js`:
+PocketBase collections created by `npm run setup:db`:
 
 - `users` with Anahata profile fields
 - `meditation_sessions`
@@ -58,7 +58,7 @@ npm run install:all
 # Local default: http://localhost:8090
 
 # 5. Create PocketBase collections
-node pb-migrations/setup-collections.js
+npm run setup:db
 
 # 6. Dev server
 npm run dev
@@ -92,6 +92,6 @@ npm run test:coverage
 
 - Set a real `JWT_SECRET`; never use the example value in production.
 - Set `POCKETBASE_URL` to the production PocketBase host.
-- Run the PocketBase setup script after provisioning a new database.
+- Run `npm run setup:db` after provisioning a new PocketBase database.
 - Keep `/api/journal`, `/api/profile`, `/api/sessions`, `/api/mixes`, and private library endpoints protected by JWT auth.
 - Do not commit `.env`.
