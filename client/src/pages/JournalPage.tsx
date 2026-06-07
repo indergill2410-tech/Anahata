@@ -1,727 +1,741 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import AnahataOrb, { OrbId } from '../components/AnahataOrb';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { createJournalApi, JournalEntry, JournalEntryPayload, JournalEntryType } from '../services/journalApi';
 
-// ─── Shared types & helpers ───────────────────────────────────────────────────
-type JournalTab = 'checkin' | 'daily' | 'dreams';
+type JournalTab = JournalEntryType;
+
+type UnifiedEntry = {
+  id?: string;
+  entry_type: JournalTab;
+  entry_date: string;
+  mood?: number | null;
+  lucidity?: number | null;
+  title?: string;
+  text: string;
+  follow_up?: string;
+  prompt?: string;
+  cta?: string;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  source: 'local' | 'remote';
+};
+
+type CheckinStore = Record<string, { date?: string; mood?: number; text?: string; followUp?: string; follow_up?: string; tags?: string[]; cta?: string }>;
+type DailyStore = Record<string, { date?: string; type?: string; text?: string; wordCount?: number }>;
+type DreamStore = Record<string, { date?: string; lucidity?: number; emotions?: string[]; symbols?: string[]; text?: string }>;
+
+const CHECKIN_KEY = 'anahata_journal';
+const DAILY_KEY = 'anahata_daily';
+const DREAM_KEY = 'anahata_dreams';
+
+const TAB_META: Record<JournalTab, { label: string; color: string; sub: string }> = {
+  checkin: { label: 'Check-in', color: '#7048E8', sub: 'Mood, tags, and a gentle reflection.' },
+  daily: { label: 'Daily', color: '#D97706', sub: 'A deeper page for the day.' },
+  dream: { label: 'Dreams', color: '#6366F1', sub: 'Capture dream fragments before they fade.' },
+};
+
+const MOODS = [
+  { value: 1, label: 'Rough', color: '#E64980' },
+  { value: 2, label: 'Okay', color: '#F59F00' },
+  { value: 3, label: 'Good', color: '#0CA678' },
+  { value: 4, label: 'Great', color: '#3B5BDB' },
+  { value: 5, label: 'Blissful', color: '#7048E8' },
+];
+
+const CHECKIN_TAGS = ['calm', 'focused', 'grateful', 'restless', 'anxious', 'peaceful', 'energised', 'creative', 'tired', 'inspired'];
+const CTA_OPTIONS = [
+  { id: 'day', label: 'Tell me about your day' },
+  { id: 'weight', label: "What's weighing on you?" },
+  { id: 'grateful', label: "Something you're grateful for" },
+  { id: 'win', label: 'Celebrate a win' },
+  { id: 'release', label: 'Something to let go' },
+];
+
+const DAILY_TYPES = [
+  { id: 'prompt', label: "Today's prompt", color: '#D97706' },
+  { id: 'morning', label: 'Morning pages', color: '#7048E8' },
+  { id: 'gratitude', label: 'Gratitude', color: '#0CA678' },
+  { id: 'freewrite', label: 'Free write', color: '#E64980' },
+  { id: 'intention', label: 'Intentions', color: '#3B5BDB' },
+];
+
+const DAILY_PROMPTS: Record<number, string> = {
+  0: 'Where did you feel most like yourself today?',
+  1: 'What are you carrying into this week, and what can you set down?',
+  2: 'What small thing asked for your attention today?',
+  3: 'Halfway through the week. What does your body actually need right now?',
+  4: 'What conversation is still alive inside you?',
+  5: "What did today ask of you that you didn't expect?",
+  6: 'Where did you find rest today, even briefly?',
+};
+
+const DREAM_EMOTIONS = ['joy', 'fear', 'calm', 'intense', 'surreal', 'wonder', 'sorrow', 'peace'];
+const DREAM_SYMBOLS = ['water', 'house', 'flying', 'chase', 'forest', 'key', 'mirror', 'bridge', 'spiral', 'light', 'falling', 'door'];
 
 function todayKey() {
   const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
-}
-function toKey(y:number,m:number,d:number){ return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-function getDaysInMonth(y:number,m:number){ return new Date(y,m+1,0).getDate(); }
-function getFirstDayOfMonth(y:number,m:number){ return new Date(y,m,1).getDay(); }
-function formatShortDate(dateStr:string){
-  const [y,m,d]=dateStr.split('-').map(Number);
-  return new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
 }
 
-// ─── Small Orb dot (replaces emojis) ─────────────────────────────────────────
-function OrbDot({ color, size=10, glow=false }: { color:string; size?:number; glow?:boolean }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `radial-gradient(circle at 35% 35%, ${lighten(color)}, ${color})`,
-      boxShadow: glow ? `0 0 ${size}px ${color}80` : 'none',
-    }} />
-  );
-}
-function lighten(hex:string){
-  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return `rgb(${Math.min(r+60,255)},${Math.min(g+60,255)},${Math.min(b+60,255)})`;
+function offsetDateKey(offset: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ─── Segmented control ────────────────────────────────────────────────────────
-const TAB_META: Record<JournalTab,{ label:string; color:string }> = {
-  checkin: { label:'Check-in', color:'#7048E8' },
-  daily:   { label:'Daily',   color:'#D97706' },
-  dreams:  { label:'Dreams',  color:'#6366F1' },
-};
-
-function SegControl({ active, onChange }: { active:JournalTab; onChange:(t:JournalTab)=>void }) {
-  return (
-    <div style={{ display:'flex', background:'rgba(23,18,10,0.06)', borderRadius:16, padding:4, gap:3 }}>
-      {(Object.keys(TAB_META) as JournalTab[]).map(t => {
-        const meta = TAB_META[t];
-        const isActive = t === active;
-        return (
-          <button key={t} onClick={()=>onChange(t)} style={{
-            flex:1, padding:'9px 6px', borderRadius:12, border:'none',
-            fontFamily:"'Space Grotesk',sans-serif", fontSize:12, fontWeight:700,
-            cursor:'pointer', transition:'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-            background: isActive ? 'white' : 'transparent',
-            color: isActive ? meta.color : '#8C7D6C',
-            boxShadow: isActive ? '0 2px 10px rgba(0,0,0,0.09)' : 'none',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-          }}>
-            <OrbDot color={meta.color} size={8} glow={isActive} />
-            {meta.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+function formatDate(key: string, style: 'short' | 'long' = 'long') {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString('en-US', style === 'short'
+    ? { month: 'short', day: 'numeric' }
+    : { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// TAB 1 — CHECK-IN
-// ══════════════════════════════════════════════════════════════════════════════
-interface JournalEntry {
-  date:string; mood:number; text:string; followUp:string;
-  tags:string[]; cta:string;
-}
-type JournalStore = Record<string,JournalEntry>;
-const STORAGE_KEY = 'anahata_journal';
-
-const MOOD_CONFIG = [
-  { value:1, label:'Rough',    color:'#E64980', orbId:'mood-rough'    as OrbId },
-  { value:2, label:'Okay',     color:'#F59F00', orbId:'mood-okay'     as OrbId },
-  { value:3, label:'Good',     color:'#0CA678', orbId:'mood-good'     as OrbId },
-  { value:4, label:'Great',    color:'#3B5BDB', orbId:'mood-great'    as OrbId },
-  { value:5, label:'Blissful', color:'#7048E8', orbId:'mood-blissful' as OrbId },
-];
-const PRESET_TAGS = ['calm','focused','grateful','restless','anxious','peaceful','energised','creative','tired','inspired'];
-const CTA_OPTIONS = [
-  { id:'day',      label:'Tell me about your day',       placeholder:'Walk me through your day — big or small, it all matters…' },
-  { id:'weight',   label:"What's weighing on you?",      placeholder:"What's been on your mind? You can be honest here…" },
-  { id:'grateful', label:"Something you're grateful for", placeholder:'Even one small thing. What made today worth it?' },
-  { id:'win',      label:'Celebrate a win',              placeholder:'Big or tiny — what went right today?' },
-  { id:'release',  label:'Something to let go',          placeholder:'What would feel lighter if you released it tonight?' },
-];
-const FOLLOWUPS = [
-  { keys:['tired','exhausted','drained','sleep'], question:"Rest is not weakness — it's wisdom. What would feel most restorative right now?", feedback:(m:number)=>m>=3?"There's strength in knowing when to rest. Your body is asking for something — trust that.":"Heavy days are real. You showed up anyway. That counts for everything." },
-  { keys:['anxious','worried','stress','overwhelmed'], question:"When you zoom out — is this something you can influence, or something you need to release?", feedback:(m:number)=>m>=3?"Naming it takes courage. Anxiety shrinks when it's seen. You're already doing the work.":"You're carrying a lot. Breathe. This moment, right here, is safe." },
-  { keys:['happy','great','amazing','joy','excited','grateful'], question:"What do you want to anchor from today so you can return to this feeling?", feedback:()=>"Savour this. The fact that you noticed it means it's real." },
-  { keys:['sad','hurt','pain','grief','lonely'], question:"You don't have to carry this alone. Is there one thing that made today even 1% softer?", feedback:()=>"Feeling this deeply is a sign of how much you care. That's not weakness — that's your humanity." },
-  { keys:['meditat','breathe','calm','peaceful','still','quiet'], question:"What opened up for you in that stillness? Even a flicker — what did you notice?", feedback:()=>"Stillness is its own kind of intelligence. What you touched in that quiet is real and yours." },
-];
-const DEFAULT_FOLLOWUP = {
-  question:"If today had a soundtrack, what would it be? Or — what do you want tomorrow to feel like?",
-  feedback:(m:number)=>m>=4?"You're moving with intention. Keep going — the path is unfolding.":m>=3?"Today was a chapter, not the whole story. Rest and begin again.":"Some days are just hard. That's allowed. Tomorrow is a clean page.",
-};
-function getFollowUp(text:string){ const l=text.toLowerCase(); for(const f of FOLLOWUPS) if(f.keys.some(k=>l.includes(k))) return f; return DEFAULT_FOLLOWUP; }
-function loadStore():JournalStore{ try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return{}} }
-function saveStore(s:JournalStore){ localStorage.setItem(STORAGE_KEY,JSON.stringify(s)); }
-function calcStreak(store:JournalStore){ let s=0; const c=new Date(); c.setHours(0,0,0,0); while(true){const k=toKey(c.getFullYear(),c.getMonth(),c.getDate());if(store[k]){s++;c.setDate(c.getDate()-1);}else break;} return s; }
-
-function AiBubble({ text, delay=0 }:{text:string;delay?:number}){
-  const [vis,setVis]=useState(delay===0);
-  useEffect(()=>{if(delay===0)return;const t=setTimeout(()=>setVis(true),delay);return()=>clearTimeout(t);},[delay]);
-  return (
-    <div style={{display:'flex',alignItems:'flex-end',gap:10,opacity:vis?1:0,transform:vis?'none':'translateY(10px)',transition:'all 0.4s cubic-bezier(0.34,1.56,0.64,1)'}}>
-      <div style={{width:28,height:28,borderRadius:'50%',background:'radial-gradient(circle at 35% 35%,#B197FC,#7048E8)',boxShadow:'0 4px 12px rgba(112,72,232,0.4)',flexShrink:0}}/>
-      <div style={{background:'white',border:'1px solid rgba(23,18,10,0.07)',borderRadius:'18px 18px 18px 4px',padding:'11px 16px',maxWidth:'82%',boxShadow:'0 2px 10px rgba(23,18,10,0.07)',fontSize:14,color:'#17120A',lineHeight:1.65,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
-        {text}
-      </div>
-    </div>
-  );
-}
-function UserBubble({children}:{children:React.ReactNode}){
-  return (
-    <div style={{display:'flex',justifyContent:'flex-end'}}>
-      <div style={{background:'#7048E8',color:'white',borderRadius:'18px 18px 4px 18px',padding:'10px 16px',maxWidth:'82%',fontSize:14,lineHeight:1.65,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:'0 4px 14px rgba(112,72,232,0.28)'}}>
-        {children}
-      </div>
-    </div>
-  );
-}
-function TypingDots(){
-  return (
-    <div style={{display:'flex',alignItems:'flex-end',gap:10}}>
-      <div style={{width:28,height:28,borderRadius:'50%',background:'radial-gradient(circle at 35% 35%,#B197FC,#7048E8)',flexShrink:0}}/>
-      <div style={{background:'white',border:'1px solid rgba(23,18,10,0.08)',borderRadius:'18px 18px 18px 4px',padding:'12px 16px',boxShadow:'0 2px 10px rgba(23,18,10,0.07)',display:'flex',gap:5,alignItems:'center'}}>
-        {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:'#C2B5A3',animation:`dotBounce 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}
-      </div>
-    </div>
-  );
+function readStore<T>(key: string): T {
+  try { return JSON.parse(localStorage.getItem(key) || '{}') as T; }
+  catch { return {} as T; }
 }
 
-type CheckinStep = 'greeting'|'mood'|'tags'|'cta'|'write'|'followup'|'feedback'|'done';
+function writeStore<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
 
-function CheckinTab({ store, setStore, todayStr }: { store:JournalStore; setStore:(s:JournalStore)=>void; todayStr:string }) {
-  const today = new Date();
-  const todayEntry = store[todayStr];
-  const [step,setStep]=useState<CheckinStep>(todayEntry?'done':'greeting');
-  const [mood,setMood]=useState(todayEntry?.mood||0);
-  const [tags,setTags]=useState<string[]>(todayEntry?.tags||[]);
-  const [cta,setCta]=useState(todayEntry?.cta||'');
-  const [dayText,setDayText]=useState(todayEntry?.text||'');
-  const [followUpAns,setFollowUpAns]=useState(todayEntry?.followUp||'');
-  const [typing,setTyping]=useState(false);
-  const [draft,setDraft]=useState('');
-  const [viewing,setViewing]=useState<string|null>(null);
-  const bottomRef=useRef<HTMLDivElement>(null);
-  const moodCfg=MOOD_CONFIG[mood-1];
-  const ctaCfg=CTA_OPTIONS.find(c=>c.id===cta);
-  const followUp=dayText?getFollowUp(dayText):DEFAULT_FOLLOWUP;
-  const greeting=today.getHours()<12?'Good morning':today.getHours()<17?'Good afternoon':'Good evening';
+function cleanTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  return tags.map(tag => String(tag).trim()).filter(Boolean).slice(0, 40);
+}
 
-  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[step,typing,mood]);
-  const after=(next:CheckinStep,ms=900)=>{setTyping(true);setTimeout(()=>{setTyping(false);setStep(next);},ms);};
+function wordCount(text: string) {
+  const clean = text.trim();
+  return clean ? clean.split(/\s+/).length : 0;
+}
 
-  const handleSave=useCallback((fuAns?:string)=>{
-    const entry:JournalEntry={date:todayStr,mood,tags,cta,text:dayText,followUp:fuAns??followUpAns};
-    const next={...store,[todayStr]:entry};
-    setStore(next);saveStore(next);setStep('done');
-  },[todayStr,mood,tags,cta,dayText,followUpAns,store]);
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
 
-  useEffect(()=>{if(step==='feedback'&&followUpAns)handleSave(followUpAns);},[step]);
+function readLocalEntries(): UnifiedEntry[] {
+  const checkins = readStore<CheckinStore>(CHECKIN_KEY);
+  const daily = readStore<DailyStore>(DAILY_KEY);
+  const dreams = readStore<DreamStore>(DREAM_KEY);
 
-  const pastKeys = Object.keys(store).filter(k=>k!==todayStr).sort((a,b)=>b.localeCompare(a)).slice(0,5);
+  const entries: UnifiedEntry[] = [];
 
-  if(viewing){
-    const e=store[viewing]; const mc=e?MOOD_CONFIG[e.mood-1]:undefined;
-    return (
-      <div style={{display:'flex',flexDirection:'column',gap:14}}>
-        <button onClick={()=>setViewing(null)} style={{alignSelf:'flex-start',display:'flex',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',color:'#8C7D6C',fontSize:13,fontFamily:'inherit',padding:'4px 0'}}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>Back
-        </button>
-        {e&&(
-          <div style={{background:'white',borderRadius:20,border:'1px solid rgba(23,18,10,0.07)',padding:20,display:'flex',flexDirection:'column',gap:14,boxShadow:'0 2px 12px rgba(23,18,10,0.07)'}}>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:17,fontWeight:700,color:'#17120A'}}>{formatShortDate(viewing)}</div>
-            {mc&&<div style={{display:'flex',alignItems:'center',gap:8}}><OrbDot color={mc.color} size={20} glow/><span style={{fontSize:13,fontWeight:700,color:mc.color}}>{mc.label}</span></div>}
-            {e.text&&<p style={{margin:0,fontSize:14,color:'#4A3F32',lineHeight:1.75}}>{e.text}</p>}
-            {e.followUp&&<><div style={{fontSize:11,fontWeight:700,color:'#C2B5A3',letterSpacing:'0.06em',textTransform:'uppercase'}}>Reflection</div><p style={{margin:0,fontSize:14,color:'#4A3F32',lineHeight:1.75}}>{e.followUp}</p></>}
-            {e.tags.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:6}}>{e.tags.map(t=><span key={t} style={{padding:'4px 11px',borderRadius:20,fontSize:11,fontWeight:600,background:'rgba(112,72,232,0.1)',color:'#7048E8'}}>{t}</span>)}</div>}
-          </div>
-        )}
-      </div>
-    );
+  Object.entries(checkins).forEach(([date, entry]) => {
+    entries.push({
+      entry_type: 'checkin',
+      entry_date: date,
+      mood: entry.mood ?? null,
+      title: 'Daily check-in',
+      text: entry.text || '',
+      follow_up: entry.follow_up || entry.followUp || '',
+      cta: entry.cta || '',
+      tags: cleanTags(entry.tags),
+      metadata: {},
+      source: 'local',
+    });
+  });
+
+  Object.entries(daily).forEach(([date, entry]) => {
+    entries.push({
+      entry_type: 'daily',
+      entry_date: date,
+      title: DAILY_TYPES.find(type => type.id === entry.type)?.label || 'Daily entry',
+      text: entry.text || '',
+      prompt: DAILY_PROMPTS[new Date(date).getDay()] || '',
+      tags: [],
+      metadata: { daily_type: entry.type || 'freewrite', word_count: entry.wordCount || wordCount(entry.text || '') },
+      source: 'local',
+    });
+  });
+
+  Object.entries(dreams).forEach(([date, entry]) => {
+    const emotions = cleanTags(entry.emotions);
+    const symbols = cleanTags(entry.symbols);
+    entries.push({
+      entry_type: 'dream',
+      entry_date: date,
+      lucidity: entry.lucidity ?? null,
+      title: 'Dream journal',
+      text: entry.text || '',
+      tags: [...emotions, ...symbols],
+      metadata: { emotions, symbols },
+      source: 'local',
+    });
+  });
+
+  return entries.sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+}
+
+function persistLocalEntry(entry: UnifiedEntry) {
+  if (entry.entry_type === 'checkin') {
+    const store = readStore<CheckinStore>(CHECKIN_KEY);
+    store[entry.entry_date] = {
+      date: entry.entry_date,
+      mood: entry.mood || 0,
+      text: entry.text,
+      followUp: entry.follow_up || '',
+      tags: entry.tags,
+      cta: entry.cta || '',
+    };
+    writeStore(CHECKIN_KEY, store);
+    return;
   }
 
+  if (entry.entry_type === 'daily') {
+    const store = readStore<DailyStore>(DAILY_KEY);
+    const dailyType = typeof entry.metadata.daily_type === 'string' ? entry.metadata.daily_type : 'freewrite';
+    store[entry.entry_date] = {
+      date: entry.entry_date,
+      type: dailyType,
+      text: entry.text,
+      wordCount: wordCount(entry.text),
+    };
+    writeStore(DAILY_KEY, store);
+    return;
+  }
+
+  const store = readStore<DreamStore>(DREAM_KEY);
+  store[entry.entry_date] = {
+    date: entry.entry_date,
+    lucidity: entry.lucidity || 0,
+    emotions: cleanTags(entry.metadata.emotions),
+    symbols: cleanTags(entry.metadata.symbols),
+    text: entry.text,
+  };
+  writeStore(DREAM_KEY, store);
+}
+
+function remoteToUnified(entry: JournalEntry): UnifiedEntry {
+  return {
+    id: entry.id,
+    entry_type: entry.entry_type,
+    entry_date: entry.entry_date,
+    mood: entry.mood ?? null,
+    lucidity: entry.lucidity ?? null,
+    title: entry.title || '',
+    text: entry.text || '',
+    follow_up: entry.follow_up || '',
+    prompt: entry.prompt || '',
+    cta: entry.cta || '',
+    tags: cleanTags(entry.tags),
+    metadata: asRecord(entry.metadata),
+    source: 'remote',
+  };
+}
+
+function toPayload(entry: UnifiedEntry): JournalEntryPayload {
+  return {
+    entry_type: entry.entry_type,
+    entry_date: entry.entry_date,
+    mood: entry.mood ?? null,
+    lucidity: entry.lucidity ?? null,
+    title: entry.title || '',
+    text: entry.text || '',
+    follow_up: entry.follow_up || '',
+    prompt: entry.prompt || '',
+    cta: entry.cta || '',
+    tags: entry.tags || [],
+    metadata: entry.metadata || {},
+  };
+}
+
+function sameEntry(a: UnifiedEntry, b: UnifiedEntry) {
+  return a.entry_type === b.entry_type && a.entry_date === b.entry_date;
+}
+
+function computeStreak(entries: UnifiedEntry[]) {
+  const dates = new Set(entries.map(entry => entry.entry_date));
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  while (true) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+    if (!dates.has(key)) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function tone(color: string, alpha = '14') {
+  return `${color}${alpha}`;
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      {/* chat thread */}
-      <AiBubble text={`${greeting} — I'm glad you're here.`} />
-      {step!=='greeting'&&<AiBubble text="How are you feeling right now?" delay={0}/>}
-      {mood>0&&moodCfg&&<UserBubble><div style={{display:'flex',alignItems:'center',gap:8}}><OrbDot color={moodCfg.color} size={16} glow/>{moodCfg.label}</div></UserBubble>}
-      {['tags','cta','write','followup','feedback','done'].includes(step)&&!typing&&<AiBubble text="Got it. Any words that describe today?" delay={0}/>}
-      {tags.length>0&&['cta','write','followup','feedback','done'].includes(step)&&<UserBubble><div style={{display:'flex',flexWrap:'wrap',gap:5}}>{tags.map(t=><span key={t} style={{background:'rgba(255,255,255,0.2)',padding:'2px 9px',borderRadius:12,fontSize:12}}>{t}</span>)}</div></UserBubble>}
-      {['cta','write','followup','feedback','done'].includes(step)&&!typing&&<AiBubble text="What would you like to explore today?" delay={0}/>}
-      {ctaCfg&&['write','followup','feedback','done'].includes(step)&&<UserBubble>{ctaCfg.label}</UserBubble>}
-      {['followup','feedback','done'].includes(step)&&ctaCfg&&<AiBubble text={ctaCfg.placeholder} delay={0}/>}
-      {dayText&&['followup','feedback','done'].includes(step)&&<UserBubble>{dayText}</UserBubble>}
-      {['followup','feedback','done'].includes(step)&&!typing&&<AiBubble text={followUp.question} delay={0}/>}
-      {followUpAns&&['feedback','done'].includes(step)&&<UserBubble>{followUpAns}</UserBubble>}
-      {['feedback','done'].includes(step)&&!typing&&<AiBubble text={followUp.feedback(mood)} delay={0}/>}
-      {step==='done'&&!typing&&<AiBubble text="Your entry is saved. Be gentle with yourself tonight." delay={200}/>}
-      {typing&&<TypingDots/>}
-      <div ref={bottomRef}/>
-
-      {/* inputs */}
-      {step==='greeting'&&!typing&&(
-        <button onClick={()=>after('mood',600)} style={{background:'linear-gradient(135deg,#7048E8,#3B5BDB)',color:'white',border:'none',borderRadius:16,padding:'14px 24px',fontSize:15,fontWeight:700,fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',boxShadow:'0 4px 20px rgba(112,72,232,0.35)'}}>
-          Begin today's check-in
-        </button>
-      )}
-      {step==='mood'&&!typing&&(
-        <div style={{display:'flex',gap:6}}>
-          {MOOD_CONFIG.map(m=>(
-            <button key={m.value} onClick={()=>{setMood(m.value);after('tags');}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6,padding:'10px 3px',border:'2px solid',borderRadius:16,cursor:'pointer',borderColor:mood===m.value?m.color:'rgba(23,18,10,0.08)',background:mood===m.value?m.color+'18':'white',transition:'all 0.2s cubic-bezier(0.34,1.56,0.64,1)'}}>
-              <AnahataOrb id={m.orbId} size={38} selected={mood===m.value}/>
-              <span style={{fontSize:9,fontWeight:700,color:mood===m.value?m.color:'#8C7D6C',fontFamily:"'Plus Jakarta Sans',sans-serif"}}>{m.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {step==='tags'&&!typing&&(
-        <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
-            {PRESET_TAGS.map(tag=>{const active=tags.includes(tag);return(
-              <button key={tag} onClick={()=>setTags(p=>p.includes(tag)?p.filter(x=>x!==tag):[...p,tag])} style={{padding:'7px 14px',borderRadius:24,border:'1.5px solid',cursor:'pointer',fontSize:13,fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:600,borderColor:active?'#7048E8':'rgba(23,18,10,0.1)',background:active?'#7048E8':'white',color:active?'white':'#4A3F32',transition:'all 0.15s',boxShadow:active?'0 3px 12px rgba(112,72,232,0.25)':'none'}}>{tag}</button>
-            );})}
-          </div>
-          <button onClick={()=>after('cta')} style={{padding:'12px',borderRadius:14,border:'none',cursor:'pointer',background:'linear-gradient(135deg,#7048E8,#3B5BDB)',color:'white',fontFamily:"'Space Grotesk',sans-serif",fontSize:14,fontWeight:700,boxShadow:'0 4px 16px rgba(112,72,232,0.3)'}}>{tags.length>0?'Continue':'Skip'}</button>
-        </div>
-      )}
-      {step==='cta'&&!typing&&(
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {CTA_OPTIONS.map(c=>(
-            <button key={c.id} onClick={()=>{setCta(c.id);after('write',600);}} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:'white',border:'1.5px solid rgba(23,18,10,0.08)',borderRadius:16,cursor:'pointer',fontFamily:'inherit',textAlign:'left',boxShadow:'0 2px 8px rgba(23,18,10,0.06)',transition:'all 0.15s'}}>
-              <OrbDot color="#7048E8" size={12} glow/>
-              <span style={{fontSize:14,fontWeight:600,color:'#17120A',fontFamily:"'Space Grotesk',sans-serif",flex:1}}>{c.label}</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C2B5A3" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-          ))}
-        </div>
-      )}
-      {(step==='write'||step==='followup')&&!typing&&(
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder={step==='write'?ctaCfg?.placeholder||'Write freely…':'Take your time…'} rows={3}
-            onKeyDown={e=>{if(e.key==='Enter'&&e.metaKey){e.preventDefault();if(step==='write'){setDayText(draft);setDraft('');after('followup',1000);}else{setFollowUpAns(draft);setDraft('');after('feedback',800);}}}}
-            style={{width:'100%',resize:'none',borderRadius:16,padding:'13px 16px',border:'1.5px solid rgba(23,18,10,0.1)',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,color:'#17120A',background:'white',outline:'none',lineHeight:1.65,boxSizing:'border-box',boxShadow:'0 2px 8px rgba(23,18,10,0.06)'}}
-            onFocus={e=>(e.target.style.borderColor='#7048E8')} onBlur={e=>(e.target.style.borderColor='rgba(23,18,10,0.1)')} autoFocus/>
-          <div style={{display:'flex',justifyContent:'flex-end'}}>
-            <button onClick={()=>{if(step==='write'){setDayText(draft);setDraft('');after('followup',1000);}else{setFollowUpAns(draft);setDraft('');after('feedback',800);}}} disabled={!draft.trim()} style={{padding:'10px 22px',borderRadius:14,border:'none',cursor:draft.trim()?'pointer':'not-allowed',background:draft.trim()?'linear-gradient(135deg,#7048E8,#3B5BDB)':'rgba(23,18,10,0.08)',color:draft.trim()?'white':'#C2B5A3',fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,transition:'all 0.15s'}}>
-              Send
-            </button>
-          </div>
-        </div>
-      )}
-      {step==='done'&&!typing&&(
-        <button onClick={()=>{setStep('mood');setMood(0);setTags([]);setCta('');setDayText('');setFollowUpAns('');setDraft('');}} style={{padding:'10px 20px',borderRadius:14,border:'1px solid rgba(112,72,232,0.2)',cursor:'pointer',background:'rgba(112,72,232,0.06)',color:'#7048E8',fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,alignSelf:'center'}}>
-          Edit today's entry
-        </button>
-      )}
-
-      {/* past entries */}
-      {pastKeys.length>0&&(
-        <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C2B5A3',fontFamily:"'Space Grotesk',sans-serif"}}>Past check-ins</div>
-          {pastKeys.map(key=>{
-            const e=store[key]; const mc=MOOD_CONFIG[e.mood-1];
-            return (
-              <button key={key} onClick={()=>setViewing(key)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'white',border:'1px solid rgba(23,18,10,0.07)',borderRadius:14,cursor:'pointer',textAlign:'left',width:'100%',fontFamily:'inherit',boxShadow:'0 2px 8px rgba(23,18,10,0.05)',transition:'all 0.15s'}}>
-                <OrbDot color={mc.color} size={28} glow/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:700,color:'#17120A',fontFamily:"'Space Grotesk',sans-serif"}}>{formatShortDate(key).split(',').slice(0,2).join(',')}</div>
-                  {e.text&&<div style={{fontSize:11,color:'#8C7D6C',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{e.text.slice(0,55)}…</div>}
-                </div>
-                <span style={{fontSize:11,fontWeight:700,color:mc.color,background:mc.color+'18',padding:'3px 9px',borderRadius:12,flexShrink:0}}>{mc.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', fontFamily: "'Space Grotesk', sans-serif" }}>
+      {children}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// TAB 2 — DAILY JOURNAL
-// ══════════════════════════════════════════════════════════════════════════════
-interface DailyEntry { date:string; type:string; text:string; wordCount:number; }
-type DailyStore = Record<string,DailyEntry>;
-const DAILY_KEY = 'anahata_daily';
-
-const DAILY_PROMPTS: Record<number,string> = {
-  0:"Where did you feel most like yourself today?",
-  1:"What are you carrying into this week — and what can you set down?",
-  2:"What small thing asked for your attention today?",
-  3:"Halfway through the week. What does your body actually need right now?",
-  4:"What conversation is still alive inside you?",
-  5:"What did today ask of you that you didn't expect?",
-  6:"Where did you find rest today, even briefly?",
-};
-const DAILY_TYPES = [
-  { id:'prompt',    label:"Today's prompt", color:'#D97706' },
-  { id:'morning',   label:'Morning pages',  color:'#7048E8' },
-  { id:'gratitude', label:'Gratitude',      color:'#0CA678' },
-  { id:'freewrite', label:'Free write',     color:'#E64980' },
-  { id:'intention', label:'Intentions',     color:'#3B5BDB' },
-];
-const TYPE_PLACEHOLDERS: Record<string,string> = {
-  prompt:    'Begin anywhere. Even one sentence is enough…',
-  morning:   'Write without stopping. Don\'t edit. Let it flow…',
-  gratitude: 'Three things, or thirty — whatever wants to come…',
-  freewrite: 'No rules. No structure. Just you and the page…',
-  intention: 'What do you want to call in? How do you want to feel?',
-};
-
-function DailyTab() {
-  const [dailyStore, setDailyStore] = useState<DailyStore>(()=>{ try{return JSON.parse(localStorage.getItem(DAILY_KEY)||'{}')}catch{return{}} });
-  const [activeType, setActiveType] = useState('prompt');
-  const [draft, setDraft]           = useState('');
-  const [saved, setSaved]           = useState(false);
-  const todayStr = todayKey();
-  const todayEntry = dailyStore[todayStr];
-  const dayOfWeek  = new Date().getDay();
-  const prompt     = DAILY_PROMPTS[dayOfWeek];
-
-  // Weekly heatmap — last 7 days
-  const weekDays: Array<{label:string; key:string; intensity:number}> = [];
-  const DAY_ABBR = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  for(let i=6;i>=0;i--){
-    const d=new Date(); d.setDate(d.getDate()-i);
-    const k=toKey(d.getFullYear(),d.getMonth(),d.getDate());
-    const wc=dailyStore[k]?.wordCount||0;
-    const intensity=wc===0?0:wc<50?1:wc<150?2:3;
-    weekDays.push({label:i===0?'TODAY':DAY_ABBR[d.getDay()],key:k,intensity});
-  }
-
-  const HEAT_COLORS=['rgba(23,18,10,0.05)','#FDE68A','#F59F00','#D97706'];
-  const HEAT_GLOW  =['none','0 0 8px rgba(245,159,0,0.2)','0 0 12px rgba(245,159,0,0.35)','0 0 18px rgba(217,119,6,0.5)'];
-
-  function handleSave(){
-    if(!draft.trim()) return;
-    const wc=draft.trim().split(/\s+/).length;
-    const entry:DailyEntry={date:todayStr,type:activeType,text:draft.trim(),wordCount:wc};
-    const next={...dailyStore,[todayStr]:entry};
-    setDailyStore(next);
-    localStorage.setItem(DAILY_KEY,JSON.stringify(next));
-    setSaved(true);
-    setDraft('');
-    setTimeout(()=>setSaved(false),3000);
-  }
-
-  const wc = draft.trim()===''?0:draft.trim().split(/\s+/).length;
-  const pastKeys = Object.keys(dailyStore).filter(k=>k!==todayStr).sort((a,b)=>b.localeCompare(a)).slice(0,4);
-  const ORB_COLORS=['#D97706','#7048E8','#0CA678','#E64980'];
-
+function Chip({ active, color, children, onClick }: { active: boolean; color: string; children: React.ReactNode; onClick: () => void }) {
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-
-      {/* Prompt card */}
-      <div style={{borderRadius:24,padding:22,background:'#17120A',border:'1px solid rgba(255,255,255,0.06)',position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',width:200,height:200,borderRadius:'50%',background:'radial-gradient(circle,rgba(245,159,0,0.22) 0%,transparent 70%)',top:-60,right:-60,pointerEvents:'none'}}/>
-        <div style={{position:'absolute',width:130,height:130,borderRadius:'50%',background:'radial-gradient(circle,rgba(112,72,232,0.16) 0%,transparent 70%)',bottom:-30,left:-20,pointerEvents:'none'}}/>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'rgba(245,159,0,0.65)',marginBottom:12}}>
-          {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dayOfWeek]}'s reflection
-        </div>
-        <div style={{display:'flex',gap:0,marginBottom:14,alignItems:'center'}}>
-          {['#D97706','#7048E8','#0CA678'].map((c,i)=>(
-            <div key={c} style={{width:i===0?42:i===1?32:24,height:i===0?42:i===1?32:24,borderRadius:'50%',background:`radial-gradient(circle at 35% 35%,${lighten(c)},${c})`,boxShadow:`0 0 ${i===0?20:14}px ${c}70`,marginLeft:i>0?-8:0,flexShrink:0}}/>
-          ))}
-        </div>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:18,fontWeight:700,color:'rgba(255,255,255,0.92)',lineHeight:1.4,marginBottom:8}}>"{prompt}"</div>
-        <div style={{fontSize:13,color:'rgba(255,255,255,0.38)',lineHeight:1.6}}>There's no right answer. This space holds whatever comes up — fragments, feelings, half-thoughts.</div>
-      </div>
-
-      {/* Type switchers */}
-      <div style={{display:'flex',gap:7,overflowX:'auto',scrollbarWidth:'none',paddingBottom:2}}>
-        {DAILY_TYPES.map(t=>(
-          <button key={t.id} onClick={()=>setActiveType(t.id)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:7,padding:'7px 14px',borderRadius:20,border:`1.5px solid ${activeType===t.id?t.color+'50':'rgba(23,18,10,0.08)'}`,background:activeType===t.id?t.color+'0D':'white',color:activeType===t.id?t.color:'#4A3F32',fontSize:12,fontWeight:700,fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',transition:'all 0.2s',boxShadow:activeType===t.id?`0 4px 14px ${t.color}30`:'0 2px 8px rgba(0,0,0,0.05)'}}>
-            <OrbDot color={t.color} size={8} glow={activeType===t.id}/>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Write area */}
-      {saved?(
-        <div style={{background:'white',borderRadius:22,border:'1.5px solid rgba(12,166,120,0.25)',padding:18,textAlign:'center',boxShadow:'0 4px 18px rgba(12,166,120,0.12)'}}>
-          <OrbDot color="#0CA678" size={28} glow/>
-          <div style={{marginTop:10,fontFamily:"'Space Grotesk',sans-serif",fontSize:15,fontWeight:700,color:'#0CA678'}}>Entry saved</div>
-          <div style={{fontSize:12,color:'#8C7D6C',marginTop:4}}>Well done for showing up today.</div>
-        </div>
-      ):(
-        <div style={{background:'white',borderRadius:22,border:'1.5px solid rgba(23,18,10,0.06)',padding:18,boxShadow:'0 4px 18px rgba(0,0,0,0.06)'}}>
-          <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder={todayEntry?`You wrote ${todayEntry.wordCount} words today. Add more?`:TYPE_PLACEHOLDERS[activeType]} rows={4}
-            style={{width:'100%',resize:'none',border:'none',outline:'none',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:15,color:'#17120A',lineHeight:1.8,background:'transparent',boxSizing:'border-box'}}/>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:'1px solid rgba(23,18,10,0.05)'}}>
-            <span style={{fontSize:11,color:'#C2B5A3',fontFamily:"'JetBrains Mono',monospace"}}>{wc} word{wc!==1?'s':''}</span>
-            <button onClick={handleSave} disabled={!draft.trim()} style={{height:36,padding:'0 20px',borderRadius:12,border:'none',cursor:draft.trim()?'pointer':'not-allowed',background:draft.trim()?'linear-gradient(135deg,#D97706,#F59F00)':'rgba(23,18,10,0.07)',color:draft.trim()?'white':'#C2B5A3',fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,boxShadow:draft.trim()?'0 4px 14px rgba(217,119,6,0.3)':'none',transition:'all 0.2s'}}>
-              Save entry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Weekly heatmap */}
-      <div style={{background:'white',borderRadius:22,border:'1px solid rgba(23,18,10,0.06)',padding:18,boxShadow:'0 2px 10px rgba(0,0,0,0.04)'}}>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#C2B5A3',marginBottom:14}}>Your week</div>
-        <div style={{display:'flex',justifyContent:'space-between'}}>
-          {weekDays.map(d=>(
-            <div key={d.key} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
-              <div style={{width:34,height:34,borderRadius:'50%',background:d.intensity===0?HEAT_COLORS[0]:`radial-gradient(circle at 35% 35%,${lighten(HEAT_COLORS[d.intensity])},${HEAT_COLORS[d.intensity]})`,boxShadow:HEAT_GLOW[d.intensity],border:d.key===todayStr?`2.5px solid ${HEAT_COLORS[3]}`:'none',transition:'all 0.3s'}}/>
-              <span style={{fontSize:8,fontWeight:700,color:d.label==='TODAY'?'#D97706':'#C2B5A3',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.04em'}}>{d.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Past entries */}
-      {pastKeys.length>0&&(
-        <>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:10,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C2B5A3'}}>Past entries</div>
-          </div>
-          {pastKeys.map((key,i)=>{
-            const e=dailyStore[key];
-            return (
-              <div key={key} style={{background:'white',borderRadius:18,border:'1px solid rgba(23,18,10,0.06)',padding:'14px 16px',display:'flex',alignItems:'center',gap:13,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
-                <div style={{width:38,height:38,borderRadius:'50%',background:`radial-gradient(circle at 35% 35%,${lighten(ORB_COLORS[i%4])},${ORB_COLORS[i%4]})`,boxShadow:`0 4px 14px ${ORB_COLORS[i%4]}40`,flexShrink:0}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,color:'#17120A'}}>{formatShortDate(key).split(',').slice(0,2).join(',')}</div>
-                  <div style={{fontSize:11,color:'#8C7D6C',marginTop:2}}>{e.wordCount} words · {DAILY_TYPES.find(t=>t.id===e.type)?.label||'Entry'}</div>
-                  <div style={{fontSize:12,color:'#4A3F32',marginTop:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{e.text.slice(0,52)}…</div>
-                </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C2B5A3" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-              </div>
-            );
-          })}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TAB 3 — DREAM JOURNAL
-// ══════════════════════════════════════════════════════════════════════════════
-interface DreamEntry { date:string; lucidity:number; emotions:string[]; symbols:string[]; text:string; }
-type DreamStore = Record<string,DreamEntry>;
-const DREAM_KEY = 'anahata_dreams';
-
-const EMOTIONS = [
-  { id:'joy',     label:'Joy',     color:'#F59F00' },
-  { id:'fear',    label:'Fear',    color:'#E64980' },
-  { id:'calm',    label:'Calm',    color:'#0CA678' },
-  { id:'intense', label:'Intense', color:'#F87171' },
-  { id:'surreal', label:'Surreal', color:'#A78BFA' },
-  { id:'wonder',  label:'Wonder',  color:'#3B5BDB' },
-  { id:'sorrow',  label:'Sorrow',  color:'#748FFC' },
-  { id:'peace',   label:'Peace',   color:'#63E6BE' },
-];
-const SYMBOLS = [
-  { id:'water',   label:'Water'   },
-  { id:'house',   label:'House'   },
-  { id:'flying',  label:'Flying'  },
-  { id:'chase',   label:'Chase'   },
-  { id:'forest',  label:'Forest'  },
-  { id:'key',     label:'Key'     },
-  { id:'mirror',  label:'Mirror'  },
-  { id:'bridge',  label:'Bridge'  },
-  { id:'spiral',  label:'Spiral'  },
-  { id:'light',   label:'Light'   },
-  { id:'falling', label:'Falling' },
-  { id:'door',    label:'Door'    },
-];
-const LUCID_LABELS = ['','Hazy','Faint','Clear','Vivid','Lucid'];
-
-// Moon phase helper (simplified)
-function getMoonPhase(date:Date){ const d=Math.abs(date.getTime()-new Date('2000-01-06').getTime())/864e5%29.53; return d<7.4?'🌒':d<14.8?'🌔':d<22.1?'🌖':'🌘'; }
-
-function DreamsTab() {
-  const [dreamStore, setDreamStore] = useState<DreamStore>(()=>{ try{return JSON.parse(localStorage.getItem(DREAM_KEY)||'{}')}catch{return{}} });
-  const [lucidity,   setLucidity]   = useState(0);
-  const [emotions,   setEmotions]   = useState<string[]>([]);
-  const [symbols,    setSymbols]    = useState<string[]>([]);
-  const [draft,      setDraft]      = useState('');
-  const [saved,      setSaved]      = useState(false);
-  const todayStr = todayKey();
-
-  const toggleEmo = (id:string) => setEmotions(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const toggleSym = (id:string) => setSymbols(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-
-  function handleSave(){
-    if(!draft.trim()) return;
-    const entry:DreamEntry={date:todayStr,lucidity,emotions,symbols,text:draft.trim()};
-    const next={...dreamStore,[todayStr]:entry};
-    setDreamStore(next);
-    localStorage.setItem(DREAM_KEY,JSON.stringify(next));
-    setSaved(true);
-    setDraft('');
-    setTimeout(()=>setSaved(false),3000);
-  }
-
-  const pastKeys = Object.keys(dreamStore).filter(k=>k!==todayStr).sort((a,b)=>b.localeCompare(a)).slice(0,4);
-
-  // Moon strip for this week
-  const moonDays: Array<{label:string;phase:string;isToday:boolean}> = [];
-  const DAY_ABBR=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  for(let i=6;i>=0;i--){
-    const d=new Date(); d.setDate(d.getDate()-i);
-    moonDays.push({label:i===0?'NOW':DAY_ABBR[d.getDay()],phase:getMoonPhase(d),isToday:i===0});
-  }
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-
-      {/* Cosmic header card */}
-      <div style={{borderRadius:24,padding:20,background:'linear-gradient(135deg,#0D0720,#1A0F3C)',border:'1px solid rgba(167,139,250,0.15)',position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',width:180,height:180,borderRadius:'50%',background:'radial-gradient(circle,rgba(99,102,241,0.2),transparent 70%)',top:-50,right:-50,pointerEvents:'none'}}/>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'rgba(167,139,250,0.6)',marginBottom:14}}>Moon this week</div>
-        <div style={{display:'flex',justifyContent:'space-between'}}>
-          {moonDays.map(d=>(
-            <div key={d.label} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-              <div style={{fontSize:d.isToday?26:20,filter:d.isToday?'drop-shadow(0 0 8px rgba(167,139,250,0.8))':'none',transition:'all 0.3s'}}>{d.phase}</div>
-              <span style={{fontSize:7,fontWeight:700,color:d.isToday?'#A78BFA':'rgba(167,139,250,0.35)',fontFamily:"'Space Grotesk',sans-serif",letterSpacing:'0.06em'}}>{d.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Lucidity */}
-      <div style={{background:'white',borderRadius:22,border:'1px solid rgba(23,18,10,0.06)',padding:18,boxShadow:'0 2px 10px rgba(0,0,0,0.04)'}}>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#C2B5A3',marginBottom:12}}>Dream lucidity</div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          {[1,2,3,4,5].map(v=>(
-            <button key={v} onClick={()=>setLucidity(v)} style={{width:36,height:36,borderRadius:'50%',border:'none',cursor:'pointer',transition:'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',transform:lucidity===v?'scale(1.15)':'scale(1)',background:v<=lucidity?`radial-gradient(circle at 35% 35%,${lighten('#6366F1')},#6366F1)`:'rgba(23,18,10,0.06)',boxShadow:v<=lucidity?'0 0 16px rgba(99,102,241,0.45)':'none',color:v<=lucidity?'white':'#C2B5A3',fontFamily:"'Space Grotesk',sans-serif",fontSize:11,fontWeight:700}}>
-              {v}
-            </button>
-          ))}
-          {lucidity>0&&<span style={{marginLeft:'auto',fontSize:12,fontWeight:700,color:'#6366F1',background:'rgba(99,102,241,0.08)',padding:'4px 12px',borderRadius:12,border:'1px solid rgba(99,102,241,0.18)',fontFamily:"'Space Grotesk',sans-serif"}}>{LUCID_LABELS[lucidity]}</span>}
-        </div>
-        <div style={{display:'flex',justifyContent:'space-between',marginTop:6}}>
-          {['Hazy','','','','Lucid'].map((l,i)=><span key={i} style={{fontSize:9,color:'#C2B5A3',fontWeight:600,fontFamily:"'Space Grotesk',sans-serif"}}>{l}</span>)}
-        </div>
-      </div>
-
-      {/* Emotions */}
-      <div style={{background:'white',borderRadius:22,border:'1px solid rgba(23,18,10,0.06)',padding:18,boxShadow:'0 2px 10px rgba(0,0,0,0.04)'}}>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#C2B5A3',marginBottom:12}}>How did it feel?</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-          {EMOTIONS.map(e=>{
-            const active=emotions.includes(e.id);
-            return (
-              <button key={e.id} onClick={()=>toggleEmo(e.id)} style={{display:'flex',alignItems:'center',gap:7,padding:'7px 14px',borderRadius:20,border:`1.5px solid ${active?e.color+'60':'rgba(23,18,10,0.08)'}`,background:active?e.color+'12':'white',color:active?e.color:'#4A3F32',fontSize:12,fontWeight:700,fontFamily:"'Space Grotesk',sans-serif",cursor:'pointer',transition:'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',boxShadow:active?`0 0 14px ${e.color}30`:'none'}}>
-                <OrbDot color={e.color} size={8} glow={active}/>
-                {e.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Symbols */}
-      <div style={{background:'white',borderRadius:22,border:'1px solid rgba(23,18,10,0.06)',padding:18,boxShadow:'0 2px 10px rgba(0,0,0,0.04)'}}>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:10,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#C2B5A3',marginBottom:12}}>Symbols & themes</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
-          {SYMBOLS.map(s=>{
-            const active=symbols.includes(s.id);
-            return (
-              <button key={s.id} onClick={()=>toggleSym(s.id)} style={{padding:'6px 13px',borderRadius:18,border:`1.5px solid ${active?'rgba(99,102,241,0.4)':'rgba(23,18,10,0.08)'}`,background:active?'rgba(99,102,241,0.08)':'white',color:active?'#6366F1':'#4A3F32',fontSize:12,fontWeight:600,fontFamily:"'Plus Jakarta Sans',sans-serif",cursor:'pointer',transition:'all 0.18s',boxShadow:active?'0 0 12px rgba(99,102,241,0.2)':'none'}}>
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Describe */}
-      {saved?(
-        <div style={{background:'white',borderRadius:22,border:'1.5px solid rgba(99,102,241,0.25)',padding:18,textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:8,boxShadow:'0 4px 18px rgba(99,102,241,0.12)'}}>
-          <OrbDot color="#6366F1" size={28} glow/>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:15,fontWeight:700,color:'#6366F1'}}>Dream logged</div>
-          <div style={{fontSize:12,color:'#8C7D6C'}}>The archive grows. Sleep well.</div>
-        </div>
-      ):(
-        <div style={{background:'white',borderRadius:22,border:'1.5px solid rgba(23,18,10,0.06)',padding:18,boxShadow:'0 4px 18px rgba(0,0,0,0.06)'}}>
-          <textarea value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Describe your dream while it's still close — even fragments count. The image, the feeling, the place…" rows={4}
-            style={{width:'100%',resize:'none',border:'none',outline:'none',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,color:'#17120A',lineHeight:1.8,background:'transparent',boxSizing:'border-box'}}
-            onFocus={e=>{e.currentTarget.parentElement!.style.borderColor='rgba(99,102,241,0.35)';}} onBlur={e=>{e.currentTarget.parentElement!.style.borderColor='rgba(23,18,10,0.06)';}}/>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:'1px solid rgba(23,18,10,0.05)'}}>
-            <span style={{fontSize:11,color:'#C2B5A3',fontFamily:"'JetBrains Mono',monospace"}}>{draft.trim()===''?0:draft.trim().split(/\s+/).length} words</span>
-            <button onClick={handleSave} disabled={!draft.trim()} style={{height:36,padding:'0 20px',borderRadius:12,border:'none',cursor:draft.trim()?'pointer':'not-allowed',background:draft.trim()?'linear-gradient(135deg,#6366F1,#A78BFA)':'rgba(23,18,10,0.07)',color:draft.trim()?'white':'#C2B5A3',fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,boxShadow:draft.trim()?'0 4px 16px rgba(99,102,241,0.35)':'none',transition:'all 0.2s'}}>
-              Log dream
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Dream archive */}
-      {pastKeys.length>0&&(
-        <>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:10,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C2B5A3'}}>Dream archive</div>
-          {pastKeys.map(key=>{
-            const e=dreamStore[key];
-            return (
-              <div key={key} style={{background:'white',borderRadius:18,border:'1px solid rgba(23,18,10,0.06)',padding:'14px 16px',display:'flex',alignItems:'center',gap:13,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
-                <div style={{width:38,height:38,borderRadius:'50%',background:'radial-gradient(circle at 35% 35%,#818CF8,#4F46E5)',boxShadow:'0 4px 14px rgba(79,70,229,0.3)',flexShrink:0}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,color:'#17120A'}}>{formatShortDate(key).split(',').slice(0,2).join(',')}</div>
-                  <div style={{fontSize:11,color:'#8C7D6C',marginTop:2}}>{e.emotions.map(id=>EMOTIONS.find(em=>em.id===id)?.label).filter(Boolean).join(' · ')||'No emotions tagged'}</div>
-                  <div style={{fontSize:12,color:'#4A3F32',marginTop:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{e.text.slice(0,52)}…</div>
-                </div>
-                <span style={{fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:12,background:'rgba(99,102,241,0.08)',color:'#6366F1',border:'1px solid rgba(99,102,241,0.18)',flexShrink:0,fontFamily:"'Space Grotesk',sans-serif"}}>{LUCID_LABELS[e.lucidity]||'Hazy'}</span>
-              </div>
-            );
-          })}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ══════════════════════════════════════════════════════════════════════════════
-const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS_SHORT=['S','M','T','W','T','F','S'];
-
-function MiniCalendar({ year,month,store,onSelect,onPrev,onNext }:{ year:number;month:number;store:JournalStore;onSelect:(d:string)=>void;onPrev:()=>void;onNext:()=>void; }){
-  const today=todayKey();
-  const days=getDaysInMonth(year,month); const first=getFirstDayOfMonth(year,month);
-  const cells:(number|null)[]=[];
-  for(let i=0;i<first;i++) cells.push(null);
-  for(let d=1;d<=days;d++) cells.push(d);
-  while(cells.length%7!==0) cells.push(null);
-  const MOOD_COLORS=['','#E64980','#F59F00','#0CA678','#3B5BDB','#7048E8'];
-  return (
-    <div style={{background:'white',borderRadius:20,border:'1px solid rgba(23,18,10,0.07)',padding:18,boxShadow:'0 2px 12px rgba(23,18,10,0.07)',animation:'slideDown 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-        <button onClick={onPrev} style={{background:'none',border:'none',cursor:'pointer',color:'#8C7D6C',padding:4}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-        <span style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:13,fontWeight:700,color:'#17120A'}}>{MONTHS[month]} {year}</span>
-        <button onClick={onNext} style={{background:'none',border:'none',cursor:'pointer',color:'#8C7D6C',padding:4}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',marginBottom:6}}>
-        {DAYS_SHORT.map((d,i)=><div key={i} style={{textAlign:'center',fontSize:10,fontWeight:700,color:'#C2B5A3',paddingBottom:4}}>{d}</div>)}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'3px 0'}}>
-        {cells.map((day,idx)=>{
-          if(day===null) return <div key={`e${idx}`}/>;
-          const k=toKey(year,month,day); const entry=store[k]; const isToday=k===today;
-          const mc=entry?.mood?MOOD_COLORS[entry.mood]:undefined;
-          return (
-            <div key={k} onClick={()=>onSelect(k)} style={{display:'flex',justifyContent:'center',padding:'2px 0',cursor:'pointer'}}>
-              <div style={{width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:500,background:mc?`radial-gradient(circle at 35% 35%,${lighten(mc)},${mc})`:'transparent',color:mc?'white':'#4A3F32',border:isToday&&!mc?'2px solid #7048E8':'none',boxShadow:mc?`0 0 8px ${mc}60`:'none'}}>{day}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      style={{
+        border: `1.5px solid ${active ? color : 'rgba(23,18,10,0.08)'}`,
+        background: active ? tone(color, '12') : '#FFFFFF',
+        color: active ? color : 'var(--ink2)',
+        borderRadius: 999,
+        padding: '7px 13px',
+        fontSize: 12,
+        fontWeight: 800,
+        fontFamily: "'Space Grotesk', sans-serif",
+        boxShadow: active ? `0 4px 14px ${tone(color, '24')}` : '0 1px 6px rgba(23,18,10,0.04)',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
 export default function JournalPage() {
-  const [activeTab,  setActiveTab]  = useState<JournalTab>('checkin');
-  const [store,      setStore]      = useState<JournalStore>(loadStore);
-  const [showCal,    setShowCal]    = useState(false);
-  const [calYear,    setCalYear]    = useState(new Date().getFullYear());
-  const [calMonth,   setCalMonth]   = useState(new Date().getMonth());
+  const { isAuthenticated, authFetch } = useAuth();
+  const { success, error, info } = useToast();
+  const api = useMemo(() => createJournalApi(authFetch), [authFetch]);
 
-  const todayStr = todayKey();
-  const streak   = calcStreak(store);
-  const today    = new Date();
+  const [activeTab, setActiveTab] = useState<JournalTab>('checkin');
+  const [selectedDate, setSelectedDate] = useState(todayKey());
+  const [localEntries, setLocalEntries] = useState<UnifiedEntry[]>(() => readLocalEntries());
+  const [remoteEntries, setRemoteEntries] = useState<UnifiedEntry[]>([]);
+  const [loadingRemote, setLoadingRemote] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [search, setSearch] = useState('');
 
-  const formattedDate = today.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const [draft, setDraft] = useState('');
+  const [followUp, setFollowUp] = useState('');
+  const [mood, setMood] = useState(3);
+  const [cta, setCta] = useState('day');
+  const [tags, setTags] = useState<string[]>([]);
+  const [dailyType, setDailyType] = useState('prompt');
+  const [lucidity, setLucidity] = useState(3);
+  const [emotions, setEmotions] = useState<string[]>([]);
+  const [symbols, setSymbols] = useState<string[]>([]);
+
+  const entries = isAuthenticated ? remoteEntries : localEntries;
+  const currentEntry = entries.find(entry => entry.entry_type === activeTab && entry.entry_date === selectedDate);
+  const currentMeta = TAB_META[activeTab];
+  const prompt = DAILY_PROMPTS[new Date(`${selectedDate}T00:00:00`).getDay()] || DAILY_PROMPTS[0];
+
+  const refreshLocal = useCallback(() => setLocalEntries(readLocalEntries()), []);
+
+  const refreshRemote = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setLoadingRemote(true);
+    try {
+      const data = await api.list({ limit: 100 });
+      const next = data.entries.map(remoteToUnified);
+      setRemoteEntries(next);
+      next.forEach(persistLocalEntry);
+      refreshLocal();
+    } catch (err) {
+      error((err as Error).message || 'Could not load journal');
+    } finally {
+      setLoadingRemote(false);
+    }
+  }, [api, error, isAuthenticated, refreshLocal]);
+
+  useEffect(() => {
+    refreshLocal();
+    if (isAuthenticated) refreshRemote();
+    else setRemoteEntries([]);
+  }, [isAuthenticated, refreshLocal, refreshRemote]);
+
+  useEffect(() => {
+    setDraft(currentEntry?.text || '');
+    setFollowUp(currentEntry?.follow_up || '');
+    setMood(currentEntry?.mood || 3);
+    setCta(currentEntry?.cta || 'day');
+    setTags(currentEntry?.tags || []);
+    setDailyType(typeof currentEntry?.metadata.daily_type === 'string' ? currentEntry.metadata.daily_type : 'prompt');
+    setLucidity(currentEntry?.lucidity || 3);
+    setEmotions(cleanTags(currentEntry?.metadata.emotions));
+    setSymbols(cleanTags(currentEntry?.metadata.symbols));
+  }, [activeTab, currentEntry?.id, currentEntry?.entry_date, currentEntry?.entry_type, selectedDate]);
+
+  const unsyncedLocalEntries = useMemo(() => {
+    if (!isAuthenticated) return [];
+    return localEntries.filter(local => !remoteEntries.some(remote => sameEntry(local, remote)));
+  }, [isAuthenticated, localEntries, remoteEntries]);
+
+  const filteredHistory = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return entries
+      .filter(entry => entry.entry_type === activeTab)
+      .filter(entry => !q || [entry.title, entry.text, entry.follow_up, entry.tags.join(' ')].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+  }, [activeTab, entries, search]);
+
+  const totalWords = entries.reduce((sum, entry) => sum + wordCount(entry.text), 0);
+  const streak = computeStreak(entries);
+
+  function toggle(list: string[], value: string, setter: (next: string[]) => void) {
+    setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
+  }
+
+  async function handleSave() {
+    const text = draft.trim();
+    if (!text) {
+      info('Write a few words first.');
+      return;
+    }
+
+    const entry: UnifiedEntry = {
+      id: currentEntry?.id,
+      entry_type: activeTab,
+      entry_date: selectedDate,
+      title: activeTab === 'daily'
+        ? DAILY_TYPES.find(type => type.id === dailyType)?.label || 'Daily entry'
+        : activeTab === 'dream' ? 'Dream journal' : 'Daily check-in',
+      text,
+      follow_up: activeTab === 'checkin' ? followUp.trim() : '',
+      prompt: activeTab === 'daily' ? prompt : '',
+      cta: activeTab === 'checkin' ? cta : '',
+      mood: activeTab === 'checkin' ? mood : null,
+      lucidity: activeTab === 'dream' ? lucidity : null,
+      tags: activeTab === 'checkin' ? tags : activeTab === 'dream' ? [...emotions, ...symbols] : [],
+      metadata: activeTab === 'daily'
+        ? { daily_type: dailyType, word_count: wordCount(text) }
+        : activeTab === 'dream'
+          ? { emotions, symbols }
+          : {},
+      source: isAuthenticated ? 'remote' : 'local',
+    };
+
+    setSaving(true);
+    try {
+      persistLocalEntry(entry);
+      refreshLocal();
+
+      if (isAuthenticated) {
+        const saved = await api.save(toPayload(entry));
+        const remote = remoteToUnified(saved.entry);
+        setRemoteEntries(prev => [remote, ...prev.filter(item => !sameEntry(item, remote))]);
+        persistLocalEntry(remote);
+        refreshLocal();
+        success('Journal saved to your account');
+      } else {
+        success('Journal saved on this device');
+      }
+    } catch (err) {
+      error((err as Error).message || 'Could not save journal');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleImportLocal() {
+    if (!unsyncedLocalEntries.length) return;
+    setSyncing(true);
+    try {
+      const payloads = unsyncedLocalEntries.map(toPayload);
+      const result = await api.importEntries(payloads);
+      success(`Synced ${result.count} local entr${result.count === 1 ? 'y' : 'ies'}`);
+      await refreshRemote();
+    } catch (err) {
+      error((err as Error).message || 'Could not sync local entries');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  const dateRail = Array.from({ length: 7 }, (_, idx) => offsetDateKey(idx - 6));
 
   return (
-    <div className="dashboard fade-in" style={{gap:0,padding:0}}>
-      <style>{`
-        @keyframes dotBounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
-        @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-      `}</style>
-
-      {/* Header */}
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',padding:'0 0 10px'}}>
+    <div className="dashboard fade-in" style={{ gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
         <div>
-          <h1 style={{margin:0,fontFamily:"'Space Grotesk',sans-serif",fontSize:26,fontWeight:800,color:'#17120A',letterSpacing:'-0.02em'}}>Journal</h1>
-          <p style={{margin:'3px 0 0',fontSize:12,color:'#8C7D6C'}}>{formattedDate}</p>
+          <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 27, fontWeight: 800, color: 'var(--ink1)', letterSpacing: '-0.02em' }}>
+            Journal
+          </h1>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink3)' }}>{formatDate(selectedDate)}</p>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:4}}>
-          {streak>=2&&(
-            <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderRadius:20,background:'rgba(245,159,0,0.1)',border:'1px solid rgba(245,159,0,0.2)'}}>
-              <OrbDot color="#F59F00" size={10} glow/>
-              <span style={{fontSize:12,fontWeight:700,color:'#D97706',fontFamily:"'Space Grotesk',sans-serif"}}>{streak}-day streak</span>
+        <button
+          onClick={refreshRemote}
+          disabled={!isAuthenticated || loadingRemote}
+          title={isAuthenticated ? 'Refresh journal' : 'Sign in to sync'}
+          style={{
+            height: 38, minWidth: 38, borderRadius: 12,
+            border: '1px solid var(--border)', background: '#FFFFFF', color: currentMeta.color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            opacity: isAuthenticated ? 1 : 0.45,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 0 1-15.5 6.2" />
+            <path d="M3 12A9 9 0 0 1 18.5 5.8" />
+            <path d="M18 2v4h4" />
+            <path d="M6 22v-4H2" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="card" style={{ padding: 16, borderRadius: 20, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{entries.length}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700 }}>Entries</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#F59F00', fontFamily: "'Space Grotesk', sans-serif" }}>{streak}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700 }}>Day streak</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: currentMeta.color, fontFamily: "'Space Grotesk', sans-serif" }}>{totalWords}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 700 }}>Words</div>
+        </div>
+      </div>
+
+      {!isAuthenticated && (
+        <div style={{ borderRadius: 18, padding: '13px 15px', background: 'rgba(112,72,232,0.07)', border: '1px solid rgba(112,72,232,0.16)', color: 'var(--ink2)', fontSize: 12, lineHeight: 1.65 }}>
+          Guest entries are saved on this device. Sign in when you want private cloud sync across devices.
+        </div>
+      )}
+
+      {isAuthenticated && unsyncedLocalEntries.length > 0 && (
+        <div style={{ borderRadius: 18, padding: 14, background: 'rgba(245,159,0,0.08)', border: '1px solid rgba(245,159,0,0.22)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink1)' }}>{unsyncedLocalEntries.length} local entr{unsyncedLocalEntries.length === 1 ? 'y' : 'ies'} ready to sync</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Bring guest writing into your PocketBase account.</div>
+          </div>
+          <button onClick={handleImportLocal} disabled={syncing} className="btn-primary" style={{ padding: '10px 16px', fontSize: 12, boxShadow: '0 4px 14px rgba(245,159,0,0.25)', background: '#D97706' }}>
+            {syncing ? 'Syncing' : 'Sync'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
+        {(Object.keys(TAB_META) as JournalTab[]).map(tab => {
+          const meta = TAB_META[tab];
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                height: 48,
+                borderRadius: 16,
+                border: `1.5px solid ${active ? meta.color : 'rgba(23,18,10,0.08)'}`,
+                background: active ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
+                color: active ? meta.color : 'var(--ink3)',
+                boxShadow: active ? `0 5px 18px ${tone(meta.color, '24')}` : 'none',
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              {meta.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2 }}>
+        {dateRail.map(date => {
+          const selected = selectedDate === date;
+          const hasEntry = entries.some(entry => entry.entry_date === date && entry.entry_type === activeTab);
+          return (
+            <button
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              style={{
+                flex: '0 0 auto', minWidth: 66, height: 48,
+                borderRadius: 15,
+                border: `1.5px solid ${selected ? currentMeta.color : 'rgba(23,18,10,0.07)'}`,
+                background: selected ? tone(currentMeta.color, '10') : '#FFFFFF',
+                color: selected ? currentMeta.color : 'var(--ink2)',
+                fontSize: 11,
+                fontWeight: 800,
+                fontFamily: "'Space Grotesk', sans-serif",
+                position: 'relative',
+              }}
+            >
+              {date === todayKey() ? 'Today' : formatDate(date, 'short')}
+              {hasEntry && <span style={{ position: 'absolute', left: '50%', bottom: 6, width: 4, height: 4, borderRadius: '50%', transform: 'translateX(-50%)', background: currentMeta.color }} />}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="card" style={{ padding: 18, borderRadius: 22, display: 'flex', flexDirection: 'column', gap: 15 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <SectionLabel>{currentMeta.label}</SectionLabel>
+            <p style={{ margin: '5px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.sub}</p>
+          </div>
+          <span style={{ padding: '5px 10px', borderRadius: 999, background: tone(currentMeta.color, '10'), color: currentMeta.color, fontSize: 10, fontWeight: 800 }}>
+            {isAuthenticated ? 'Cloud sync' : 'Device only'}
+          </span>
+        </div>
+
+        {activeTab === 'checkin' && (
+          <>
+            <SectionLabel>Mood</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+              {MOODS.map(item => (
+                <button
+                  key={item.value}
+                  onClick={() => setMood(item.value)}
+                  style={{
+                    minHeight: 58,
+                    borderRadius: 15,
+                    border: `1.5px solid ${mood === item.value ? item.color : 'rgba(23,18,10,0.08)'}`,
+                    background: mood === item.value ? tone(item.color, '12') : '#FFFFFF',
+                    color: mood === item.value ? item.color : 'var(--ink3)',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    fontFamily: "'Space Grotesk', sans-serif",
+                  }}
+                >
+                  <span style={{ display: 'block', width: 16, height: 16, borderRadius: '50%', margin: '0 auto 6px', background: item.color, boxShadow: `0 0 12px ${tone(item.color, '55')}` }} />
+                  {item.label}
+                </button>
+              ))}
             </div>
-          )}
-          <button onClick={()=>setShowCal(v=>!v)} style={{width:36,height:36,borderRadius:12,border:'1px solid rgba(23,18,10,0.08)',background:showCal?'#7048E8':'white',color:showCal?'white':'#8C7D6C',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 2px 8px rgba(23,18,10,0.07)',transition:'all 0.2s'}}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+
+            <SectionLabel>Today feels</SectionLabel>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {CHECKIN_TAGS.map(tag => (
+                <Chip key={tag} active={tags.includes(tag)} color={currentMeta.color} onClick={() => toggle(tags, tag, setTags)}>{tag}</Chip>
+              ))}
+            </div>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <SectionLabel>Prompt</SectionLabel>
+              <select value={cta} onChange={e => setCta(e.target.value)} style={{ height: 44, borderRadius: 14, background: '#FFFFFF', border: '1.5px solid var(--border)', color: 'var(--ink1)', padding: '0 12px', fontFamily: 'inherit' }}>
+                {CTA_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            </label>
+          </>
+        )}
+
+        {activeTab === 'daily' && (
+          <>
+            <div style={{ borderRadius: 18, padding: 16, background: '#17120A', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,159,0,0.75)', marginBottom: 8 }}>Daily reflection</div>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 800, lineHeight: 1.4 }}>{prompt}</div>
+            </div>
+            <SectionLabel>Writing mode</SectionLabel>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {DAILY_TYPES.map(type => (
+                <Chip key={type.id} active={dailyType === type.id} color={type.color} onClick={() => setDailyType(type.id)}>{type.label}</Chip>
+              ))}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'dream' && (
+          <>
+            <SectionLabel>Lucidity</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 7 }}>
+              {[1, 2, 3, 4, 5].map(value => (
+                <button
+                  key={value}
+                  onClick={() => setLucidity(value)}
+                  style={{
+                    height: 44,
+                    borderRadius: 14,
+                    border: `1.5px solid ${lucidity === value ? currentMeta.color : 'rgba(23,18,10,0.08)'}`,
+                    background: lucidity === value ? tone(currentMeta.color, '12') : '#FFFFFF',
+                    color: lucidity === value ? currentMeta.color : 'var(--ink3)',
+                    fontWeight: 900,
+                  }}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+            <SectionLabel>Emotions</SectionLabel>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {DREAM_EMOTIONS.map(item => <Chip key={item} active={emotions.includes(item)} color={currentMeta.color} onClick={() => toggle(emotions, item, setEmotions)}>{item}</Chip>)}
+            </div>
+            <SectionLabel>Symbols</SectionLabel>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {DREAM_SYMBOLS.map(item => <Chip key={item} active={symbols.includes(item)} color={currentMeta.color} onClick={() => toggle(symbols, item, setSymbols)}>{item}</Chip>)}
+            </div>
+          </>
+        )}
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <SectionLabel>{activeTab === 'dream' ? 'Dream notes' : 'Reflection'}</SectionLabel>
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={activeTab === 'daily' ? 7 : 5}
+            placeholder={activeTab === 'dream' ? "Write the image, feeling, place, or fragment..." : 'Begin anywhere. A few honest words are enough.'}
+            style={{ resize: 'vertical', minHeight: 132, borderRadius: 17, lineHeight: 1.75 }}
+          />
+        </label>
+
+        {activeTab === 'checkin' && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SectionLabel>Follow-up</SectionLabel>
+            <textarea
+              value={followUp}
+              onChange={e => setFollowUp(e.target.value)}
+              rows={3}
+              placeholder="What would support you after writing this?"
+              style={{ resize: 'vertical', minHeight: 88, borderRadius: 17, lineHeight: 1.7 }}
+            />
+          </label>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 2 }}>
+          <span style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace" }}>{wordCount(draft)} words</span>
+          <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ minWidth: 132, height: 44, background: `linear-gradient(135deg, ${currentMeta.color}, #3B5BDB)` }}>
+            {saving ? 'Saving' : currentEntry ? 'Update entry' : 'Save entry'}
           </button>
         </div>
       </div>
 
-      {showCal&&(
-        <div style={{marginBottom:14}}>
-          <MiniCalendar year={calYear} month={calMonth} store={store}
-            onSelect={()=>setShowCal(false)}
-            onPrev={()=>{if(calMonth===0){setCalYear(y=>y-1);setCalMonth(11);}else setCalMonth(m=>m-1);}}
-            onNext={()=>{if(calMonth===11){setCalYear(y=>y+1);setCalMonth(0);}else setCalMonth(m=>m+1);}}
-          />
+      <div className="card" style={{ padding: 16, borderRadius: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <SectionLabel>History</SectionLabel>
+          {loadingRemote && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Loading...</span>}
         </div>
-      )}
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={`Search ${currentMeta.label.toLowerCase()} entries`}
+          style={{ height: 42, borderRadius: 14 }}
+        />
 
-      {/* Segment */}
-      <div style={{marginBottom:18}}>
-        <SegControl active={activeTab} onChange={setActiveTab}/>
+        {filteredHistory.length === 0 ? (
+          <div style={{ borderRadius: 18, border: '1px dashed rgba(23,18,10,0.14)', padding: 22, textAlign: 'center', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>
+            No {currentMeta.label.toLowerCase()} entries yet. Save one above and this space will become your archive.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filteredHistory.slice(0, 12).map(entry => (
+              <button
+                key={`${entry.entry_type}-${entry.entry_date}-${entry.id || 'local'}`}
+                onClick={() => { setActiveTab(entry.entry_type); setSelectedDate(entry.entry_date); }}
+                style={{
+                  width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '13px 14px', borderRadius: 17, border: '1px solid rgba(23,18,10,0.07)', background: '#FFFFFF',
+                  boxShadow: '0 2px 8px rgba(23,18,10,0.04)',
+                }}
+              >
+                <span style={{ width: 28, height: 28, borderRadius: '50%', background: TAB_META[entry.entry_type].color, boxShadow: `0 0 12px ${tone(TAB_META[entry.entry_type].color, '45')}`, flexShrink: 0 }} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{formatDate(entry.entry_date, 'short')}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--ink3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {entry.text || entry.title || 'Untitled entry'}
+                  </span>
+                </span>
+                <span style={{ fontSize: 10, color: entry.source === 'remote' ? '#0CA678' : '#D97706', fontWeight: 800, textTransform: 'uppercase' }}>
+                  {entry.source === 'remote' ? 'Synced' : 'Local'}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Tab content */}
-      {activeTab==='checkin' && <CheckinTab store={store} setStore={setStore} todayStr={todayStr}/>}
-      {activeTab==='daily'   && <DailyTab/>}
-      {activeTab==='dreams'  && <DreamsTab/>}
     </div>
   );
 }
