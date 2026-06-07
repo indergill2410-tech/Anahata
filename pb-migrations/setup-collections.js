@@ -163,6 +163,52 @@ async function run() {
     deleteRule: '@request.auth.id = user_id',
   });
 
+  console.log('\nSetting up biometric_samples ...');
+  await ensureCollection({
+    name: 'biometric_samples',
+    type: 'base',
+    schema: [
+      { name: 'user_id', type: 'relation', required: true, options: USER_RELATION },
+      { name: 'source', type: 'select', required: true, options: { maxSelect: 1, values: ['watch', 'demo', 'websocket', 'manual'] } },
+      { name: 'device_name', type: 'text', required: false, options: { max: 120 } },
+      { name: 'heart_rate', type: 'number', required: true },
+      { name: 'hrv', type: 'number', required: false },
+      { name: 'spo2', type: 'number', required: false },
+      { name: 'stress_level', type: 'text', required: false, options: { max: 40 } },
+      { name: 'battery', type: 'number', required: false },
+      { name: 'captured_at', type: 'text', required: true, options: { max: 40 } },
+      { name: 'metadata', type: 'json', required: false },
+    ],
+    listRule: '@request.auth.id = user_id',
+    viewRule: '@request.auth.id = user_id',
+    createRule: '@request.auth.id = user_id',
+    updateRule: null,
+    deleteRule: '@request.auth.id = user_id',
+  });
+
+  console.log('\nSetting up biometric_recommendations ...');
+  await ensureCollection({
+    name: 'biometric_recommendations',
+    type: 'base',
+    schema: [
+      { name: 'user_id', type: 'relation', required: true, options: USER_RELATION },
+      { name: 'sample_id', type: 'text', required: false, options: { max: 80 } },
+      { name: 'heart_rate', type: 'number', required: true },
+      { name: 'zone', type: 'text', required: true, options: { max: 40 } },
+      { name: 'trend', type: 'text', required: false, options: { max: 40 } },
+      { name: 'breathing_id', type: 'text', required: false, options: { max: 80 } },
+      { name: 'breathing_label', type: 'text', required: false, options: { max: 120 } },
+      { name: 'music_intention', type: 'text', required: false, options: { max: 40 } },
+      { name: 'brainwave_state', type: 'text', required: false, options: { max: 40 } },
+      { name: 'advice', type: 'json', required: false },
+    ],
+    listRule: '@request.auth.id = user_id',
+    viewRule: '@request.auth.id = user_id',
+    createRule: '@request.auth.id = user_id',
+    updateRule: null,
+    deleteRule: '@request.auth.id = user_id',
+  });
+
   console.log('\nAll collections ready. PocketBase is configured for Anahata.');
   console.log('Next steps:');
   console.log('  1. Set POCKETBASE_URL in your .env or host dashboard.');
