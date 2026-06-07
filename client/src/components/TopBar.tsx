@@ -2,18 +2,18 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const TITLES: Record<string, string> = {
-  journey:  'ANAHATA',
-  library:  'Library',
-  studio:   'Studio',
-  journal:  'Journal',
+  journey: 'ANAHATA',
+  library: 'Library',
+  studio: 'Studio',
+  journal: 'Journal',
   sessions: 'History',
-  profile:  'Profile',
+  profile: 'Dashboard',
 };
 
 interface TopBarProps {
   tab: string;
   onSignIn: () => void;
-  onBack?: () => void;   // shown when not on the home/journey tab
+  onBack?: () => void;
 }
 
 export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
@@ -22,34 +22,36 @@ export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
 
   return (
     <div className="topbar">
-      {/* Left — back arrow OR logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {!isHome && onBack && (
           <button
             onClick={onBack}
             aria-label="Go back"
             style={{
-              width: 34, height: 34,
+              width: 34,
+              height: 34,
               borderRadius: '50%',
               border: '1px solid var(--border)',
               background: 'var(--bg1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               cursor: 'pointer',
               boxShadow: '0 1px 6px rgba(23,18,10,0.07)',
               flexShrink: 0,
               transition: 'all 0.18s ease',
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg2)';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(-1px)';
+              e.currentTarget.style.background = 'var(--bg2)';
+              e.currentTarget.style.transform = 'translateX(-1px)';
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg1)';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(0)';
+              e.currentTarget.style.background = 'var(--bg1)';
+              e.currentTarget.style.transform = 'translateX(0)';
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"/>
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
         )}
@@ -59,8 +61,8 @@ export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
           style={{
             fontFamily: isHome ? undefined : "'Space Grotesk', sans-serif",
             fontSize: isHome ? undefined : 16,
-            fontWeight: isHome ? undefined : 700,
-            letterSpacing: isHome ? undefined : '0.01em',
+            fontWeight: isHome ? undefined : 800,
+            letterSpacing: isHome ? undefined : '0',
             color: isHome ? undefined : 'var(--ink1)',
             textTransform: isHome ? undefined : 'none',
           }}
@@ -69,13 +71,18 @@ export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
         </span>
       </div>
 
-      {/* Right — avatar or sign in */}
       {user ? (
         <div style={{
-          width: 32, height: 32, borderRadius: '50%',
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
           background: 'linear-gradient(135deg, var(--violet), var(--blue))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 700, color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 13,
+          fontWeight: 800,
+          color: '#fff',
           fontFamily: "'Space Grotesk', sans-serif",
           flexShrink: 0,
         }}>
@@ -85,12 +92,16 @@ export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
         <button
           onClick={onSignIn}
           style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.08em',
             color: 'var(--violet)',
             background: 'rgba(112,72,232,0.08)',
             border: '1px solid rgba(112,72,232,0.2)',
-            borderRadius: 20, padding: '6px 16px',
-            cursor: 'pointer', fontFamily: 'inherit',
+            borderRadius: 20,
+            padding: '6px 16px',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
             transition: 'all 0.18s ease',
           }}
         >
