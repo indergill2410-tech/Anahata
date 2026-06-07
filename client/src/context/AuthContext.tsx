@@ -25,60 +25,24 @@ function parseJwt(token: string) {
 
 function isTokenValid(token: string) {
   const payload = parseJwt(token);
-  if (!payload) return false;
+  if (!payload?.exp) return false;
   return payload.exp * 1000 > Date.now();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]               = useState<User | null>(null);
-  const [token, setToken]             = useState<string | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [isAuthenticated, setIsAuth]  = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuth] = useState(false);
 
-  // Rehydrate from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('anahata_token');
-    if (stored && isTokenValid(stored)) {
-      const payload = parseJwt(stored);
-      setToken(stored);
-      setUser({ id: payload.userId, email: payload.email, name: payload.name });
-      setIsAuth(true);
-    } else {
-      localStorage.removeItem('anahata_token');
-    }
-    setLoading(false);
-  }, []);
+  const applyToken = useCallback((nextToken: string) => {
+    const payload = parseJwt(nextToken);
+    if (!payload) throw new Error('Invalid session token');
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
-    localStorage.setItem('anahata_token', data.token);
-    const payload = parseJwt(data.token);
-    setToken(data.token);
+    localStorage.setItem('anahata_token', nextToken);
+    setToken(nextToken);
     setUser({ id: payload.userId, email: payload.email, name: payload.name });
     setIsAuth(true);
-    return data;
-  }, []);
-
-  const register = useCallback(async (name: string, email: string, password: string) => {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
-    localStorage.setItem('anahata_token', data.token);
-    const payload = parseJwt(data.token);
-    setToken(data.token);
-    setUser({ id: payload.userId, email: payload.email, name: payload.name });
-    setIsAuth(true);
-    return data;
   }, []);
 
   const logout = useCallback(() => {
@@ -89,11 +53,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuth(false);
   }, []);
 
-  // Auto-logout when token expires
+  // Rehydrate from localStorage on mount.
+  useEffect(() => {
+    const stored = localStorage.getItem('anahata_token');
+    if (stored && isTokenValid(stored)) {
+      try { applyToken(stored); }
+      catch { localStorage.removeItem('anahata_token'); }
+    } else {
+      localStorage.removeItem('anahata_token');
+    }
+    setLoading(false);
+  }, [applyToken]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+    applyToken(data.token);
+    return data;
+  }, [applyToken]);
+
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    applyToken(data.token);
+    return data;
+  }, [applyToken]);
+
+  // Auto-logout when token expires.
   useEffect(() => {
     if (!token) return;
     const payload = parseJwt(token);
-    if (!payload) return;
+    if (!payload?.exp) return;
     const ms = payload.exp * 1000 - Date.now() - 5000;
     if (ms <= 0) { logout(); return; }
     const t = setTimeout(logout, ms);
@@ -101,11 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, logout]);
 
   const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-    return fetch(url, {
-      ...options,
-      headers: { ...(options.headers as Record<string, string> || {}), Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-    });
-  }, [token]);
+    const headers = new Headers(options.headers || {});
+    if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json');
+    }
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401 && token) logout();
+    return res;
+  }, [token, logout]);
 
   return (
     <AuthContext.Provider value={{ user, token, isAuthenticated, loading, login, register, logout, authFetch }}>
