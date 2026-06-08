@@ -57,7 +57,7 @@ export function useUserDashboard() {
       setBiometrics(biometricData || EMPTY_BIOMETRICS);
       setActivityError(null);
     } catch (err) {
-      setActivityError((err as Error).message || 'Could not load dashboard activity');
+      setActivityError((err as Error).message || 'Your practice memory needs a moment.');
     } finally {
       setLoadingActivity(false);
     }

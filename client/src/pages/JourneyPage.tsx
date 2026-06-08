@@ -36,7 +36,7 @@ export default function JourneyPage() {
   const sim    = useSimulator();
   const { info, success } = useToast();
 
-  const [demoMode,      setDemoMode]      = useState(false);
+  const [practiceMode,      setPracticeMode]      = useState(false);
   const [breathSession, setBreathSession] = useState<BreathSession | null>(null);
   const [started,       setStarted]       = useState(false);
   const [wsMsg,         setWsMsg]         = useState<{ heartRate?: number } | null>(null);
@@ -44,10 +44,10 @@ export default function JourneyPage() {
   const orbRef = useRef<HTMLDivElement>(null);
 
   const heartRate = ble.status === 'connected' ? ble.heartRate
-                  : demoMode                   ? sim.heartRate
+                 : practiceMode               ? sim.heartRate
                   : wsMsg?.heartRate ?? null;
   const biometricSource: BiometricSource = ble.status === 'connected' ? 'watch'
-                                      : demoMode                       ? 'demo'
+                                      : practiceMode                   ? 'demo'
                                       : typeof wsMsg?.heartRate === 'number' ? 'websocket'
                                       : 'manual';
   const coach = useBiometricCoach({
@@ -98,9 +98,9 @@ export default function JourneyPage() {
     }
   }
 
-  function toggleDemo() {
-    if (demoMode) { sim.stop(); setDemoMode(false); }
-    else { sim.start(); setDemoMode(true); info('Demo mode - simulating biometrics'); }
+  function togglePracticeSignal() {
+    if (practiceMode) { sim.stop(); setPracticeMode(false); }
+    else { sim.start(); setPracticeMode(true); info('Practice signal is on'); }
   }
 
   function startCoachBreath() {
@@ -129,7 +129,7 @@ export default function JourneyPage() {
     : ble.status === 'connecting'
       ? 'Pairing watch'
       : ble.status === 'unsupported'
-        ? 'Bluetooth unavailable'
+        ? 'Watch not available'
         : ble.status === 'error'
           ? 'Retry watch'
           : 'Connect watch';
@@ -316,7 +316,7 @@ export default function JourneyPage() {
       }}>
         {/* BLE Watch Heart Rate */}
         <button
-          title={ble.error || (ble.status === 'connected' ? `${ble.deviceName || 'Smart watch'} connected` : 'Connect a Bluetooth heart-rate watch')}
+          title={ble.error || (ble.status === 'connected' ? `${ble.deviceName || 'Smart watch'} connected` : 'Connect a heart-rate watch')}
           onClick={ble.status==='connected' ? ble.disconnect : canPairWatch ? ble.connect : undefined}
           style={{
             display:'flex', alignItems:'center', gap:7, padding:'8px 14px',
@@ -333,18 +333,18 @@ export default function JourneyPage() {
           <span style={{ maxWidth:112, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{watchButtonLabel}</span>
         </button>
 
-        {/* Demo toggle */}
-        <button onClick={toggleDemo}
+        {/* Practice signal toggle */}
+        <button onClick={togglePracticeSignal}
           style={{
             padding:'8px 16px', borderRadius:22, fontFamily:'inherit', cursor:'pointer',
-            border:`1px solid ${demoMode ? 'rgba(245,159,0,0.4)' : 'var(--border)'}`,
-            background: demoMode ? 'rgba(245,159,0,0.08)' : 'var(--bg1)',
-            color: demoMode ? 'var(--amber)' : 'var(--ink3)',
+            border:`1px solid ${practiceMode ? 'rgba(245,159,0,0.4)' : 'var(--border)'}`,
+            background: practiceMode ? 'rgba(245,159,0,0.08)' : 'var(--bg1)',
+            color: practiceMode ? 'var(--amber)' : 'var(--ink3)',
             fontSize:11, fontWeight:700, letterSpacing:'0.05em',
             boxShadow: 'var(--shadow)',
           }}
         >
-          {demoMode ? 'DEMO ON' : 'DEMO'}
+          {practiceMode ? 'PRACTICE ON' : 'TRY SIGNAL'}
         </button>
 
         {/* WS status */}

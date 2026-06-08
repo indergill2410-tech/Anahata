@@ -11,7 +11,7 @@ All notable changes to Anahata are documented here.
 - 3-step onboarding flow
 - Dashboard with live biometric display
 - Bluetooth heart rate monitor integration (Web BLE)
-- Demo/simulation mode for users without smartwatches
+- Practice signal mode for users without smartwatches
 - WebSocket real-time biometric streaming
 - Session history with Supabase persistence
 - Profile page with preference toggles

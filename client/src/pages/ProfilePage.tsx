@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useUserDashboard } from '../hooks/useUserDashboard';
+import InstallAppControl from '../components/InstallAppControl';
 
 type PrefKey = 'binaural' | 'reminders' | 'haptics' | 'autoSession';
 
@@ -221,7 +222,7 @@ export default function ProfilePage() {
     ?? (summary.streak > 0 ? summary.streak : dashboard.totals.sessions > 0 ? dashboard.totals.sessions : '-');
   const watchHeartRate = latestBiometric?.heart_rate ?? biometricMetrics?.heartRate ?? '-';
   const watchSummary = biometricAdvice
-    ? `${sourceLabel(biometricMetrics?.source)} - ${biometricZone?.label || 'Live signal'} - ${biometricTrend?.label || 'Collecting baseline'}`
+    ? `${sourceLabel(biometricMetrics?.source)} - ${biometricZone?.label || 'Gentle signal'} - ${biometricTrend?.label || 'Learning your rhythm'}`
     : 'Connect a watch from Home to shape breath and music guidance around your body signals.';
 
   const memoryNodes = [
@@ -392,6 +393,8 @@ export default function ProfilePage() {
           <Toggle label="Begin with watch" desc="Start when your watch connects" value={prefs.autoSession} onChange={v => setPref('autoSession', v)} />
         </div>
       </section>
+
+      <InstallAppControl />
 
       {dashboard.error && <p style={{ margin: 0, fontSize: 11, color: '#D97706', textAlign: 'center' }}>Some information will refresh soon.</p>}
 

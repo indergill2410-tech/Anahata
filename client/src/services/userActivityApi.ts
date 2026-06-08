@@ -33,7 +33,7 @@ type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
 async function readJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const message = typeof data?.error === 'string' ? data.error : 'Activity request failed';
+    const message = typeof data?.error === 'string' ? data.error : 'Your practice memory needs another try.';
     throw new Error(message);
   }
   return data as T;

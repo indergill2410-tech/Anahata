@@ -125,7 +125,7 @@ export function useBiometricCoach({
       setError(null);
       return summary;
     } catch (err) {
-      setError((err as Error).message || 'Could not load biometric summary');
+      setError((err as Error).message || 'Your body-signal summary needs a moment.');
       return EMPTY_SUMMARY;
     } finally {
       setLoading(false);
@@ -135,7 +135,7 @@ export function useBiometricCoach({
   const saveSample = useCallback(async (payload: BiometricSamplePayload) => {
     if (!isAuthenticated || inFlightRef.current) return null;
     if (payload.source === 'watch' && !readBiometricDataConsent()) {
-      setError('Allow biometric sharing before saving watch data.');
+      setError('Allow body-signal sharing before saving watch readings.');
       return null;
     }
 
@@ -149,7 +149,7 @@ export function useBiometricCoach({
       setError(null);
       return saved;
     } catch (err) {
-      setError((err as Error).message || 'Could not save biometric sample');
+      setError((err as Error).message || 'Your watch reading needs another try.');
       return null;
     } finally {
       inFlightRef.current = false;

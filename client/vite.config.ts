@@ -11,9 +11,9 @@ export default defineConfig({
       manifest: {
         name: 'Anahata',
         short_name: 'Anahata',
-        description: 'AI-powered biometric meditation with adaptive Indian music.',
-        theme_color: '#0e0e1a',
-        background_color: '#0e0e1a',
+        description: 'Personal breath, music, journaling, and body-signal guidance.',
+        theme_color: '#F7F4EE',
+        background_color: '#F7F4EE',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
