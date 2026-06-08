@@ -93,6 +93,11 @@ function sameEntry(a: JournalMemoryEntry, b: JournalMemoryEntry) {
   return a.entry_type === b.entry_type && a.entry_date === b.entry_date;
 }
 
+function previewText(text = '', fallback = 'Untitled entry', max = 118) {
+  const clean = text.trim() || fallback;
+  return clean.length > max ? `${clean.slice(0, max)}...` : clean;
+}
+
 function readPendingDraft(): JournalEntryPayload | null {
   try {
     const raw = localStorage.getItem(PENDING_KEY);
@@ -104,10 +109,33 @@ function readPendingDraft(): JournalEntryPayload | null {
   }
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, color = 'var(--ink3)' }: { children: React.ReactNode; color?: string }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: 0, textTransform: 'uppercase', color, fontFamily: "'Space Grotesk', sans-serif" }}>
       {children}
+    </div>
+  );
+}
+
+function JournalOrb({ color, size = 64, children }: { color: string; size?: number; children?: React.ReactNode }) {
+  return (
+    <div style={{ width: size, height: size, position: 'relative', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+      <span style={{ position: 'absolute', inset: -10, borderRadius: '50%', border: `1px solid ${color}26` }} />
+      <span style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: `1.5px solid ${color}38`, boxShadow: `0 0 24px ${color}28` }} />
+      <div style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        background: `radial-gradient(circle at 34% 28%, #FFFFFF, ${color} 48%, ${color}92 78%)`,
+        boxShadow: `inset 0 2px 12px rgba(255,255,255,0.4), 0 14px 34px ${color}34`,
+        color: '#FFFFFF',
+        fontFamily: "'Space Grotesk', sans-serif",
+        fontWeight: 900,
+      }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -115,20 +143,100 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Chip({ active, color, children, onClick }: { active: boolean; color: string; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
+      aria-pressed={active}
       onClick={onClick}
       style={{
         border: `1.5px solid ${active ? color : 'rgba(23,18,10,0.08)'}`,
         background: active ? tone(color, '12') : '#FFFFFF',
         color: active ? color : 'var(--ink2)',
         borderRadius: 999,
-        padding: '7px 13px',
+        padding: '8px 12px',
         fontSize: 12,
         fontWeight: 900,
         fontFamily: "'Space Grotesk', sans-serif",
-        boxShadow: active ? `0 4px 14px ${tone(color, '24')}` : '0 1px 6px rgba(23,18,10,0.04)',
+        boxShadow: active ? `0 4px 14px ${tone(color, '22')}` : '0 1px 6px rgba(23,18,10,0.04)',
       }}
     >
       {children}
+    </button>
+  );
+}
+
+function SignalPill({ label, value, color, dark = false }: { label: string; value: string | number; color: string; dark?: boolean }) {
+  return (
+    <div style={{
+      minWidth: 0,
+      borderRadius: 18,
+      padding: '12px 10px',
+      background: dark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+      border: `1px solid ${dark ? 'rgba(255,255,255,0.12)' : tone(color, '1F')}`,
+      boxShadow: dark ? 'none' : '0 6px 18px rgba(23,18,10,0.045)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 16px ${tone(color, '66')}`, flexShrink: 0 }} />
+        <span style={{ color: dark ? 'rgba(255,255,255,0.62)' : 'var(--ink3)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>{label}</span>
+      </div>
+      <div style={{ color: dark ? '#FFFFFF' : 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif", fontSize: 21, lineHeight: 1, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ModeLens({ tab, active, count, onClick }: { tab: JournalTab; active: boolean; count: number; onClick: () => void }) {
+  const meta = TAB_META[tab];
+  return (
+    <button
+      aria-pressed={active}
+      onClick={onClick}
+      style={{
+        minHeight: 78,
+        borderRadius: 22,
+        border: `1.5px solid ${active ? meta.color : 'rgba(23,18,10,0.08)'}`,
+        background: active ? `linear-gradient(180deg, #FFFFFF, ${tone(meta.color, '10')})` : 'rgba(255,255,255,0.72)',
+        color: active ? meta.color : 'var(--ink2)',
+        boxShadow: active ? `0 10px 24px ${tone(meta.color, '24')}` : '0 4px 14px rgba(23,18,10,0.035)',
+        padding: '12px 10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        textAlign: 'left',
+      }}
+    >
+      <JournalOrb color={meta.color} size={32}>
+        <span style={{ fontSize: 10 }}>{count}</span>
+      </JournalOrb>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 900 }}>{meta.label}</span>
+        <span style={{ display: 'block', marginTop: 2, fontSize: 10, color: active ? meta.color : 'var(--ink3)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{count} saved</span>
+      </span>
+    </button>
+  );
+}
+
+function DateChip({ date, selected, hasEntry, color, onClick }: { date: string; selected: boolean; hasEntry: boolean; color: string; onClick: () => void }) {
+  const isToday = date === todayKey();
+  return (
+    <button
+      aria-pressed={selected}
+      onClick={onClick}
+      style={{
+        flex: '0 0 auto',
+        width: 72,
+        minHeight: 62,
+        borderRadius: 22,
+        border: `1.5px solid ${selected ? color : 'rgba(23,18,10,0.08)'}`,
+        background: selected ? `linear-gradient(180deg, #FFFFFF, ${tone(color, '10')})` : '#FFFFFF',
+        color: selected ? color : 'var(--ink2)',
+        fontFamily: "'Space Grotesk', sans-serif",
+        fontSize: 11,
+        fontWeight: 900,
+        position: 'relative',
+        boxShadow: selected ? `0 8px 20px ${tone(color, '24')}` : '0 2px 10px rgba(23,18,10,0.04)',
+      }}
+    >
+      <span style={{ display: 'block' }}>{isToday ? 'Today' : formatDate(date, 'short')}</span>
+      <span style={{ display: 'block', width: hasEntry ? 8 : 4, height: hasEntry ? 8 : 4, borderRadius: '50%', margin: '9px auto 0', background: hasEntry ? color : 'rgba(23,18,10,0.12)', boxShadow: hasEntry ? `0 0 14px ${tone(color, '65')}` : 'none' }} />
     </button>
   );
 }
@@ -218,6 +326,12 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       .sort((a, b) => b.entry_date.localeCompare(a.entry_date));
   }, [activeTab, entries, search]);
 
+  const tabCounts = useMemo(() => {
+    const counts: Record<JournalTab, number> = { checkin: 0, daily: 0, dream: 0 };
+    entries.forEach(entry => { counts[entry.entry_type] += 1; });
+    return counts;
+  }, [entries]);
+
   function toggle(list: string[], value: string, setter: (next: string[]) => void) {
     setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
   }
@@ -290,312 +404,347 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
     }
   }
 
+  const today = todayKey();
   const dateRail = Array.from({ length: 7 }, (_, idx) => offsetDateKey(idx - 6));
+  const saveLabel = saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update memory' : 'Save memory' : 'Create account to save';
+  const saveState = isAuthenticated ? currentEntry ? 'Saved to dashboard' : 'Ready for dashboard' : 'Private after sign in';
 
   return (
-    <div className="dashboard fade-in" style={{ gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
-        <div>
-          <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 27, fontWeight: 900, color: 'var(--ink1)', letterSpacing: '0' }}>
-            Journal
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink3)' }}>{formatDate(selectedDate)}</p>
+    <div className="dashboard fade-in" style={{ gap: 16 }}>
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 30,
+        padding: '20px 18px',
+        background: '#17120A',
+        color: '#FFFFFF',
+        boxShadow: '0 18px 54px rgba(23,18,10,0.22)',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 78% 4%, ${tone(currentMeta.color, '44')}, transparent 32%), radial-gradient(circle at 10% 92%, rgba(12,166,120,0.2), transparent 32%), radial-gradient(circle at 50% 44%, rgba(255,255,255,0.08), transparent 36%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <JournalOrb color={currentMeta.color} size={74}>
+            <span style={{ fontSize: 19 }}>{summary.streak || tabCounts[activeTab] || 1}</span>
+          </JournalOrb>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <SectionLabel color="rgba(255,255,255,0.62)">Private memory</SectionLabel>
+            <h1 style={{ margin: '5px 0 3px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, lineHeight: 1.02, fontWeight: 900, color: '#FFFFFF', letterSpacing: 0 }}>
+              Journal
+            </h1>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 1.5 }}>{formatDate(selectedDate)}</p>
+          </div>
+          <button
+            aria-label="Refresh journal"
+            onClick={refreshRemote}
+            disabled={!isAuthenticated || loadingRemote}
+            title={isAuthenticated ? 'Refresh journal' : 'Sign in to sync'}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.16)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#FFFFFF',
+              display: 'grid',
+              placeItems: 'center',
+              opacity: isAuthenticated ? 1 : 0.46,
+              flexShrink: 0,
+            }}
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 0 1-15.5 6.2" />
+              <path d="M3 12A9 9 0 0 1 18.5 5.8" />
+              <path d="M18 2v4h4" />
+              <path d="M6 22v-4H2" />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={refreshRemote}
-          disabled={!isAuthenticated || loadingRemote}
-          title={isAuthenticated ? 'Refresh journal' : 'Sign in to sync'}
-          style={{
-            height: 38,
-            minWidth: 38,
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: '#FFFFFF',
-            color: currentMeta.color,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: isAuthenticated ? 1 : 0.45,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 12a9 9 0 0 1-15.5 6.2" />
-            <path d="M3 12A9 9 0 0 1 18.5 5.8" />
-            <path d="M18 2v4h4" />
-            <path d="M6 22v-4H2" />
-          </svg>
-        </button>
-      </div>
 
-      <div className="card" style={{ padding: 16, borderRadius: 20, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{summary.totalEntries}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800 }}>Entries</div>
+        <div style={{ position: 'relative', marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+          <SignalPill label="Entries" value={summary.totalEntries} color="#7048E8" dark />
+          <SignalPill label="Streak" value={`${summary.streak}d`} color="#F59F00" dark />
+          <SignalPill label="Words" value={summary.totalWords} color="#0CA678" dark />
         </div>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#F59F00', fontFamily: "'Space Grotesk', sans-serif" }}>{summary.streak}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800 }}>Day streak</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: currentMeta.color, fontFamily: "'Space Grotesk', sans-serif" }}>{summary.totalWords}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 800 }}>Words</div>
-        </div>
-      </div>
+      </section>
 
       {!isAuthenticated && (
-        <div style={{ borderRadius: 18, padding: '13px 15px', background: 'rgba(112,72,232,0.07)', border: '1px solid rgba(112,72,232,0.16)', color: 'var(--ink2)', fontSize: 12, lineHeight: 1.65 }}>
-          You can write here now. When you save, Anahata will ask you to create or sign in to an account so this entry joins your private dashboard.
-        </div>
+        <section style={{ borderRadius: 24, padding: 15, background: 'linear-gradient(135deg, rgba(112,72,232,0.1), rgba(255,255,255,0.94))', border: '1px solid rgba(112,72,232,0.18)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <JournalOrb color="#7048E8" size={42}>
+            <span style={{ fontSize: 13 }}>+</span>
+          </JournalOrb>
+          <p style={{ margin: 0, color: 'var(--ink2)', fontSize: 12, lineHeight: 1.6 }}>
+            Write now. Saving asks for an account so this becomes private dashboard memory.
+          </p>
+        </section>
       )}
 
       {isAuthenticated && unsyncedLocalEntries.length > 0 && (
-        <div style={{ borderRadius: 18, padding: 14, background: 'rgba(245,159,0,0.08)', border: '1px solid rgba(245,159,0,0.22)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)' }}>{unsyncedLocalEntries.length} local entr{unsyncedLocalEntries.length === 1 ? 'y' : 'ies'} ready to sync</div>
-            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Bring older device-only writing into this account.</div>
+        <section style={{ borderRadius: 24, padding: 15, background: 'rgba(245,159,0,0.09)', border: '1px solid rgba(245,159,0,0.24)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <JournalOrb color="#D97706" size={42}>
+            <span style={{ fontSize: 12 }}>{unsyncedLocalEntries.length}</span>
+          </JournalOrb>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)' }}>Local entr{unsyncedLocalEntries.length === 1 ? 'y' : 'ies'} ready</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Bring older writing into this account.</div>
           </div>
-          <button onClick={handleImportLocal} disabled={syncing} className="btn-primary" style={{ padding: '10px 16px', fontSize: 12, boxShadow: '0 4px 14px rgba(245,159,0,0.25)', background: '#D97706' }}>
+          <button onClick={handleImportLocal} disabled={syncing} className="btn-primary" style={{ padding: '10px 15px', fontSize: 12, background: '#D97706', boxShadow: '0 6px 16px rgba(217,119,6,0.24)' }}>
             {syncing ? 'Syncing' : 'Sync'}
           </button>
-        </div>
+        </section>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
-        {(Object.keys(TAB_META) as JournalTab[]).map(tab => {
-          const meta = TAB_META[tab];
-          const active = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                height: 48,
-                borderRadius: 16,
-                border: `1.5px solid ${active ? meta.color : 'rgba(23,18,10,0.08)'}`,
-                background: active ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
-                color: active ? meta.color : 'var(--ink3)',
-                boxShadow: active ? `0 5px 18px ${tone(meta.color, '24')}` : 'none',
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-            >
-              {meta.label}
-            </button>
-          );
-        })}
-      </div>
+      <nav aria-label="Journal modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
+        {(Object.keys(TAB_META) as JournalTab[]).map(tab => (
+          <ModeLens key={tab} tab={tab} active={activeTab === tab} count={tabCounts[tab]} onClick={() => setActiveTab(tab)} />
+        ))}
+      </nav>
 
-      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2 }}>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 1px 6px' }}>
         {dateRail.map(date => {
           const selected = selectedDate === date;
           const hasEntry = entries.some(entry => entry.entry_date === date && entry.entry_type === activeTab);
-          return (
-            <button
-              key={date}
-              onClick={() => setSelectedDate(date)}
-              style={{
-                flex: '0 0 auto',
-                minWidth: 66,
-                height: 48,
-                borderRadius: 15,
-                border: `1.5px solid ${selected ? currentMeta.color : 'rgba(23,18,10,0.07)'}`,
-                background: selected ? tone(currentMeta.color, '10') : '#FFFFFF',
-                color: selected ? currentMeta.color : 'var(--ink2)',
-                fontSize: 11,
-                fontWeight: 900,
-                fontFamily: "'Space Grotesk', sans-serif",
-                position: 'relative',
-              }}
-            >
-              {date === todayKey() ? 'Today' : formatDate(date, 'short')}
-              {hasEntry && <span style={{ position: 'absolute', left: '50%', bottom: 6, width: 4, height: 4, borderRadius: '50%', transform: 'translateX(-50%)', background: currentMeta.color }} />}
-            </button>
-          );
+          return <DateChip key={date} date={date} selected={selected} hasEntry={hasEntry} color={currentMeta.color} onClick={() => setSelectedDate(date)} />;
         })}
       </div>
 
-      <div className="card" style={{ padding: 18, borderRadius: 22, display: 'flex', flexDirection: 'column', gap: 15 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <SectionLabel>{currentMeta.label}</SectionLabel>
-            <p style={{ margin: '5px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.sub}</p>
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 30,
+        padding: 18,
+        background: `linear-gradient(145deg, #FFFFFF, ${tone(currentMeta.color, '0C')})`,
+        border: `1px solid ${tone(currentMeta.color, '20')}`,
+        boxShadow: 'var(--shadow)',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 100% 0%, ${tone(currentMeta.color, '18')}, transparent 34%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <JournalOrb color={currentMeta.color} size={48}>
+              <span style={{ fontSize: 12 }}>{activeTab === 'dream' ? lucidity : activeTab === 'checkin' ? mood : countJournalWords(draft)}</span>
+            </JournalOrb>
+            <div style={{ minWidth: 0 }}>
+              <SectionLabel color={currentMeta.color}>{currentMeta.label}</SectionLabel>
+              <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12, lineHeight: 1.5 }}>{currentMeta.sub}</p>
+            </div>
           </div>
-          <span style={{ padding: '5px 10px', borderRadius: 999, background: tone(currentMeta.color, '10'), color: currentMeta.color, fontSize: 10, fontWeight: 900 }}>
-            {isAuthenticated ? 'Dashboard save' : 'Account required'}
+          <span style={{ borderRadius: 999, padding: '7px 10px', background: tone(currentMeta.color, '12'), color: currentMeta.color, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            {saveState}
           </span>
         </div>
 
-        {activeTab === 'checkin' && (
-          <>
-            <SectionLabel>Mood</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-              {MOODS.map(item => (
-                <button
-                  key={item.value}
-                  onClick={() => setMood(item.value)}
-                  style={{
-                    minHeight: 58,
-                    borderRadius: 15,
-                    border: `1.5px solid ${mood === item.value ? item.color : 'rgba(23,18,10,0.08)'}`,
-                    background: mood === item.value ? tone(item.color, '12') : '#FFFFFF',
-                    color: mood === item.value ? item.color : 'var(--ink3)',
-                    fontSize: 10,
-                    fontWeight: 900,
-                    fontFamily: "'Space Grotesk', sans-serif",
-                  }}
-                >
-                  <span style={{ display: 'block', width: 16, height: 16, borderRadius: '50%', margin: '0 auto 6px', background: item.color, boxShadow: `0 0 12px ${tone(item.color, '55')}` }} />
-                  {item.label}
-                </button>
-              ))}
-            </div>
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {activeTab === 'checkin' && (
+            <>
+              <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+                <SectionLabel color="#E64980">Mood orbit</SectionLabel>
+                <div style={{ marginTop: 11, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 7 }}>
+                  {MOODS.map(item => (
+                    <button
+                      aria-pressed={mood === item.value}
+                      key={item.value}
+                      onClick={() => setMood(item.value)}
+                      style={{
+                        minHeight: 64,
+                        borderRadius: 18,
+                        border: `1.5px solid ${mood === item.value ? item.color : 'rgba(23,18,10,0.08)'}`,
+                        background: mood === item.value ? tone(item.color, '12') : '#FFFFFF',
+                        color: mood === item.value ? item.color : 'var(--ink3)',
+                        fontSize: 10,
+                        fontWeight: 900,
+                        fontFamily: "'Space Grotesk', sans-serif",
+                      }}
+                    >
+                      <span style={{ display: 'block', width: 18, height: 18, borderRadius: '50%', margin: '0 auto 7px', background: item.color, boxShadow: `0 0 14px ${tone(item.color, '55')}` }} />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
 
-            <SectionLabel>Today feels</SectionLabel>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {CHECKIN_TAGS.map(tag => (
-                <Chip key={tag} active={tags.includes(tag)} color={currentMeta.color} onClick={() => toggle(tags, tag, setTags)}>{tag}</Chip>
-              ))}
-            </div>
+              <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+                  <SectionLabel color={currentMeta.color}>Today feels</SectionLabel>
+                  <span style={{ fontSize: 10, color: currentMeta.color, fontWeight: 900 }}>{tags.length} tones</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {CHECKIN_TAGS.map(tag => (
+                    <Chip key={tag} active={tags.includes(tag)} color={currentMeta.color} onClick={() => toggle(tags, tag, setTags)}>{tag}</Chip>
+                  ))}
+                </div>
+              </section>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <SectionLabel>Prompt</SectionLabel>
-              <select value={cta} onChange={e => setCta(e.target.value)} style={{ height: 44, borderRadius: 14, background: '#FFFFFF', border: '1.5px solid var(--border)', color: 'var(--ink1)', padding: '0 12px', fontFamily: 'inherit' }}>
-                {CTA_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-              </select>
-            </label>
-          </>
-        )}
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <SectionLabel color={currentMeta.color}>Prompt</SectionLabel>
+                <select value={cta} onChange={e => setCta(e.target.value)} style={{ height: 46, borderRadius: 16, background: '#FFFFFF', border: '1.5px solid var(--border)', color: 'var(--ink1)', padding: '0 12px', fontFamily: 'inherit', fontWeight: 800 }}>
+                  {CTA_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+              </label>
+            </>
+          )}
 
-        {activeTab === 'daily' && (
-          <>
-            <div style={{ borderRadius: 18, padding: 16, background: '#17120A', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,159,0,0.75)', marginBottom: 8 }}>Daily reflection</div>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.4 }}>{prompt}</div>
-            </div>
-            <SectionLabel>Writing mode</SectionLabel>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {DAILY_TYPES.map(type => (
-                <Chip key={type.id} active={dailyType === type.id} color={type.color} onClick={() => setDailyType(type.id)}>{type.label}</Chip>
-              ))}
-            </div>
-          </>
-        )}
+          {activeTab === 'daily' && (
+            <>
+              <section style={{ borderRadius: 24, padding: 16, background: '#17120A', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 14px 34px rgba(23,18,10,0.16)' }}>
+                <SectionLabel color="rgba(245,159,0,0.78)">Daily reflection</SectionLabel>
+                <div style={{ marginTop: 10, fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 900, lineHeight: 1.42 }}>{prompt}</div>
+              </section>
+              <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+                <SectionLabel color="#D97706">Writing mode</SectionLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+                  {DAILY_TYPES.map(type => (
+                    <Chip key={type.id} active={dailyType === type.id} color={type.color} onClick={() => setDailyType(type.id)}>{type.label}</Chip>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
 
-        {activeTab === 'dream' && (
-          <>
-            <SectionLabel>Lucidity</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 7 }}>
-              {[1, 2, 3, 4, 5].map(value => (
-                <button
-                  key={value}
-                  onClick={() => setLucidity(value)}
-                  style={{
-                    height: 44,
-                    borderRadius: 14,
-                    border: `1.5px solid ${lucidity === value ? currentMeta.color : 'rgba(23,18,10,0.08)'}`,
-                    background: lucidity === value ? tone(currentMeta.color, '12') : '#FFFFFF',
-                    color: lucidity === value ? currentMeta.color : 'var(--ink3)',
-                    fontWeight: 900,
-                  }}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
-            <SectionLabel>Emotions</SectionLabel>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {DREAM_EMOTIONS.map(item => <Chip key={item} active={emotions.includes(item)} color={currentMeta.color} onClick={() => toggle(emotions, item, setEmotions)}>{item}</Chip>)}
-            </div>
-            <SectionLabel>Symbols</SectionLabel>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {DREAM_SYMBOLS.map(item => <Chip key={item} active={symbols.includes(item)} color={currentMeta.color} onClick={() => toggle(symbols, item, setSymbols)}>{item}</Chip>)}
-            </div>
-          </>
-        )}
+          {activeTab === 'dream' && (
+            <>
+              <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+                <SectionLabel color={currentMeta.color}>Lucidity</SectionLabel>
+                <div style={{ marginTop: 11, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 8 }}>
+                  {[1, 2, 3, 4, 5].map(value => (
+                    <button
+                      aria-pressed={lucidity === value}
+                      key={value}
+                      onClick={() => setLucidity(value)}
+                      style={{
+                        height: 48,
+                        borderRadius: '50%',
+                        border: `1.5px solid ${lucidity === value ? currentMeta.color : 'rgba(23,18,10,0.08)'}`,
+                        background: lucidity === value ? `radial-gradient(circle at 35% 30%, #FFFFFF, ${currentMeta.color} 62%)` : '#FFFFFF',
+                        color: lucidity === value ? '#FFFFFF' : currentMeta.color,
+                        fontWeight: 900,
+                        boxShadow: lucidity === value ? `0 0 18px ${tone(currentMeta.color, '42')}` : 'none',
+                      }}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+                <SectionLabel color={currentMeta.color}>Emotions</SectionLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+                  {DREAM_EMOTIONS.map(item => <Chip key={item} active={emotions.includes(item)} color={currentMeta.color} onClick={() => toggle(emotions, item, setEmotions)}>{item}</Chip>)}
+                </div>
+              </section>
+              <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+                <SectionLabel color={currentMeta.color}>Symbols</SectionLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+                  {DREAM_SYMBOLS.map(item => <Chip key={item} active={symbols.includes(item)} color={currentMeta.color} onClick={() => toggle(symbols, item, setSymbols)}>{item}</Chip>)}
+                </div>
+              </section>
+            </>
+          )}
 
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <SectionLabel>{activeTab === 'dream' ? 'Dream notes' : 'Reflection'}</SectionLabel>
-          <textarea
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            rows={activeTab === 'daily' ? 7 : 5}
-            placeholder={activeTab === 'dream' ? 'Write the image, feeling, place, or fragment...' : 'Begin anywhere. A few honest words are enough.'}
-            style={{ resize: 'vertical', minHeight: 132, borderRadius: 17, lineHeight: 1.75 }}
-          />
-        </label>
-
-        {activeTab === 'checkin' && (
           <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <SectionLabel>Follow-up</SectionLabel>
+            <SectionLabel color={currentMeta.color}>{activeTab === 'dream' ? 'Dream notes' : 'Reflection'}</SectionLabel>
             <textarea
-              value={followUp}
-              onChange={e => setFollowUp(e.target.value)}
-              rows={3}
-              placeholder="What would support you after writing this?"
-              style={{ resize: 'vertical', minHeight: 88, borderRadius: 17, lineHeight: 1.7 }}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              rows={activeTab === 'daily' ? 8 : 6}
+              placeholder={activeTab === 'dream' ? 'Write the image, feeling, place, or fragment...' : 'Begin anywhere. A few honest words are enough.'}
+              style={{
+                resize: 'vertical',
+                minHeight: activeTab === 'daily' ? 190 : 146,
+                borderRadius: 22,
+                lineHeight: 1.75,
+                padding: 15,
+                border: `1.5px solid ${tone(currentMeta.color, '2A')}`,
+                background: 'rgba(255,255,255,0.92)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
+              }}
             />
           </label>
-        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 2 }}>
-          <span style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace" }}>{countJournalWords(draft)} words</span>
-          <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ minWidth: 150, height: 44, background: `linear-gradient(135deg, ${currentMeta.color}, #3B5BDB)` }}>
-            {saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update entry' : 'Save entry' : 'Create account to save'}
-          </button>
+          {activeTab === 'checkin' && (
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <SectionLabel color={currentMeta.color}>Follow-up</SectionLabel>
+              <textarea
+                value={followUp}
+                onChange={e => setFollowUp(e.target.value)}
+                rows={3}
+                placeholder="What would support you after writing this?"
+                style={{ resize: 'vertical', minHeight: 92, borderRadius: 20, lineHeight: 1.7, padding: 14, border: '1.5px solid var(--border)', background: '#FFFFFF' }}
+              />
+            </label>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: currentMeta.color, boxShadow: `0 0 12px ${tone(currentMeta.color, '65')}`, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'var(--ink3)', fontFamily: "'JetBrains Mono', monospace" }}>{countJournalWords(draft)} words</span>
+            </div>
+            <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ minWidth: 158, height: 46, background: `linear-gradient(135deg, ${currentMeta.color}, #3B5BDB)`, boxShadow: `0 10px 22px ${tone(currentMeta.color, '30')}` }}>
+              {saveLabel}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="card" style={{ padding: 16, borderRadius: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <section style={{ borderRadius: 30, padding: 18, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <SectionLabel>History</SectionLabel>
+          <div>
+            <SectionLabel color={currentMeta.color}>Memory stream</SectionLabel>
+            <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.label} archive</p>
+          </div>
           {loadingRemote && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Loading...</span>}
         </div>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder={`Search ${currentMeta.label.toLowerCase()} entries`}
-          style={{ height: 42, borderRadius: 14 }}
+          style={{ height: 44, borderRadius: 16, padding: '0 13px', border: '1.5px solid var(--border)' }}
         />
 
         {filteredHistory.length === 0 ? (
-          <div style={{ borderRadius: 18, border: '1px dashed rgba(23,18,10,0.14)', padding: 22, textAlign: 'center', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7 }}>
-            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} entries yet. Save one above and this space will become your archive.` : 'Sign in to start saving a private journal archive.'}
+          <div style={{ borderRadius: 24, border: `1px dashed ${tone(currentMeta.color, '35')}`, padding: 24, textAlign: 'center', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7, background: tone(currentMeta.color, '08') }}>
+            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} memories yet.` : 'Sign in to start saving a private journal archive.'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {filteredHistory.slice(0, 12).map(entry => (
-              <button
-                key={`${entry.entry_type}-${entry.entry_date}-${entry.id || 'local'}`}
-                onClick={() => { setActiveTab(entry.entry_type); setSelectedDate(entry.entry_date); }}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '13px 14px',
-                  borderRadius: 17,
-                  border: '1px solid rgba(23,18,10,0.07)',
-                  background: '#FFFFFF',
-                  boxShadow: '0 2px 8px rgba(23,18,10,0.04)',
-                }}
-              >
-                <span style={{ width: 28, height: 28, borderRadius: '50%', background: TAB_META[entry.entry_type].color, boxShadow: `0 0 12px ${tone(TAB_META[entry.entry_type].color, '45')}`, flexShrink: 0 }} />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{formatDate(entry.entry_date, 'short')}</span>
-                  <span style={{ display: 'block', fontSize: 12, color: 'var(--ink3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {entry.text || entry.title || 'Untitled entry'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {filteredHistory.slice(0, 12).map(entry => {
+              const meta = TAB_META[entry.entry_type];
+              return (
+                <button
+                  key={`${entry.entry_type}-${entry.entry_date}-${entry.id || 'local'}`}
+                  onClick={() => { setActiveTab(entry.entry_type); setSelectedDate(entry.entry_date); }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    display: 'grid',
+                    gridTemplateColumns: '42px minmax(0, 1fr) auto',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '13px 14px',
+                    borderRadius: 22,
+                    border: `1px solid ${tone(meta.color, '1D')}`,
+                    background: `linear-gradient(180deg, #FFFFFF, ${tone(meta.color, '08')})`,
+                    boxShadow: '0 4px 14px rgba(23,18,10,0.045)',
+                  }}
+                >
+                  <JournalOrb color={meta.color} size={34}>
+                    <span style={{ fontSize: 9 }}>{entry.mood || entry.lucidity || countJournalWords(entry.text)}</span>
+                  </JournalOrb>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{formatDate(entry.entry_date, 'short')}</span>
+                      <span style={{ fontSize: 10, color: meta.color, fontWeight: 900, textTransform: 'uppercase' }}>{meta.label}</span>
+                    </span>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--ink3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {previewText(entry.text, entry.title)}
+                    </span>
                   </span>
-                </span>
-                <span style={{ fontSize: 10, color: entry.source === 'remote' ? '#0CA678' : '#D97706', fontWeight: 900, textTransform: 'uppercase' }}>
-                  {entry.source === 'remote' ? 'Saved' : 'Local'}
-                </span>
-              </button>
-            ))}
+                  <span style={{ borderRadius: 999, padding: '6px 8px', background: entry.source === 'remote' ? 'rgba(12,166,120,0.1)' : 'rgba(217,119,6,0.1)', color: entry.source === 'remote' ? '#0CA678' : '#D97706', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                    {entry.source === 'remote' ? 'Saved' : 'Local'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
