@@ -207,10 +207,22 @@ export default function ProfilePage() {
   const latestBiometric = dashboard.biometrics.latestSample || dashboard.biometrics.samples[0];
   const biometricAdvice = dashboard.biometrics.advice;
   const sessionMinutes = dashboard.totals.sessionMinutes;
-  const topBrainwave = dashboard.sessionStats.topBrainwaveState || biometricAdvice?.music?.brainwave || 'Theta';
-  const resonanceColor = biometricAdvice?.metrics?.zone?.color || '#7048E8';
-  const resonanceTitle = biometricAdvice?.metrics?.zone?.label || topBrainwave;
+  const biometricMetrics = biometricAdvice?.metrics;
+  const biometricBreathing = biometricAdvice?.breathing;
+  const biometricMusic = biometricAdvice?.music;
+  const biometricZone = biometricMetrics?.zone;
+  const biometricTrend = biometricMetrics?.trend;
+  const topBrainwave = dashboard.sessionStats.topBrainwaveState || biometricMusic?.brainwave || 'Theta';
+  const resonanceColor = biometricZone?.color || '#7048E8';
+  const resonanceTitle = biometricZone?.label || topBrainwave;
   const primaryAdvice = biometricAdvice?.primaryAction || 'Begin with one saved journal entry, one breath, or one listening session to build your pattern.';
+  const memoryOrbitSignal = latestBiometric?.heart_rate
+    ?? biometricMetrics?.heartRate
+    ?? (summary.streak > 0 ? summary.streak : dashboard.totals.sessions > 0 ? dashboard.totals.sessions : '-');
+  const watchHeartRate = latestBiometric?.heart_rate ?? biometricMetrics?.heartRate ?? '-';
+  const watchSummary = biometricAdvice
+    ? `${sourceLabel(biometricMetrics?.source)} - ${biometricZone?.label || 'Live signal'} - ${biometricTrend?.label || 'Collecting baseline'}`
+    : 'Connect a watch in Journey to turn live biometrics into breath and music guidance.';
 
   const memoryNodes = [
     { label: 'Journal', value: compactNumber(dashboard.totals.journalEntries), color: '#7048E8', note: `${summary.streak} day streak` },
@@ -276,7 +288,7 @@ export default function ProfilePage() {
           <span style={{ position: 'absolute', inset: 42, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)' }} />
           <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
             <ResonanceOrb color={resonanceColor} accent="#FFFFFF" size={74}>
-              <span style={{ fontSize: 18 }}>{latestBiometric?.heart_rate || biometricAdvice?.metrics.heartRate || summary.streak || dashboard.totals.sessions || '-'}</span>
+              <span style={{ fontSize: 18 }}>{memoryOrbitSignal}</span>
             </ResonanceOrb>
           </div>
           {memoryNodes.map((node, index) => {
@@ -307,12 +319,12 @@ export default function ProfilePage() {
             <p style={{ margin: '7px 0 0', color: 'var(--ink2)', fontSize: 13, lineHeight: 1.6 }}>{primaryAdvice}</p>
           </div>
           <ResonanceOrb color={resonanceColor} accent="#FFFFFF" size={54}>
-            <span style={{ fontSize: 12 }}>{biometricAdvice?.music.brainwave || topBrainwave}</span>
+            <span style={{ fontSize: 12 }}>{biometricMusic?.brainwave || topBrainwave}</span>
           </ResonanceOrb>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          <span style={{ borderRadius: 999, padding: '7px 11px', background: `${resonanceColor}12`, color: resonanceColor, fontSize: 11, fontWeight: 900 }}>{biometricAdvice?.breathing.label || 'Open with breath'}</span>
-          <span style={{ borderRadius: 999, padding: '7px 11px', background: 'rgba(59,91,219,0.08)', color: '#3B5BDB', fontSize: 11, fontWeight: 900 }}>{biometricAdvice?.music.brainwave || topBrainwave}</span>
+          <span style={{ borderRadius: 999, padding: '7px 11px', background: `${resonanceColor}12`, color: resonanceColor, fontSize: 11, fontWeight: 900 }}>{biometricBreathing?.label || 'Open with breath'}</span>
+          <span style={{ borderRadius: 999, padding: '7px 11px', background: 'rgba(59,91,219,0.08)', color: '#3B5BDB', fontSize: 11, fontWeight: 900 }}>{biometricMusic?.brainwave || topBrainwave}</span>
           <span style={{ borderRadius: 999, padding: '7px 11px', background: 'rgba(245,159,0,0.1)', color: '#D97706', fontSize: 11, fontWeight: 900 }}>{formatMinutes(sessionMinutes)} practiced</span>
         </div>
       </section>
@@ -349,11 +361,11 @@ export default function ProfilePage() {
           <div>
             <SectionLabel color="#3B5BDB">Smart watch</SectionLabel>
             <p style={{ margin: '7px 0 0', fontSize: 12, color: 'var(--ink3)', lineHeight: 1.65 }}>
-              {biometricAdvice ? `${sourceLabel(biometricAdvice.metrics.source)} - ${biometricAdvice.metrics.zone.label} - ${biometricAdvice.metrics.trend.label}` : 'Connect a watch in Journey to turn live biometrics into breath and music guidance.'}
+              {watchSummary}
             </p>
           </div>
           <div style={{ borderRadius: 18, padding: '11px 12px', minWidth: 82, textAlign: 'center', background: `${resonanceColor}12`, border: `1px solid ${resonanceColor}22`, color: resonanceColor }}>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{latestBiometric?.heart_rate || biometricAdvice?.metrics.heartRate || '-'}</div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{watchHeartRate}</div>
             <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>BPM</div>
           </div>
         </div>
@@ -361,11 +373,11 @@ export default function ProfilePage() {
           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
             <div style={{ borderRadius: 16, padding: 12, background: 'rgba(12,166,120,0.08)', border: '1px solid rgba(12,166,120,0.16)' }}>
               <div style={{ fontSize: 10, color: '#0CA678', fontWeight: 900, textTransform: 'uppercase' }}>Breath</div>
-              <div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink1)', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{biometricAdvice.breathing.pattern}</div>
+              <div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink1)', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{biometricBreathing?.pattern || 'Collecting pattern'}</div>
             </div>
             <div style={{ borderRadius: 16, padding: 12, background: 'rgba(112,72,232,0.08)', border: '1px solid rgba(112,72,232,0.16)' }}>
               <div style={{ fontSize: 10, color: '#7048E8', fontWeight: 900, textTransform: 'uppercase' }}>Music</div>
-              <div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink1)', fontWeight: 900 }}>{biometricAdvice.music.brainwave} - {biometricAdvice.music.tempo} BPM</div>
+              <div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink1)', fontWeight: 900 }}>{biometricMusic?.brainwave || topBrainwave} - {biometricMusic?.tempo ?? '-'} BPM</div>
             </div>
           </div>
         )}
