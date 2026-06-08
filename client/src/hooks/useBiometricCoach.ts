@@ -55,6 +55,12 @@ export function useBiometricCoach({
     samplesRef.current = samples;
   }, [samples]);
 
+  useEffect(() => {
+    if (enabled && heartRate) return;
+    setLastSample(null);
+    setAdvice(null);
+  }, [enabled, heartRate]);
+
   const makePayload = useCallback((): BiometricSamplePayload | null => {
     if (!enabled || !heartRate) return null;
     return {
