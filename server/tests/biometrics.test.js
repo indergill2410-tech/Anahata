@@ -27,6 +27,14 @@ jest.mock('../middleware/auth', () => ({
 
 const biometricsRoutes = require('../routes/biometrics');
 
+const WATCH_CONSENT = {
+  biometric_consent: {
+    version: 1,
+    grantedAt: '2026-06-08T00:00:00.000Z',
+    scope: 'heart-rate-and-battery',
+  },
+};
+
 function col(name) {
   if (!collections[name]) collections[name] = makeCollection();
   return collections[name];
@@ -53,15 +61,15 @@ describe('biometrics routes', () => {
   test('builds personalized advice from current and recent biometrics', async () => {
     col('biometric_samples').getList.mockResolvedValue({
       items: [
-        { heart_rate: 100, source: 'watch', captured_at: '2026-06-08T00:00:00.000Z' },
-        { heart_rate: 96, source: 'watch', captured_at: '2026-06-08T00:00:10.000Z' },
-        { heart_rate: 92, source: 'watch', captured_at: '2026-06-08T00:00:20.000Z' },
+        { heart_rate: 100, source: 'watch', captured_at: '2026-06-08T00:00:00.000Z', metadata: WATCH_CONSENT },
+        { heart_rate: 96, source: 'watch', captured_at: '2026-06-08T00:00:10.000Z', metadata: WATCH_CONSENT },
+        { heart_rate: 92, source: 'watch', captured_at: '2026-06-08T00:00:20.000Z', metadata: WATCH_CONSENT },
       ],
     });
 
     const res = await request(buildApp())
       .post('/api/biometrics/advice')
-      .send({ source: 'watch', device_name: 'Anahata Band', heart_rate: 116, hrv: 22, battery: 78 })
+      .send({ source: 'watch', device_name: 'Anahata Band', heart_rate: 116, hrv: 22, battery: 78, metadata: WATCH_CONSENT })
       .expect(200);
 
     expect(res.body.advice.metrics.zone.id).toBe('high');
@@ -74,15 +82,15 @@ describe('biometrics routes', () => {
     col('biometric_samples').create.mockImplementation(async payload => ({ id: 'sample_1', ...payload }));
     col('biometric_samples').getList.mockResolvedValue({
       items: [
-        { id: 'sample_1', user_id: 'user_123', source: 'watch', heart_rate: 92, captured_at: '2026-06-08T00:00:00.000Z' },
-        { id: 'sample_0', user_id: 'user_123', source: 'watch', heart_rate: 88, captured_at: '2026-06-08T00:00:10.000Z' },
+        { id: 'sample_1', user_id: 'user_123', source: 'watch', heart_rate: 92, captured_at: '2026-06-08T00:00:00.000Z', metadata: WATCH_CONSENT },
+        { id: 'sample_0', user_id: 'user_123', source: 'watch', heart_rate: 88, captured_at: '2026-06-08T00:00:10.000Z', metadata: WATCH_CONSENT },
       ],
     });
     col('biometric_recommendations').create.mockImplementation(async payload => ({ id: 'rec_1', ...payload }));
 
     const res = await request(buildApp())
       .post('/api/biometrics/samples')
-      .send({ source: 'watch', deviceName: 'Anahata Band', heartRate: 92, spo2: 97, battery: 64 })
+      .send({ source: 'watch', deviceName: 'Anahata Band', heartRate: 92, spo2: 97, battery: 64, metadata: WATCH_CONSENT })
       .expect(201);
 
     expect(res.body.sample).toMatchObject({ id: 'sample_1', user_id: 'user_123', heart_rate: 92, source: 'watch' });
@@ -92,6 +100,7 @@ describe('biometrics routes', () => {
       device_name: 'Anahata Band',
       heart_rate: 92,
       spo2: 97,
+      metadata: WATCH_CONSENT,
     }));
     expect(col('biometric_recommendations').create).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'user_123',
@@ -102,10 +111,20 @@ describe('biometrics routes', () => {
     }));
   });
 
+  test('rejects watch samples without biometric sharing consent', async () => {
+    const res = await request(buildApp())
+      .post('/api/biometrics/samples')
+      .send({ source: 'watch', deviceName: 'Anahata Band', heartRate: 92, battery: 64 })
+      .expect(403);
+
+    expect(res.body.error).toMatch(/consent/i);
+    expect(col('biometric_samples').create).not.toHaveBeenCalled();
+  });
+
   test('rejects invalid heart-rate payloads', async () => {
     const res = await request(buildApp())
       .post('/api/biometrics/samples')
-      .send({ source: 'watch', heart_rate: 12 })
+      .send({ source: 'watch', heart_rate: 12, metadata: WATCH_CONSENT })
       .expect(400);
 
     expect(res.body.error).toMatch(/valid heart_rate/);
