@@ -2,21 +2,71 @@ import React, { useState } from 'react';
 
 const STEPS = [
   {
-    icon: '🪷',
-    title: 'Welcome to Anahata',
-    body: 'Your heart rate guides the music. The deeper you breathe, the more the music adapts to bring you into stillness.'
+    id: 'heart',
+    color: '#7048E8',
+    eyebrow: 'Adaptive practice',
+    title: 'Anahata learns your rhythm',
+    body: 'Your sessions, journals, dreams, music choices, and body signals become a private practice map that gets more personal over time.',
+    metric: 'Memory field',
+    signal: 'Journal + sessions',
   },
   {
-    icon: '⌚',
-    title: 'Connect Your Smartwatch',
-    body: 'Pair any Bluetooth heart rate monitor — Apple Watch, Galaxy Watch, Polar, Garmin, or any Wear OS device.'
+    id: 'watch',
+    color: '#3B5BDB',
+    eyebrow: 'Smart watch ready',
+    title: 'Connect your biometrics',
+    body: 'Pair a Bluetooth heart-rate device so Anahata can shape breath guidance and music suggestions around your live state.',
+    metric: 'Bluetooth',
+    signal: 'Heart rate + HRV',
   },
   {
-    icon: '🎵',
-    title: '111 Meditation Tracks',
-    body: 'Explore our library of binaural beats fused with Indian classical instruments — sitar, bansuri, tanpura and more.'
-  }
+    id: 'sound',
+    color: '#0CA678',
+    eyebrow: 'Sound medicine',
+    title: 'Build your sound signature',
+    body: 'Explore binaural layers, Indian classical instruments, nature beds, and saved mixes tuned to sleep, focus, healing, and meditation.',
+    metric: '111 tracks',
+    signal: 'Music + mixes',
+  },
 ];
+
+function tone(color: string, alpha = '18') {
+  return `${color}${alpha}`;
+}
+
+function SetupOrb({ color, step }: { color: string; step: number }) {
+  return (
+    <div style={{ width: 148, height: 148, position: 'relative', display: 'grid', placeItems: 'center', margin: '0 auto' }}>
+      <span style={{ position: 'absolute', inset: -22, borderRadius: '50%', border: `1px solid ${tone(color, '20')}` }} />
+      <span style={{ position: 'absolute', inset: -6, borderRadius: '50%', border: `1.5px solid ${tone(color, '34')}`, boxShadow: `0 0 34px ${tone(color, '28')}` }} />
+      <span style={{ position: 'absolute', width: 26, height: 26, right: 8, top: 24, borderRadius: '50%', background: '#FFFFFF', border: `2px solid ${tone(color, '36')}`, boxShadow: `0 0 18px ${tone(color, '3A')}` }} />
+      <div style={{
+        width: 148,
+        height: 148,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        background: `radial-gradient(circle at 34% 28%, #FFFFFF, ${color} 48%, ${tone(color, '92')} 78%)`,
+        boxShadow: `inset 0 2px 14px rgba(255,255,255,0.42), 0 18px 46px ${tone(color, '34')}`,
+        color: '#FFFFFF',
+        fontFamily: "'Space Grotesk', sans-serif",
+        fontSize: 38,
+        fontWeight: 900,
+      }}>
+        {String(step + 1).padStart(2, '0')}
+      </div>
+    </div>
+  );
+}
+
+function SignalTile({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{ borderRadius: 18, padding: '12px 11px', background: '#FFFFFF', border: `1px solid ${tone(color, '20')}`, minWidth: 0, boxShadow: '0 6px 18px rgba(23,18,10,0.045)' }}>
+      <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 900, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ marginTop: 4, color, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 900, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+    </div>
+  );
+}
 
 export default function OnboardingPage({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0);
@@ -26,50 +76,71 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
     onComplete();
   }
 
-  const { icon, title, body } = STEPS[step];
+  const current = STEPS[step];
   const isLast = step === STEPS.length - 1;
 
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg-0)', padding: 32
+      minHeight: '100dvh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: `radial-gradient(circle at 50% 6%, ${tone(current.color, '18')}, transparent 36%), var(--bg)`,
+      padding: 24,
     }}>
-      <div style={{ width: '100%', maxWidth: 340, textAlign: 'center' }}>
-        <div style={{ fontSize: 64, marginBottom: 28, animation: 'fadeIn 0.4s ease' }} key={step}>
-          {icon}
-        </div>
-        <h2 style={{ fontSize: 22, fontWeight: 500, color: 'var(--t1)', marginBottom: 14, letterSpacing: '-0.02em' }}>
-          {title}
-        </h2>
-        <p style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.7, marginBottom: 44 }}>
-          {body}
-        </p>
+      <section style={{ width: '100%', maxWidth: 390, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <SetupOrb color={current.color} step={step} />
 
-        {/* Step dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 32 }}>
-          {STEPS.map((_, i) => (
-            <div key={i} style={{
-              width: i === step ? 20 : 7, height: 7,
-              borderRadius: 4,
-              background: i === step ? 'var(--accent)' : 'var(--bg-3)',
-              transition: 'all 0.35s var(--ease)'
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 900, color: current.color, textTransform: 'uppercase', fontFamily: "'Space Grotesk', sans-serif" }}>
+            {current.eyebrow}
+          </div>
+          <h1 style={{ margin: '7px 0 0', fontFamily: "'Space Grotesk', sans-serif", fontSize: 29, lineHeight: 1.05, fontWeight: 900, color: 'var(--ink1)', letterSpacing: 0 }}>
+            {current.title}
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7, margin: '11px auto 0', maxWidth: 330 }}>
+            {current.body}
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <SignalTile label="System" value={current.metric} color={current.color} />
+          <SignalTile label="Signal" value={current.signal} color={current.color} />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }} aria-label="Onboarding progress">
+          {STEPS.map((item, i) => (
+            <span key={item.id} style={{
+              width: i === step ? 30 : 8,
+              height: 8,
+              borderRadius: 999,
+              background: i === step ? current.color : 'rgba(23,18,10,0.12)',
+              transition: 'all 0.28s var(--ease)',
             }} />
           ))}
         </div>
 
-        <button className="btn btn-primary" style={{ width: '100%', height: 46, fontSize: 14 }}
-          onClick={isLast ? finish : () => setStep(s => s + 1)}>
-          {isLast ? 'Start Meditating' : 'Next'}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button className="btn-primary" style={{ width: '100%', height: 48, fontSize: 14, background: `linear-gradient(135deg, ${current.color}, #3B5BDB)`, boxShadow: `0 10px 24px ${tone(current.color, '32')}` }}
+            onClick={isLast ? finish : () => setStep(s => s + 1)}>
+            {isLast ? 'Enter Anahata' : 'Continue'}
+          </button>
 
-        {!isLast && (
-          <button onClick={finish} style={{
-            marginTop: 14, fontSize: 12, color: 'var(--t3)', background: 'none',
-            border: 'none', cursor: 'pointer', fontFamily: 'inherit'
-          }}>Skip</button>
-        )}
-      </div>
+          {!isLast && (
+            <button onClick={finish} style={{
+              fontSize: 12,
+              color: 'var(--ink3)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              fontWeight: 800,
+              padding: 8,
+            }}>Skip setup</button>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
