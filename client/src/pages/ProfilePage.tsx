@@ -76,7 +76,7 @@ function sourceLabel(source?: string) {
 
 function SectionLabel({ children, color = 'var(--ink3)' }: { children: React.ReactNode; color?: string }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color, fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: 0, textTransform: 'uppercase', color, fontFamily: "'Space Grotesk', sans-serif" }}>
       {children}
     </div>
   );
@@ -157,7 +157,7 @@ function MemoryNode({ label, value, color, note }: { label: string; value: strin
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
         <span style={{ width: 13, height: 13, borderRadius: '50%', background: color, boxShadow: `0 0 16px ${color}55`, flexShrink: 0 }} />
-        <span style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
+        <span style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>{label}</span>
       </div>
       <div style={{ fontSize: 24, lineHeight: 1, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{value}</div>
       <div style={{ fontSize: 11, color, fontWeight: 900, marginTop: 7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{note}</div>
@@ -276,7 +276,7 @@ export default function ProfilePage() {
           <span style={{ position: 'absolute', inset: 42, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)' }} />
           <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
             <ResonanceOrb color={resonanceColor} accent="#FFFFFF" size={74}>
-              <span style={{ fontSize: 18 }}>{biometricAdvice?.metrics.heartRate || summary.streak || dashboard.totals.sessions || '-'}</span>
+              <span style={{ fontSize: 18 }}>{latestBiometric?.heart_rate || biometricAdvice?.metrics.heartRate || summary.streak || dashboard.totals.sessions || '-'}</span>
             </ResonanceOrb>
           </div>
           {memoryNodes.map((node, index) => {
@@ -353,7 +353,7 @@ export default function ProfilePage() {
             </p>
           </div>
           <div style={{ borderRadius: 18, padding: '11px 12px', minWidth: 82, textAlign: 'center', background: `${resonanceColor}12`, border: `1px solid ${resonanceColor}22`, color: resonanceColor }}>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{biometricAdvice?.metrics.heartRate || '-'}</div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{latestBiometric?.heart_rate || biometricAdvice?.metrics.heartRate || '-'}</div>
             <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>BPM</div>
           </div>
         </div>
