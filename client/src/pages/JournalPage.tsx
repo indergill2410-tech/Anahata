@@ -725,7 +725,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
                   }}
                 >
                   <JournalOrb color={meta.color} size={34}>
-                    <span style={{ fontSize: 9 }}>{entry.mood || entry.lucidity || countJournalWords(entry.text)}</span>
+                    <span style={{ fontSize: 9 }}>{entry.entry_type === 'checkin' ? entry.mood : entry.entry_type === 'dream' ? entry.lucidity : countJournalWords(entry.text)}</span>
                   </JournalOrb>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
