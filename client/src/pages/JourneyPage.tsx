@@ -123,6 +123,24 @@ export default function JourneyPage() {
 
   const bwColor = BW_COLOR[engine.brainwave] || '#A855F7';
   const bwGlow  = BW_GLOW[engine.brainwave]  || 'rgba(168,85,247,0.35)';
+  const canPairWatch = ble.status === 'idle' || ble.status === 'disconnected' || ble.status === 'error';
+  const watchButtonLabel = ble.status === 'connected'
+    ? `${ble.heartRate || '-'} BPM`
+    : ble.status === 'connecting'
+      ? 'Pairing watch'
+      : ble.status === 'unsupported'
+        ? 'Bluetooth unavailable'
+        : ble.status === 'error'
+          ? 'Retry watch'
+          : 'Connect watch';
+  const watchColor = ble.status === 'connected' ? 'var(--teal)'
+                   : ble.status === 'connecting' ? 'var(--amber)'
+                   : ble.status === 'error' ? 'var(--rose)'
+                   : 'var(--ink3)';
+  const watchDot = ble.status === 'connected' ? 'var(--teal)'
+                 : ble.status === 'connecting' ? 'var(--amber)'
+                 : ble.status === 'error' ? 'var(--rose)'
+                 : 'var(--ink4)';
 
   return (
     <div className="journey-root" style={{ overflowX: 'hidden', overflowY: 'auto', paddingBottom: advice ? 210 : 150 }}>
@@ -225,6 +243,12 @@ export default function JourneyPage() {
         </div>
       )}
 
+      {ble.error && !advice && (
+        <p style={{ margin:'12px 24px 0', maxWidth:360, color:'var(--rose)', fontSize:11, lineHeight:1.45, textAlign:'center', fontWeight:700 }}>
+          {ble.error}
+        </p>
+      )}
+
       {advice && (
         <div style={{
           width:'calc(100% - 36px)', maxWidth:430, marginTop:14,
@@ -290,25 +314,23 @@ export default function JourneyPage() {
         position:'absolute', bottom:118, left:0, right:0,
         padding:'0 20px', display:'flex', justifyContent:'space-between', alignItems:'center',
       }}>
-        {/* BLE Heart Rate */}
+        {/* BLE Watch Heart Rate */}
         <button
-          onClick={ble.status==='connected' ? ble.disconnect : ble.status==='disconnected' || ble.status==='idle' ? ble.connect : undefined}
+          title={ble.error || (ble.status === 'connected' ? `${ble.deviceName || 'Smart watch'} connected` : 'Connect a Bluetooth heart-rate watch')}
+          onClick={ble.status==='connected' ? ble.disconnect : canPairWatch ? ble.connect : undefined}
           style={{
-            display:'flex', alignItems:'center', gap:7, padding:'8px 16px',
-            borderRadius:22, fontFamily:'inherit', cursor:'pointer',
-            border:`1px solid ${ble.status==='connected' ? 'rgba(12,166,120,0.4)' : 'var(--border)'}`,
-            background: ble.status==='connected' ? 'rgba(12,166,120,0.06)' : 'var(--bg1)',
-            color: ble.status==='connected' ? 'var(--teal)' : 'var(--ink3)',
+            display:'flex', alignItems:'center', gap:7, padding:'8px 14px',
+            borderRadius:22, fontFamily:'inherit', cursor: ble.status === 'connecting' || ble.status === 'unsupported' ? 'default' : 'pointer',
+            border:`1px solid ${ble.status==='connected' ? 'rgba(12,166,120,0.4)' : ble.status === 'error' ? 'rgba(230,73,128,0.25)' : 'var(--border)'}`,
+            background: ble.status==='connected' ? 'rgba(12,166,120,0.06)' : ble.status === 'error' ? 'rgba(230,73,128,0.07)' : 'var(--bg1)',
+            color: watchColor,
             fontSize:11, fontWeight:700,
             letterSpacing:'0.05em',
             boxShadow: 'var(--shadow)',
           }}
         >
-          <span style={{
-            width:7, height:7, borderRadius:'50%',
-            background: ble.status==='connected' ? 'var(--teal)' : ble.status==='connecting' ? 'var(--amber)' : 'var(--ink4)',
-          }} />
-          {ble.status==='connected' ? `${ble.heartRate||'-'} BPM` : ble.status==='connecting' ? 'Connecting...' : 'Heart Rate'}
+          <span style={{ width:7, height:7, borderRadius:'50%', background: watchDot }} />
+          <span style={{ maxWidth:112, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{watchButtonLabel}</span>
         </button>
 
         {/* Demo toggle */}
