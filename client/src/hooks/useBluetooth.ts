@@ -4,6 +4,7 @@ const HR_SERVICE    = 0x180D;
 const HR_CHAR       = 0x2A37;
 const BATTERY_SVC   = 0x180F;
 const BATTERY_CHAR  = 0x2A19;
+const DATA_CONSENT_KEY = 'anahata_biometric_data_consent_v1';
 
 export type BluetoothStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'unsupported' | 'error';
 
@@ -29,6 +30,37 @@ interface BluetoothLikeCharacteristic extends EventTarget {
   startNotifications: () => Promise<BluetoothLikeCharacteristic>;
   stopNotifications?: () => Promise<BluetoothLikeCharacteristic>;
   readValue?: () => Promise<DataView>;
+}
+
+type StoredBiometricConsent = {
+  status: 'granted';
+  version: 1;
+  grantedAt: string;
+};
+
+function readBiometricDataConsent() {
+  try {
+    const raw = localStorage.getItem(DATA_CONSENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredBiometricConsent;
+    return parsed?.status === 'granted' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBiometricDataConsent() {
+  const consent: StoredBiometricConsent = {
+    status: 'granted',
+    version: 1,
+    grantedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(DATA_CONSENT_KEY, JSON.stringify(consent));
+  return consent;
+}
+
+function clearBiometricDataConsent() {
+  try { localStorage.removeItem(DATA_CONSENT_KEY); } catch { /* noop */ }
 }
 
 function parseHeartRateValue(value: DataView | undefined) {
@@ -62,6 +94,7 @@ export function useBluetooth() {
   const [battery, setBattery]           = useState<number | null>(null);
   const [lastReadingAt, setLastReadingAt] = useState<string | null>(null);
   const [error, setError]               = useState<string | null>(null);
+  const [dataSharingConsent, setDataSharingConsent] = useState(() => Boolean(readBiometricDataConsent()));
   const deviceRef = useRef<BluetoothLikeDevice | null>(null);
   const charRef   = useRef<BluetoothLikeCharacteristic | null>(null);
 
@@ -80,6 +113,30 @@ export function useBluetooth() {
     setStatus('disconnected');
     setHeartRate(null);
     setBattery(null);
+  }, []);
+
+  const requestDataSharingConsent = useCallback(() => {
+    if (readBiometricDataConsent()) {
+      setDataSharingConsent(true);
+      return true;
+    }
+
+    if (typeof window === 'undefined') return false;
+    const allowed = window.confirm(
+      'Allow Anahata to use this watch\'s heart-rate and battery readings to adapt breathing, music, and private dashboard memory? You can disconnect any time.'
+    );
+
+    if (!allowed) {
+      clearBiometricDataConsent();
+      setDataSharingConsent(false);
+      setError('Biometric sharing permission is needed before connecting a watch.');
+      return false;
+    }
+
+    saveBiometricDataConsent();
+    setDataSharingConsent(true);
+    setError(null);
+    return true;
   }, []);
 
   const connectToDevice = useCallback(async (device: BluetoothLikeDevice) => {
@@ -133,6 +190,12 @@ export function useBluetooth() {
       return;
     }
 
+    if (!requestDataSharingConsent()) {
+      setStatus('idle');
+      setHeartRate(null);
+      return;
+    }
+
     try {
       setStatus('connecting');
       setError(null);
@@ -162,10 +225,12 @@ export function useBluetooth() {
       setStatus('error');
       setHeartRate(null);
     }
-  }, [connectToDevice, isSupported]);
+  }, [connectToDevice, isSupported, requestDataSharingConsent]);
 
   const reconnect = useCallback(async () => {
     if (!deviceRef.current) return connect();
+    if (!requestDataSharingConsent()) return;
+
     try {
       setStatus('connecting');
       setError(null);
@@ -175,7 +240,7 @@ export function useBluetooth() {
       setError('Could not reconnect to the watch.');
       setStatus('error');
     }
-  }, [connect, connectToDevice]);
+  }, [connect, connectToDevice, requestDataSharingConsent]);
 
   const disconnect = useCallback(async () => {
     if (charRef.current) {
@@ -194,6 +259,13 @@ export function useBluetooth() {
     setBattery(null);
   }, [handleDisconnected, parseHR]);
 
+  const revokeDataSharingConsent = useCallback(async () => {
+    clearBiometricDataConsent();
+    setDataSharingConsent(false);
+    setError(null);
+    await disconnect();
+  }, [disconnect]);
+
   useEffect(() => () => {
     void disconnect();
   }, [disconnect]);
@@ -206,9 +278,12 @@ export function useBluetooth() {
     deviceId,
     battery,
     lastReadingAt,
+    dataSharingConsent,
     error,
     connect,
     reconnect,
     disconnect,
+    requestDataSharingConsent,
+    revokeDataSharingConsent,
   };
 }
