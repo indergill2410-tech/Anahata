@@ -328,7 +328,11 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
 
   const tabCounts = useMemo(() => {
     const counts: Record<JournalTab, number> = { checkin: 0, daily: 0, dream: 0 };
-    entries.forEach(entry => { counts[entry.entry_type] += 1; });
+    entries.forEach(entry => {
+      if (entry.entry_type in counts) {
+        counts[entry.entry_type] += 1;
+      }
+    });
     return counts;
   }, [entries]);
 
