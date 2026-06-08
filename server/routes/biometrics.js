@@ -10,6 +10,23 @@ function userFilter(userId) {
   return `user_id = "${userId}"`;
 }
 
+function requireWatchConsent(sample) {
+  if (sample.source !== 'watch') return;
+
+  const consent = sample.metadata?.biometric_consent;
+  const valid = consent
+    && Number(consent.version) >= 1
+    && consent.scope === 'heart-rate-and-battery'
+    && typeof consent.grantedAt === 'string'
+    && consent.grantedAt.length > 0;
+
+  if (!valid) {
+    const err = new Error('Biometric sharing consent is required before saving watch data.');
+    err.status = 403;
+    throw err;
+  }
+}
+
 async function recentSamples(userId, limit = 24) {
   if (!pb) return [];
   const result = await pb.collection('biometric_samples').getList(1, limit, {
@@ -54,6 +71,7 @@ router.get('/samples', async (req, res, next) => {
 router.post('/samples', async (req, res, next) => {
   try {
     const samplePayload = sanitizeBiometricSample(req.body, { user_id: req.user.userId });
+    requireWatchConsent(samplePayload);
     let sample = samplePayload;
     let recent = [samplePayload];
 
@@ -72,6 +90,7 @@ router.post('/samples', async (req, res, next) => {
 router.post('/advice', async (req, res, next) => {
   try {
     const sample = sanitizeBiometricSample(req.body, { user_id: req.user.userId });
+    requireWatchConsent(sample);
     const recent = await recentSamples(req.user.userId, 24);
     const advice = buildBiometricAdvice(sample, recent);
     res.json({ advice, recentCount: recent.length });
