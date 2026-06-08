@@ -77,14 +77,14 @@ function bluetoothErrorMessage(err: unknown) {
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'Watch access was blocked.';
   if (name === 'NotSupportedError') return 'This device cannot connect to a watch here.';
   if (name === 'NetworkError') return 'Watch disconnected before setup finished.';
-  return 'Could not connect to this watch.';
+  return 'This watch needs another try.';
 }
 
 /**
  * useBluetooth - Web Bluetooth hook for smart watches and BLE heart-rate bands.
  *
  * The device must expose the standard BLE Heart Rate service. Many watches do;
- * some proprietary watches only share biometrics through their native phone app.
+ * some proprietary watches only share readings through their native phone app.
  */
 export function useBluetooth() {
   const [status, setStatus]             = useState<BluetoothStatus>('idle');
@@ -123,7 +123,7 @@ export function useBluetooth() {
 
     if (typeof window === 'undefined') return false;
     const allowed = window.confirm(
-      'Allow Anahata to use this watch\'s heart-rate and battery readings to adapt breathing, music, and private dashboard memory? You can disconnect any time.'
+      'Allow Anahata to use this watch\'s heart-rate and battery readings to personalize breath guidance, music, and your private practice memory? You can disconnect any time.'
     );
 
     if (!allowed) {
@@ -237,7 +237,7 @@ export function useBluetooth() {
       await connectToDevice(deviceRef.current);
     } catch (err) {
       console.error('[BLE reconnect]', err);
-      setError('Could not reconnect to the watch.');
+      setError('Your watch needs another try.');
       setStatus('error');
     }
   }, [connect, connectToDevice, requestDataSharingConsent]);

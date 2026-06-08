@@ -315,7 +315,7 @@ export function buildLocalBiometricAdvice(currentSample: BiometricSamplePayload,
 async function readJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const message = typeof data?.error === 'string' ? data.error : 'Biometric request failed';
+    const message = typeof data?.error === 'string' ? data.error : 'Your body-signal guidance needs another try.';
     throw new Error(message);
   }
   return data as T;

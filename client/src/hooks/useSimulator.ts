@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * useSimulator — realistic HR simulation for demo mode
+ * useSimulator - realistic HR signal for practice mode
  * Simulates a meditation session: HR drifts from ~82 down to ~58 over time
  */
 export function useSimulator() {

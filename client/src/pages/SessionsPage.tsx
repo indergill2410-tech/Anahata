@@ -140,7 +140,7 @@ export default function SessionsPage() {
           </div>
           <SectionLabel color="#7048E8">Waiting for signal</SectionLabel>
           <p style={{ margin: '8px auto 0', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7, maxWidth: 280 }}>
-            Complete a meditation and this becomes a personal practice archive with duration, wave state, and biometrics.
+            Complete a meditation and this becomes a personal practice archive with duration, wave state, and body signals.
           </p>
         </section>
       )}

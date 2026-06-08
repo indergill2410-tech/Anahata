@@ -22,7 +22,7 @@ type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
 type PageProps = Record<string, unknown>;
 
 function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
-  const label = tab === 'profile' ? 'your dashboard' : 'your session history';
+  const label = tab === 'profile' ? 'your private practice space' : 'your session history';
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
       flex:1, padding:'48px 24px', textAlign:'center', gap:16 }}>
@@ -36,7 +36,7 @@ function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
         Sign in to view {label}
       </h2>
       <p style={{ fontSize:13, color:'var(--t3)', margin:0, maxWidth:280 }}>
-        Create a free account or sign in to unlock private data, saved journals, sessions, and dashboard memory.
+        Create a free account or sign in to keep journals, sessions, and personal guidance safely together.
       </p>
       <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
         Sign in / Register
@@ -60,6 +60,7 @@ function AIFloatButton({ onClick }: { onClick: () => void }) {
 function Inner() {
   const { isAuthenticated, loading } = useAuth();
   const engine = useSoundEngine();
+  const contentRef = React.useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<Tab>('journey');
   const [prevTab, setPrevTab] = useState<Tab>('journey');
   const [seenLanding, setSeenLanding] = useState(false);
@@ -98,7 +99,24 @@ function Inner() {
     return () => window.removeEventListener('popstate', onPop);
   }, [tab, seenLanding]);
 
-  const handleTabChange = (next: Tab) => { setPrevTab(tab); setTab(next); };
+  React.useEffect(() => {
+    if (!seenLanding) return;
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tab, seenLanding]);
+
+  const handleTabChange = (next: Tab) => {
+    if (next === tab) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      return;
+    }
+    setPrevTab(tab);
+    setTab(next);
+  };
   const handleBack = () => { setTab(prevTab === tab ? 'journey' : prevTab); setPrevTab('journey'); };
   const openAuth = () => setShowAuth(true);
 
@@ -141,7 +159,7 @@ function Inner() {
       <div className="page">
         <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
         <ErrorBoundary>
-          <div key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
+          <div ref={contentRef} key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
             {needsAuth
               ? <AuthPrompt onSignIn={openAuth} tab={tab} />
               : <Page {...pageProps} />

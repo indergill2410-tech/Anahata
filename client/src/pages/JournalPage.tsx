@@ -286,7 +286,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       mirrorJournalEntriesToLocal(data.entries);
       refreshLocal();
     } catch (err) {
-      error((err as Error).message || 'Could not load journal');
+      error((err as Error).message || 'Your journal needs a moment to refresh.');
     } finally {
       setLoadingRemote(false);
     }
@@ -379,7 +379,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
 
     if (!isAuthenticated) {
       localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
-      info('Create an account to save this journal to your dashboard.');
+      info('Create a private account to keep this journal safe.');
       onRequireAuth?.();
       return;
     }
@@ -392,9 +392,9 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       mirrorJournalEntryToLocal(saved.entry);
       refreshLocal();
       localStorage.removeItem(PENDING_KEY);
-      success('Journal saved to your dashboard');
+      success('Journal saved to your private space');
     } catch (err) {
-      error((err as Error).message || 'Could not save journal');
+      error((err as Error).message || 'Your journal needs another try before it saves.');
     } finally {
       setSaving(false);
     }
@@ -408,7 +408,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       success(`Brought in ${result.count} saved entr${result.count === 1 ? 'y' : 'ies'}`);
       await refreshRemote();
     } catch (err) {
-      error((err as Error).message || 'Could not bring in older writing');
+      error((err as Error).message || 'Your older writing needs another try.');
     } finally {
       setSyncing(false);
     }
@@ -488,7 +488,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             <span style={{ fontSize: 13 }}>+</span>
           </JournalOrb>
           <p style={{ margin: 0, color: 'var(--ink2)', fontSize: 12, lineHeight: 1.6 }}>
-            Write freely now. When you save, we will help you create an account so your journal stays private and available on your dashboard.
+            Write freely now. When you save, we will help you create a private account so this stays safe and easy to return to.
           </p>
         </section>
       )}

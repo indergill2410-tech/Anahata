@@ -14,9 +14,9 @@ const STEPS = [
     id: 'watch',
     color: '#3B5BDB',
     eyebrow: 'Smart watch ready',
-    title: 'Connect your biometrics',
-    body: 'Pair a Bluetooth heart-rate device so Anahata can shape breath guidance and music suggestions around your live state.',
-    metric: 'Bluetooth',
+    title: 'Connect your watch',
+    body: 'Pair a heart-rate watch so Anahata can shape breath guidance and music around how your body feels.',
+    metric: 'Watch ready',
     signal: 'Heart rate + HRV',
   },
   {
@@ -105,7 +105,7 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <SignalTile label="System" value={current.metric} color={current.color} />
+          <SignalTile label="Space" value={current.metric} color={current.color} />
           <SignalTile label="Signal" value={current.signal} color={current.color} />
         </div>
 

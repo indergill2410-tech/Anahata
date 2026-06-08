@@ -21,9 +21,9 @@ function userMessage(message: string) {
   const text = message.trim();
   const lower = text.toLowerCase();
   if (!text) return 'Something needs attention.';
-  if (lower.includes('requested resource') || lower.includes('not found')) return 'We could not find that item. Please try again.';
-  if (lower.includes('server unavailable') || lower.includes('failed to fetch')) return 'Anahata is having trouble connecting. Please try again.';
-  if (lower.includes('request failed') || lower.includes('invalid data')) return 'Something did not save cleanly. Please try again.';
+  if (lower.includes('requested resource') || lower.includes('not found')) return 'That item needs another moment. Please try again.';
+  if (lower.includes('server unavailable') || lower.includes('failed to fetch')) return 'Anahata is reconnecting. Please try again in a moment.';
+  if (lower.includes('request failed') || lower.includes('invalid data')) return 'That did not settle cleanly. Please try again.';
   return text;
 }
 

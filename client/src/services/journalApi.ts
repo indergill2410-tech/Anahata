@@ -26,7 +26,7 @@ type AuthFetch = (url: string, options?: RequestInit) => Promise<Response>;
 async function readJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const message = typeof data?.error === 'string' ? data.error : 'Journal request failed';
+    const message = typeof data?.error === 'string' ? data.error : 'Your journal needs another try.';
     throw new Error(message);
   }
   return data as T;
@@ -71,7 +71,7 @@ export function createJournalApi(authFetch: AuthFetch) {
       const res = await authFetch(`/api/journal/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(typeof data?.error === 'string' ? data.error : 'Could not delete journal entry');
+        throw new Error(typeof data?.error === 'string' ? data.error : 'This journal entry needs another try before it can be removed.');
       }
     },
 

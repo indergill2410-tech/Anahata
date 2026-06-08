@@ -6,11 +6,11 @@ interface BluetoothPanelProps {
   error?: string;
   onConnect: () => void;
   onDisconnect: () => void;
-  isDemo?: boolean;
-  onToggleDemo: () => void;
+  isPractice?: boolean;
+  onTogglePractice: () => void;
 }
 
-export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect, onDisconnect, isDemo, onToggleDemo }: BluetoothPanelProps) {
+export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect, onDisconnect, isPractice, onTogglePractice }: BluetoothPanelProps) {
   const isConnected = bleStatus === 'connected';
   const isSearching = bleStatus === 'searching';
 
@@ -36,12 +36,12 @@ export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect
         )}
 
         <button
-          className={`btn ${isDemo ? 'btn-ghost' : 'btn-ghost'}`}
-          style={{ flex: 1, color: isDemo ? 'var(--amber)' : 'var(--t2)', borderColor: isDemo ? 'rgba(245,158,11,0.3)' : undefined }}
-          onClick={onToggleDemo}
+          className="btn btn-ghost"
+          style={{ flex: 1, color: isPractice ? 'var(--amber)' : 'var(--t2)', borderColor: isPractice ? 'rgba(245,158,11,0.3)' : undefined }}
+          onClick={onTogglePractice}
           disabled={isConnected}
         >
-          {isDemo ? 'Stop practice' : 'Practice mode'}
+          {isPractice ? 'Stop practice' : 'Practice mode'}
         </button>
       </div>
     </div>

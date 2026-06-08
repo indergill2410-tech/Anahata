@@ -314,7 +314,7 @@ export default function StudioPage() {
       });
       if (!res.ok) throw new Error();
       success('Mix saved!'); setShowSave(false); setMixName('');
-    } catch { error('Could not save this mix.'); }
+    } catch { error('Your mix needs another try before it saves.'); }
     finally { setSaving(false); }
   };
 
@@ -324,7 +324,7 @@ export default function StudioPage() {
       const data = await res.json();
       setSavedMixes(data.mixes || []);
       setShowLib(true);
-    } catch { error('Could not load mixes.'); }
+    } catch { error('Your saved mixes need a moment. Please try again.'); }
   };
 
   const handleLoadMix = (mix: SavedMix) => {
@@ -333,7 +333,7 @@ export default function StudioPage() {
       const merged = Object.fromEntries(Object.entries(engine.layers).map(([n, cur]) => [n, { ...cur, ...(ll[n] || {}) }]));
       engine.applyMix({ settings: JSON.parse(mix.settings || '{}'), layers: merged });
       success(`Loaded: ${mix.name}`); setShowLib(false);
-    } catch { error('Could not open this mix.'); }
+    } catch { error('This mix needs another moment before it opens.'); }
   };
 
   const handleDeleteMix = async (id: string) => {

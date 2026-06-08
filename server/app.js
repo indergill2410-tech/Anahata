@@ -24,6 +24,7 @@ const pb               = require('./services/pbClient');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 
 // Sentry request handler (must be first middleware)
 const Sentry = getSentry();
@@ -114,7 +115,10 @@ app.get('/health', async (req, res) => {
   const checks = { api: 'ok', db: process.env.POCKETBASE_URL ? 'checking' : 'not_configured', uptime: process.uptime() };
   let status = 200;
 
-  if (pb) {
+  if (isTest) {
+    checks.db = 'skipped';
+    checks.db_hint = 'Database health is skipped during automated tests';
+  } else if (pb) {
     try {
       await pb.health.check();
       checks.db = 'ok';

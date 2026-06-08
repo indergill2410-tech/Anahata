@@ -1,11 +1,11 @@
 {
-  "name": "Anahata — Biofeedback Meditation",
+  "name": "Anahata",
   "short_name": "Anahata",
-  "description": "AI meditation music guided by your heartbeat",
+  "description": "Personal breath, music, journaling, and body-signal guidance.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a1a",
-  "theme_color": "#7c3aed",
+  "background_color": "#F7F4EE",
+  "theme_color": "#F7F4EE",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },

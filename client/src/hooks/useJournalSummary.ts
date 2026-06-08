@@ -37,7 +37,7 @@ export function useJournalSummary(limit = 120) {
     } catch (err) {
       const local = readLocalJournalEntries();
       setEntries(local);
-      setError((err as Error).message || 'Could not load journal summary');
+      setError((err as Error).message || 'Your journal memory needs a moment.');
       return local;
     } finally {
       setLoading(false);

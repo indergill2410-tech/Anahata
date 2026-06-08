@@ -17,17 +17,26 @@ export default function BottomNav({ active, onChange }: Props) {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const idx = TABS.findIndex(t => t.id === active);
-    const btn = nav.querySelectorAll<HTMLButtonElement>('.fnav-btn')[idx];
-    if (!btn) return;
-    const navRect = nav.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    setIndicatorStyle({
-      left: btnRect.left - navRect.left + btnRect.width / 2 - 16,
-      width: 32,
-    });
+    function updateIndicator() {
+      const nav = navRef.current;
+      if (!nav) return;
+      const idx = TABS.findIndex(t => t.id === active);
+      const btn = nav.querySelectorAll<HTMLButtonElement>('.fnav-btn')[idx];
+      if (!btn) return;
+      const navRect = nav.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      setIndicatorStyle({
+        left: btnRect.left - navRect.left + btnRect.width / 2 - 16,
+        width: 32,
+      });
+    }
+    updateIndicator();
+    window.addEventListener('resize', updateIndicator);
+    window.addEventListener('orientationchange', updateIndicator);
+    return () => {
+      window.removeEventListener('resize', updateIndicator);
+      window.removeEventListener('orientationchange', updateIndicator);
+    };
   }, [active]);
 
   return (
