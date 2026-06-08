@@ -207,9 +207,9 @@ export default function ProfilePage() {
   const latestBiometric = dashboard.biometrics.latestSample || dashboard.biometrics.samples[0];
   const biometricAdvice = dashboard.biometrics.advice;
   const sessionMinutes = dashboard.totals.sessionMinutes;
-  const topBrainwave = dashboard.sessionStats.topBrainwaveState || biometricAdvice?.music.brainwave || 'Theta';
-  const resonanceColor = biometricAdvice?.metrics.zone.color || '#7048E8';
-  const resonanceTitle = biometricAdvice?.metrics.zone.label || topBrainwave;
+  const topBrainwave = dashboard.sessionStats.topBrainwaveState || biometricAdvice?.music?.brainwave || 'Theta';
+  const resonanceColor = biometricAdvice?.metrics?.zone?.color || '#7048E8';
+  const resonanceTitle = biometricAdvice?.metrics?.zone?.label || topBrainwave;
   const primaryAdvice = biometricAdvice?.primaryAction || 'Begin with one saved journal entry, one breath, or one listening session to build your pattern.';
 
   const memoryNodes = [
