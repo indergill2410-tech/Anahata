@@ -77,17 +77,28 @@ export function useInstallApp() {
 
   const install = React.useCallback(async () => {
     if (!prompt) return false;
-    await prompt.prompt();
-    const choice = await prompt.userChoice;
-    deferredPrompt = null;
-    setPrompt(null);
-    notify();
-    return choice.outcome === 'accepted';
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      deferredPrompt = null;
+      setPrompt(null);
+      notify();
+      return choice.outcome === 'accepted';
+    } catch {
+      deferredPrompt = null;
+      setPrompt(null);
+      notify();
+      return false;
+    }
   }, [prompt]);
 
   const copyLink = React.useCallback(async () => {
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(window.location.origin);
+      try {
+        await navigator.clipboard.writeText(window.location.origin);
+      } catch {
+        window.prompt('Copy this Anahata link', window.location.origin);
+      }
     } else {
       window.prompt('Copy this Anahata link', window.location.origin);
     }
