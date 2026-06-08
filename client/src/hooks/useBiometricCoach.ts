@@ -22,12 +22,35 @@ interface UseBiometricCoachOptions {
   saveIntervalMs?: number;
 }
 
+type StoredBiometricConsent = {
+  status: 'granted';
+  version: 1;
+  grantedAt: string;
+};
+
+const DATA_CONSENT_KEY = 'anahata_biometric_data_consent_v1';
+
 const EMPTY_SUMMARY: BiometricSummary = {
   samples: [],
   latestSample: null,
   latestAdvice: null,
   advice: null,
 };
+
+function readBiometricDataConsent() {
+  try {
+    const raw = localStorage.getItem(DATA_CONSENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredBiometricConsent;
+    return parsed?.status === 'granted' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function canUseBiometricSource(source: BiometricSource) {
+  return source !== 'watch' || Boolean(readBiometricDataConsent());
+}
 
 export function useBiometricCoach({
   heartRate,
@@ -56,13 +79,15 @@ export function useBiometricCoach({
   }, [samples]);
 
   useEffect(() => {
-    if (enabled && heartRate) return;
+    if (enabled && heartRate && canUseBiometricSource(source)) return;
     setLastSample(null);
     setAdvice(null);
-  }, [enabled, heartRate]);
+  }, [enabled, heartRate, source]);
 
   const makePayload = useCallback((): BiometricSamplePayload | null => {
-    if (!enabled || !heartRate) return null;
+    if (!enabled || !heartRate || !canUseBiometricSource(source)) return null;
+    const consent = source === 'watch' ? readBiometricDataConsent() : null;
+
     return {
       source,
       deviceName,
@@ -71,7 +96,12 @@ export function useBiometricCoach({
       spo2,
       heartRate,
       capturedAt: new Date().toISOString(),
-      metadata: { capture: 'journey-live' },
+      metadata: {
+        capture: 'journey-live',
+        biometric_consent: consent
+          ? { version: consent.version, grantedAt: consent.grantedAt, scope: 'heart-rate-and-battery' }
+          : { scope: source },
+      },
     };
   }, [battery, deviceName, enabled, heartRate, hrv, source, spo2]);
 
@@ -104,6 +134,11 @@ export function useBiometricCoach({
 
   const saveSample = useCallback(async (payload: BiometricSamplePayload) => {
     if (!isAuthenticated || inFlightRef.current) return null;
+    if (payload.source === 'watch' && !readBiometricDataConsent()) {
+      setError('Allow biometric sharing before saving watch data.');
+      return null;
+    }
+
     inFlightRef.current = true;
     try {
       const saved = await api.createSample(payload);
@@ -170,7 +205,7 @@ export function useBiometricCoach({
     samples,
     lastSample,
     latestAdviceRecord,
-    connected: Boolean(heartRate),
+    connected: Boolean(heartRate) && canUseBiometricSource(source),
     loading,
     error,
     captureNow,
