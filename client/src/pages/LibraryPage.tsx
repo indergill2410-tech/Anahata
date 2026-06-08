@@ -306,7 +306,7 @@ export default function LibraryPage() {
         cleanupAudio();
         setLoading(false);
         setIsPlaying(false);
-        setYtError('Failed to load audio. Trying YouTube...');
+        setYtError('Opening another playback path...');
         isNativeAudioRef.current = false;
         setupYouTubePlayer();
       };
@@ -316,7 +316,7 @@ export default function LibraryPage() {
       audio.play().catch(() => {
         cleanupAudio();
         setLoading(false);
-        setYtError('Failed to play audio. Trying YouTube...');
+        setYtError('Opening another playback path...');
         isNativeAudioRef.current = false;
         setupYouTubePlayer();
       });
@@ -328,7 +328,7 @@ export default function LibraryPage() {
 
     function setupYouTubePlayer() {
       const container = ytDivRef.current;
-      if (!container) { setLoading(false); setYtError('Player container not found'); return; }
+      if (!container) { setLoading(false); setYtError('This track needs a fresh start.'); return; }
       container.innerHTML = '';
       const div = document.createElement('div');
       container.appendChild(div);
@@ -340,7 +340,7 @@ export default function LibraryPage() {
           apiWaitMs += 200;
           if (apiWaitMs >= 10000) {
             setLoading(false);
-            setYtError('YouTube player failed to load. Check your internet connection.');
+            setYtError('This track could not open. Please check your connection.');
             return;
           }
           createTimeoutRef.current = setTimeout(tryCreate, 200);
@@ -381,11 +381,11 @@ export default function LibraryPage() {
               setLoading(false); setIsPlaying(false);
               const code = e.data;
               const msg =
-                code === 2   ? 'Invalid video ID.' :
-                code === 5   ? 'HTML5 player error.' :
-                code === 100 ? 'Video not found or private.' :
-                (code === 101 || code === 150) ? 'This video cannot be embedded. Try another track.' :
-                `Playback error (code ${code}).`;
+                code === 2   ? 'This track could not open.' :
+                code === 5   ? 'This track needs another playback path.' :
+                code === 100 ? 'This track is not available right now.' :
+                (code === 101 || code === 150) ? 'This track is not available here. Try another one.' :
+                'Playback needs another try.';
               setYtError(msg);
               console.error('[YT] error code:', code, msg);
             },

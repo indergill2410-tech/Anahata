@@ -17,12 +17,22 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 let _id = 0;
 
+function userMessage(message: string) {
+  const text = message.trim();
+  const lower = text.toLowerCase();
+  if (!text) return 'Something needs attention.';
+  if (lower.includes('requested resource') || lower.includes('not found')) return 'We could not find that item. Please try again.';
+  if (lower.includes('server unavailable') || lower.includes('failed to fetch')) return 'Anahata is having trouble connecting. Please try again.';
+  if (lower.includes('request failed') || lower.includes('invalid data')) return 'Something did not save cleanly. Please try again.';
+  return text;
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const toast = useCallback((message: string, type: Toast['type'] = 'info', duration = 3500) => {
     const id = ++_id;
-    setToasts(t => [...t, { id, message, type }]);
+    setToasts(t => [...t, { id, message: userMessage(message), type }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
   }, []);
 

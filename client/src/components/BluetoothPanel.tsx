@@ -29,7 +29,7 @@ export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect
       <div style={{ display: 'flex', gap: 8 }}>
         {!isConnected ? (
           <button className="btn btn-primary" style={{ flex: 1 }} onClick={onConnect} disabled={isSearching}>
-            {isSearching ? <><span className="spinner" /> Searching…</> : '⊕ Connect via Bluetooth'}
+            {isSearching ? <><span className="spinner" /> Looking nearby...</> : 'Connect watch'}
           </button>
         ) : (
           <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onDisconnect}>Disconnect</button>
@@ -41,7 +41,7 @@ export default function BluetoothPanel({ bleStatus, deviceName, error, onConnect
           onClick={onToggleDemo}
           disabled={isConnected}
         >
-          {isDemo ? 'Stop demo' : 'Demo mode'}
+          {isDemo ? 'Stop practice' : 'Practice mode'}
         </button>
       </div>
     </div>

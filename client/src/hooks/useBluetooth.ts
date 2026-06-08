@@ -74,8 +74,8 @@ function parseHeartRateValue(value: DataView | undefined) {
 function bluetoothErrorMessage(err: unknown) {
   const name = (err as { name?: string })?.name;
   if (name === 'NotFoundError') return '';
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Bluetooth permission was blocked.';
-  if (name === 'NotSupportedError') return 'This browser does not support Web Bluetooth.';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Watch access was blocked.';
+  if (name === 'NotSupportedError') return 'This device cannot connect to a watch here.';
   if (name === 'NetworkError') return 'Watch disconnected before setup finished.';
   return 'Could not connect to this watch.';
 }
@@ -129,7 +129,7 @@ export function useBluetooth() {
     if (!allowed) {
       clearBiometricDataConsent();
       setDataSharingConsent(false);
-      setError('Biometric sharing permission is needed before connecting a watch.');
+      setError('Allow body-signal sharing before connecting a watch.');
       return false;
     }
 
@@ -186,7 +186,7 @@ export function useBluetooth() {
   const connect = useCallback(async () => {
     if (!isSupported) {
       setStatus('unsupported');
-      setError('Bluetooth is not available in this browser.');
+      setError('Watch connection is not available on this device.');
       return;
     }
 
