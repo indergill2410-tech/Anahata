@@ -314,7 +314,7 @@ export default function StudioPage() {
       });
       if (!res.ok) throw new Error();
       success('Mix saved!'); setShowSave(false); setMixName('');
-    } catch { error('Failed to save mix.'); }
+    } catch { error('Could not save this mix.'); }
     finally { setSaving(false); }
   };
 
@@ -333,7 +333,7 @@ export default function StudioPage() {
       const merged = Object.fromEntries(Object.entries(engine.layers).map(([n, cur]) => [n, { ...cur, ...(ll[n] || {}) }]));
       engine.applyMix({ settings: JSON.parse(mix.settings || '{}'), layers: merged });
       success(`Loaded: ${mix.name}`); setShowLib(false);
-    } catch { error('Failed to load mix: invalid data.'); }
+    } catch { error('Could not open this mix.'); }
   };
 
   const handleDeleteMix = async (id: string) => {

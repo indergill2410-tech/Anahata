@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import JournalPage from './pages/JournalPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
+import MobileInstallPrompt from './components/MobileInstallPrompt';
 
 type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
 type PageProps = Record<string, unknown>;
@@ -150,6 +151,7 @@ function Inner() {
         <BottomNav active={tab} onChange={handleTabChange} />
       </div>
 
+      <MobileInstallPrompt />
       <AIFloatButton onClick={() => setShowAI(true)} />
 
       {showAI && (

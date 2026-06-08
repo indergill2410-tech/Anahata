@@ -256,6 +256,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
+  const [showDetails, setShowDetails] = useState(Boolean(initialPending));
 
   const [draft, setDraft] = useState(initialPending?.text ?? '');
   const [followUp, setFollowUp] = useState(initialPending?.follow_up ?? '');
@@ -296,6 +297,10 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
     if (isAuthenticated) refreshRemote();
     else setRemoteEntries([]);
   }, [isAuthenticated, refreshLocal, refreshRemote]);
+
+  useEffect(() => {
+    setShowDetails(false);
+  }, [activeTab, selectedDate]);
 
   useEffect(() => {
     if (skipHydrateRef.current) {
@@ -400,10 +405,10 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
     setSyncing(true);
     try {
       const result = await api.importEntries(unsyncedLocalEntries.map(memoryEntryToPayload));
-      success(`Synced ${result.count} local entr${result.count === 1 ? 'y' : 'ies'}`);
+      success(`Brought in ${result.count} saved entr${result.count === 1 ? 'y' : 'ies'}`);
       await refreshRemote();
     } catch (err) {
-      error((err as Error).message || 'Could not sync local entries');
+      error((err as Error).message || 'Could not bring in older writing');
     } finally {
       setSyncing(false);
     }
@@ -411,8 +416,14 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
 
   const today = todayKey();
   const dateRail = Array.from({ length: 7 }, (_, idx) => offsetDateKey(idx - 6));
-  const saveLabel = saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update memory' : 'Save memory' : 'Create account to save';
-  const saveState = isAuthenticated ? currentEntry ? 'Saved to dashboard' : 'Ready for dashboard' : 'Private after sign in';
+  const saveLabel = saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update entry' : 'Save entry' : 'Create account to keep it';
+  const saveState = isAuthenticated ? currentEntry ? 'Saved' : 'Ready to save' : 'Private with an account';
+  const assistantNudge = activeTab === 'dream'
+    ? 'Start with the strongest image you remember. The rest can stay blurry.'
+    : activeTab === 'daily'
+      ? prompt
+      : CTA_OPTIONS.find(option => option.id === cta)?.label || 'Begin with one honest sentence.';
+  const detailsLabel = activeTab === 'dream' ? 'Dream details' : activeTab === 'daily' ? 'Writing style' : 'Mood and tags';
 
   return (
     <div className="dashboard fade-in" style={{ gap: 16 }}>
@@ -431,7 +442,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             <span style={{ fontSize: 19 }}>{heroCount}</span>
           </JournalOrb>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <SectionLabel color="rgba(255,255,255,0.62)">Private memory</SectionLabel>
+            <SectionLabel color="rgba(255,255,255,0.62)">Your journal</SectionLabel>
             <h1 style={{ margin: '5px 0 3px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, lineHeight: 1.02, fontWeight: 900, color: '#FFFFFF', letterSpacing: 0 }}>
               Journal
             </h1>
@@ -441,7 +452,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             aria-label="Refresh journal"
             onClick={refreshRemote}
             disabled={!isAuthenticated || loadingRemote}
-            title={isAuthenticated ? 'Refresh journal' : 'Sign in to sync'}
+            title={isAuthenticated ? 'Refresh journal' : 'Create an account to keep entries'}
             style={{
               width: 42,
               height: 42,
@@ -465,7 +476,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
         </div>
 
         <div style={{ position: 'relative', marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-          <SignalPill label="Entries" value={summary.totalEntries} color="#7048E8" dark />
+          <SignalPill label="Saved" value={summary.totalEntries} color="#7048E8" dark />
           <SignalPill label="Streak" value={`${summary.streak}d`} color="#F59F00" dark />
           <SignalPill label="Words" value={summary.totalWords} color="#0CA678" dark />
         </div>
@@ -477,7 +488,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             <span style={{ fontSize: 13 }}>+</span>
           </JournalOrb>
           <p style={{ margin: 0, color: 'var(--ink2)', fontSize: 12, lineHeight: 1.6 }}>
-            Write now. Saving asks for an account so this becomes private dashboard memory.
+            Write freely now. When you save, we will help you create an account so your journal stays private and available on your dashboard.
           </p>
         </section>
       )}
@@ -488,11 +499,11 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             <span style={{ fontSize: 12 }}>{unsyncedLocalEntries.length}</span>
           </JournalOrb>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)' }}>Local entr{unsyncedLocalEntries.length === 1 ? 'y' : 'ies'} ready</div>
-            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Bring older writing into this account.</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--ink1)' }}>Older writing found</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Add it to this account so everything lives together.</div>
           </div>
           <button onClick={handleImportLocal} disabled={syncing} className="btn-primary" style={{ padding: '10px 15px', fontSize: 12, background: '#D97706', boxShadow: '0 6px 16px rgba(217,119,6,0.24)' }}>
-            {syncing ? 'Syncing' : 'Sync'}
+            {syncing ? 'Adding' : 'Add'}
           </button>
         </section>
       )}
@@ -537,10 +548,44 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
         </div>
 
         <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {activeTab === 'checkin' && (
+          <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: `1px solid ${tone(currentMeta.color, '20')}`, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <JournalOrb color={currentMeta.color} size={36}>
+              <span style={{ fontSize: 12 }}>?</span>
+            </JournalOrb>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <SectionLabel color={currentMeta.color}>A gentle start</SectionLabel>
+              <p style={{ margin: '5px 0 0', color: 'var(--ink2)', fontSize: 13, lineHeight: 1.55 }}>{assistantNudge}</p>
+            </div>
+          </section>
+
+          <button
+            type="button"
+            onClick={() => setShowDetails(value => !value)}
+            style={{
+              height: 44,
+              borderRadius: 16,
+              border: `1px solid ${tone(currentMeta.color, '24')}`,
+              background: showDetails ? tone(currentMeta.color, '10') : '#FFFFFF',
+              color: currentMeta.color,
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: 12,
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <span>{showDetails ? 'Hide' : 'Add'} {detailsLabel.toLowerCase()}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showDetails ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s ease' }}>
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {showDetails && activeTab === 'checkin' && (
             <>
               <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
-                <SectionLabel color="#E64980">Mood orbit</SectionLabel>
+                <SectionLabel color="#E64980">Mood</SectionLabel>
                 <div style={{ marginTop: 11, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 7 }}>
                   {MOODS.map(item => (
                     <button
@@ -567,7 +612,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
 
               <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                  <SectionLabel color={currentMeta.color}>Today feels</SectionLabel>
+                  <SectionLabel color={currentMeta.color}>Today feels like</SectionLabel>
                   <span style={{ fontSize: 10, color: currentMeta.color, fontWeight: 900 }}>{tags.length} tones</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -586,12 +631,8 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             </>
           )}
 
-          {activeTab === 'daily' && (
+          {showDetails && activeTab === 'daily' && (
             <>
-              <section style={{ borderRadius: 24, padding: 16, background: '#17120A', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 14px 34px rgba(23,18,10,0.16)' }}>
-                <SectionLabel color="rgba(245,159,0,0.78)">Daily reflection</SectionLabel>
-                <div style={{ marginTop: 10, fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 900, lineHeight: 1.42 }}>{prompt}</div>
-              </section>
               <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
                 <SectionLabel color="#D97706">Writing mode</SectionLabel>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
@@ -603,7 +644,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             </>
           )}
 
-          {activeTab === 'dream' && (
+          {showDetails && activeTab === 'dream' && (
             <>
               <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
                 <SectionLabel color={currentMeta.color}>Lucidity</SectionLabel>
@@ -663,7 +704,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             />
           </label>
 
-          {activeTab === 'checkin' && (
+          {showDetails && activeTab === 'checkin' && (
             <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <SectionLabel color={currentMeta.color}>Follow-up</SectionLabel>
               <textarea
@@ -691,21 +732,21 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       <section style={{ borderRadius: 30, padding: 18, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div>
-            <SectionLabel color={currentMeta.color}>Memory stream</SectionLabel>
-            <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.label} archive</p>
+            <SectionLabel color={currentMeta.color}>Saved entries</SectionLabel>
+            <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.label} history</p>
           </div>
-          {loadingRemote && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Loading...</span>}
+          {loadingRemote && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Gathering...</span>}
         </div>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder={`Search ${currentMeta.label.toLowerCase()} entries`}
+          placeholder={`Search your ${currentMeta.label.toLowerCase()}`}
           style={{ height: 44, borderRadius: 16, padding: '0 13px', border: '1.5px solid var(--border)' }}
         />
 
         {filteredHistory.length === 0 ? (
           <div style={{ borderRadius: 24, border: `1px dashed ${tone(currentMeta.color, '35')}`, padding: 24, textAlign: 'center', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7, background: tone(currentMeta.color, '08') }}>
-            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} memories yet.` : 'Sign in to start saving a private journal archive.'}
+            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} entries yet.` : 'Create an account to keep a private journal history.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -742,7 +783,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
                     </span>
                   </span>
                   <span style={{ borderRadius: 999, padding: '6px 8px', background: entry.source === 'remote' ? 'rgba(12,166,120,0.1)' : 'rgba(217,119,6,0.1)', color: entry.source === 'remote' ? '#0CA678' : '#D97706', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                    {entry.source === 'remote' ? 'Saved' : 'Local'}
+                    {entry.source === 'remote' ? 'Saved' : 'On device'}
                   </span>
                 </button>
               );

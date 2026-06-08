@@ -69,9 +69,9 @@ function formatMinutes(minutes: number) {
 
 function sourceLabel(source?: string) {
   if (source === 'watch') return 'Smart watch';
-  if (source === 'demo') return 'Demo signal';
-  if (source === 'websocket') return 'Live stream';
-  return 'Manual signal';
+  if (source === 'demo') return 'Practice signal';
+  if (source === 'websocket') return 'Live watch';
+  return 'Entered signal';
 }
 
 function SectionLabel({ children, color = 'var(--ink3)' }: { children: React.ReactNode; color?: string }) {
@@ -222,10 +222,10 @@ export default function ProfilePage() {
   const watchHeartRate = latestBiometric?.heart_rate ?? biometricMetrics?.heartRate ?? '-';
   const watchSummary = biometricAdvice
     ? `${sourceLabel(biometricMetrics?.source)} - ${biometricZone?.label || 'Live signal'} - ${biometricTrend?.label || 'Collecting baseline'}`
-    : 'Connect a watch in Journey to turn live biometrics into breath and music guidance.';
+    : 'Connect a watch from Home to shape breath and music guidance around your body signals.';
 
   const memoryNodes = [
-    { label: 'Journal', value: compactNumber(dashboard.totals.journalEntries), color: '#7048E8', note: `${summary.streak} day streak` },
+    { label: 'Journal', value: compactNumber(dashboard.totals.journalEntries), color: '#7048E8', note: `${summary.streak} days in a row` },
     { label: 'Dreams', value: compactNumber(dashboard.totals.dreamLogs), color: '#6366F1', note: dashboard.dreamLucidityAverage ? `${dashboard.dreamLucidityAverage}/5 lucidity` : 'Start tonight' },
     { label: 'Sessions', value: compactNumber(dashboard.totals.sessions), color: '#0CA678', note: formatMinutes(sessionMinutes) },
     { label: 'Music', value: compactNumber(dashboard.totals.plays), color: '#D97706', note: `${dashboard.totals.favourites} favourites` },
@@ -251,11 +251,11 @@ export default function ProfilePage() {
               {user?.name || 'Your practice'}
             </h1>
             <p style={{ margin: 0, fontSize: 12, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.email || 'Private memory'}
+              {user?.email || 'Private account'}
             </p>
           </div>
           <span style={{ alignSelf: 'flex-start', borderRadius: 999, padding: '6px 9px', background: dashboard.loading ? 'rgba(217,119,6,0.1)' : 'rgba(12,166,120,0.1)', color: dashboard.loading ? '#D97706' : '#0CA678', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>
-            {dashboard.loading ? 'Syncing' : 'Saved'}
+            {dashboard.loading ? 'Updating' : 'Saved'}
           </span>
         </div>
 
@@ -277,8 +277,8 @@ export default function ProfilePage() {
         <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 38%, ${resonanceColor}38, transparent 33%), radial-gradient(circle at 10% 12%, rgba(245,159,0,0.16), transparent 28%), radial-gradient(circle at 88% 88%, rgba(12,166,120,0.18), transparent 30%)` }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
           <div>
-            <SectionLabel color="rgba(255,255,255,0.62)">Memory orbit</SectionLabel>
-            <p style={{ margin: '5px 0 0', color: 'rgba(255,255,255,0.78)', fontSize: 12 }}>Your journals, dreams, sessions, music, and body signals in one field.</p>
+            <SectionLabel color="rgba(255,255,255,0.62)">Your rhythm</SectionLabel>
+            <p style={{ margin: '5px 0 0', color: 'rgba(255,255,255,0.78)', fontSize: 12 }}>Journals, dreams, sessions, music, and body signals gathered clearly.</p>
           </div>
           <div style={{ color: '#FFFFFF', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900 }}>{summary.totalWords}w</div>
         </div>
@@ -335,24 +335,24 @@ export default function ProfilePage() {
           <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 900 }}>{formatDate(latestJournal?.entry_date)}</span>
         </div>
         {latestJournal ? (
-          <RhythmRow color={latestJournal.entry_type === 'dream' ? '#6366F1' : latestJournal.entry_type === 'daily' ? '#D97706' : '#7048E8'} label={`Latest ${latestJournal.entry_type}`} meta={formatDate(latestJournal.entry_date)} body={shortText(latestJournal.text)} />
+          <RhythmRow color={latestJournal.entry_type === 'dream' ? '#6366F1' : latestJournal.entry_type === 'daily' ? '#D97706' : '#7048E8'} label={latestJournal.entry_type === 'checkin' ? 'Latest check-in' : latestJournal.entry_type === 'dream' ? 'Latest dream' : 'Latest reflection'} meta={formatDate(latestJournal.entry_date)} body={shortText(latestJournal.text)} />
         ) : (
-          <RhythmRow color="#7048E8" label="Journal memory" meta="Waiting" body="Save a journal entry and this becomes a personal practice timeline." />
+          <RhythmRow color="#7048E8" label="Journal" meta="Start here" body="Save a journal entry and this becomes your personal practice timeline." />
         )}
         {latestDream ? (
-          <RhythmRow color="#6366F1" label="Dream signal" meta={formatDate(latestDream.entry_date)} body={shortText(latestDream.text)} />
+          <RhythmRow color="#6366F1" label="Dream log" meta={formatDate(latestDream.entry_date)} body={shortText(latestDream.text)} />
         ) : (
-          <RhythmRow color="#6366F1" label="Dream signal" meta="Tonight" body="Dreams saved from Journal will gather here with symbols and lucidity." />
+          <RhythmRow color="#6366F1" label="Dream log" meta="Tonight" body="Dreams saved from Journal will gather here with symbols and lucidity." />
         )}
         {latestSession ? (
           <RhythmRow color="#0CA678" label={`${latestSession.brainwave_state || 'Meditation'} session`} meta={formatDate(latestSession.created || latestSession.created_at)} body={`${latestSession.heart_rate || '-'} bpm average - ${formatMinutes(Math.round((latestSession.duration_seconds || 0) / 60))}`} />
         ) : (
-          <RhythmRow color="#0CA678" label="Session memory" meta="Ready" body="Completed sessions collect here with brainwave, duration, and body data." />
+          <RhythmRow color="#0CA678" label="Sessions" meta="Ready" body="Completed sessions collect here with wave state, duration, and body data." />
         )}
         {latestPlay ? (
           <RhythmRow color={latestPlay.albumColor} label={latestPlay.title} meta={formatDate(latestPlay.created)} body={`${latestPlay.artist} - ${latestPlay.albumTitle}`} />
         ) : (
-          <RhythmRow color="#D97706" label="Music memory" meta="Listening" body="Library plays will shape a personal sound profile once listening is recorded." />
+          <RhythmRow color="#D97706" label="Music" meta="Listening" body="Library plays will shape your personal sound profile." />
         )}
       </section>
 
@@ -373,7 +373,7 @@ export default function ProfilePage() {
           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
             <div style={{ borderRadius: 16, padding: 12, background: 'rgba(12,166,120,0.08)', border: '1px solid rgba(12,166,120,0.16)' }}>
               <div style={{ fontSize: 10, color: '#0CA678', fontWeight: 900, textTransform: 'uppercase' }}>Breath</div>
-              <div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink1)', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{biometricBreathing?.pattern || 'Collecting pattern'}</div>
+              <div style={{ marginTop: 4, fontSize: 13, color: 'var(--ink1)', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{biometricBreathing?.pattern || 'Finding your rhythm'}</div>
             </div>
             <div style={{ borderRadius: 16, padding: 12, background: 'rgba(112,72,232,0.08)', border: '1px solid rgba(112,72,232,0.16)' }}>
               <div style={{ fontSize: 10, color: '#7048E8', fontWeight: 900, textTransform: 'uppercase' }}>Music</div>
@@ -384,16 +384,16 @@ export default function ProfilePage() {
       </section>
 
       <section style={{ borderRadius: 26, padding: 17, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-        <SectionLabel>Ritual settings</SectionLabel>
+        <SectionLabel>Personal settings</SectionLabel>
         <div style={{ marginTop: 8 }}>
           <Toggle label="Binaural beats" desc="Stereo headphones recommended" value={prefs.binaural} onChange={v => setPref('binaural', v)} />
           <Toggle label="Daily reminders" desc="A small nudge to return" value={prefs.reminders} onChange={v => setPref('reminders', v)} />
-          <Toggle label="Haptic feedback" desc="Vibrate on connection events" value={prefs.haptics} onChange={v => setPref('haptics', v)} />
-          <Toggle label="Auto-start session" desc="Begin when watch connects" value={prefs.autoSession} onChange={v => setPref('autoSession', v)} />
+          <Toggle label="Gentle vibration" desc="Soft cues for important moments" value={prefs.haptics} onChange={v => setPref('haptics', v)} />
+          <Toggle label="Begin with watch" desc="Start when your watch connects" value={prefs.autoSession} onChange={v => setPref('autoSession', v)} />
         </div>
       </section>
 
-      {dashboard.error && <p style={{ margin: 0, fontSize: 11, color: '#D97706', textAlign: 'center' }}>Some dashboard data is cached until the next sync.</p>}
+      {dashboard.error && <p style={{ margin: 0, fontSize: 11, color: '#D97706', textAlign: 'center' }}>Some information will refresh soon.</p>}
 
       <button className="btn" onClick={logout} style={{
         width: '100%',

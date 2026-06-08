@@ -127,7 +127,7 @@ export default function SessionsPage() {
 
       {error && (
         <section style={{ borderRadius: 24, padding: 20, textAlign: 'center', color: '#D9480F', fontSize: 13, background: 'rgba(217,72,15,0.08)', border: '1px solid rgba(217,72,15,0.2)' }}>
-          Failed to load sessions: {error}
+          We could not gather your sessions right now.
         </section>
       )}
 

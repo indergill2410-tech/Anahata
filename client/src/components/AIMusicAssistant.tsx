@@ -108,7 +108,7 @@ export default function AIMusicAssistant({ onApplyMix }: AIMusicAssistantProps) 
           {offline && (
             <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px', background:'rgba(245,159,0,0.08)', border:'1px solid rgba(245,159,0,0.2)', borderRadius:8, fontSize:11, color:'var(--amber)', fontWeight:600 }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              Smart offline mix
+              Prepared for now
             </div>
           )}
           <div className="ai-typewriter" style={{ fontSize:13 }}>{response.message}</div>
