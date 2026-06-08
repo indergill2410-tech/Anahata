@@ -7,11 +7,13 @@ Anahata reads heart-rate style biometric input, maps it to brainwave states, and
 ## What It Does
 
 - Live biometric meditation with WebSocket support
+- Bluetooth smart watch and BLE heart-rate band support through the standard Heart Rate service
+- Personalized biometric coach for breathing patterns and music recommendations
 - 111 meditation tracks with R2 audio URLs and YouTube fallback playback
 - Brainwave mapping across Delta, Theta, Alpha, Beta, and Gamma states
 - Raga-inspired journeys, sound studio controls, and saved mixes
 - Private account login/register through PocketBase users
-- PocketBase-backed session, library, profile, mix, and journal storage
+- PocketBase-backed session, library, profile, mix, journal, and biometric storage
 - Guest-friendly local journaling before sign in
 - PWA/mobile-ready React app
 
@@ -25,6 +27,17 @@ Anahata reads heart-rate style biometric input, maps it to brainwave states, and
 | Storage | PocketBase collections + R2 audio URLs |
 | Tests | Jest + Supertest |
 
+## Smart Watch Biometrics
+
+The Journey screen can pair with Bluetooth devices that expose the standard BLE Heart Rate service, including many heart-rate bands and some smart watches. The app subscribes to live heart-rate notifications, reads battery level when available, and feeds the biometric coach.
+
+Signed-in users get saved biometric memory in PocketBase:
+
+- `biometric_samples` stores heart rate, HRV, SpO2, battery, source, device name, and capture time
+- `biometric_recommendations` stores the generated breathing and music advice tied to the user
+
+Some proprietary watches only expose biometrics through their native phone app and may not make live heart rate available to Web Bluetooth. For those devices, Anahata can still accept demo or WebSocket biometric streams.
+
 ## Data Storage
 
 Anahata uses PocketBase as the app database. Do not configure this app against Supabase unless the code is intentionally migrated.
@@ -37,6 +50,8 @@ PocketBase collections created by `npm run setup:db`:
 - `library_plays`
 - `user_mixes`
 - `journal_entries`
+- `biometric_samples`
+- `biometric_recommendations`
 
 The journal supports `checkin`, `daily`, and `dream` entry types. Guest entries can live in browser localStorage, but signed-in users should sync private journal data to PocketBase through `/api/journal`.
 
@@ -93,5 +108,5 @@ npm run test:coverage
 - Set a real `JWT_SECRET`; never use the example value in production.
 - Set `POCKETBASE_URL` to the production PocketBase host.
 - Run `npm run setup:db` after provisioning a new PocketBase database.
-- Keep `/api/journal`, `/api/profile`, `/api/sessions`, `/api/mixes`, and private library endpoints protected by JWT auth.
+- Keep `/api/journal`, `/api/profile`, `/api/sessions`, `/api/mixes`, `/api/biometrics`, and private library endpoints protected by JWT auth.
 - Do not commit `.env`.
