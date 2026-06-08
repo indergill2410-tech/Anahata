@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 const HR_SERVICE    = 0x180D;
 const HR_CHAR       = 0x2A37;
@@ -85,15 +85,21 @@ export function useBluetooth() {
   const connectToDevice = useCallback(async (device: BluetoothLikeDevice) => {
     if (!device.gatt) throw new Error('This Bluetooth device does not expose GATT services.');
 
+    if (deviceRef.current && deviceRef.current !== device) {
+      try { deviceRef.current.removeEventListener('gattserverdisconnected', handleDisconnected); } catch {}
+    }
+
     deviceRef.current = device;
     setDeviceName(device.name || 'Smart watch');
     setDeviceId(device.id || null);
+    device.removeEventListener('gattserverdisconnected', handleDisconnected);
     device.addEventListener('gattserverdisconnected', handleDisconnected);
 
     const server = await device.gatt.connect();
     const hrSvc = await server.getPrimaryService(HR_SERVICE);
     const hrChar = await hrSvc.getCharacteristic(HR_CHAR);
     charRef.current = hrChar;
+    hrChar.removeEventListener('characteristicvaluechanged', parseHR);
     hrChar.addEventListener('characteristicvaluechanged', parseHR);
     await hrChar.startNotifications();
 
@@ -177,13 +183,20 @@ export function useBluetooth() {
       try { await charRef.current.stopNotifications?.(); } catch {}
       charRef.current = null;
     }
+    if (deviceRef.current) {
+      try { deviceRef.current.removeEventListener('gattserverdisconnected', handleDisconnected); } catch {}
+    }
     if (deviceRef.current?.gatt?.connected) {
       deviceRef.current.gatt.disconnect();
     }
     setStatus('disconnected');
     setHeartRate(null);
     setBattery(null);
-  }, [parseHR]);
+  }, [handleDisconnected, parseHR]);
+
+  useEffect(() => () => {
+    void disconnect();
+  }, [disconnect]);
 
   return {
     isSupported,
