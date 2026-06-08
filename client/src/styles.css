@@ -354,18 +354,30 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 .modal-handle{width:36px;height:4px;background:var(--bg3);border-radius:2px;margin:0 auto 20px;}
 
 .toast-container{
-  position:fixed;top:70px;left:50%;transform:translateX(-50%);
-  z-index:999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;
+  position:fixed;top:calc(env(safe-area-inset-top,0px) + 74px);left:50%;transform:translateX(-50%);
+  z-index:9999;display:flex;flex-direction:column;align-items:stretch;gap:8px;pointer-events:none;
+  width:min(420px,calc(100vw - 28px));
 }
 .toast{
-  padding:10px 20px;border-radius:var(--rf);font-size:13px;font-weight:600;
-  backdrop-filter:blur(12px);animation:toastIn 0.35s var(--spring) both;
-  pointer-events:auto;max-width:320px;text-align:center;border:1px solid var(--border);
-  background:var(--bg1);color:var(--ink1);box-shadow:var(--shadow);
+  --toast-accent:var(--blue);
+  display:flex;align-items:flex-start;gap:10px;
+  min-height:44px;padding:12px 14px;border-radius:16px;
+  font-size:13px;line-height:1.45;font-weight:800;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  animation:toastIn 0.35s var(--spring) both;
+  pointer-events:auto;max-width:100%;text-align:left;
+  border:1px solid rgba(255,255,255,0.16);border-left:4px solid var(--toast-accent);
+  background:rgba(23,18,10,0.94);color:#FFFFFF;
+  box-shadow:0 14px 38px rgba(23,18,10,0.26),inset 0 1px 0 rgba(255,255,255,0.12);
 }
-.toast.info{background:rgba(59,91,219,0.08);color:var(--blue);border-color:rgba(59,91,219,0.2);}
-.toast.success{background:rgba(12,166,120,0.08);color:var(--teal);border-color:rgba(12,166,120,0.2);}
-.toast.error{background:rgba(230,73,128,0.08);color:var(--rose);border-color:rgba(230,73,128,0.2);}
+.toast-dot{
+  width:9px;height:9px;margin-top:5px;border-radius:50%;flex-shrink:0;
+  background:var(--toast-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--toast-accent) 22%,transparent);
+}
+.toast-message{min-width:0;color:#FFFFFF;overflow-wrap:anywhere;text-shadow:0 1px 0 rgba(0,0,0,0.24);}
+.toast-info{--toast-accent:#818CF8;}
+.toast-success{--toast-accent:#34D399;}
+.toast-error{--toast-accent:#F87171;}
 @keyframes toastIn{from{opacity:0;transform:translateY(-10px) scale(0.9);}to{opacity:1;transform:translateY(0) scale(1);}}
 
 .spinner{width:20px;height:20px;border:2px solid var(--bg3);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite;}
@@ -940,12 +952,18 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 
 /* Topbar — cleaner, bigger logo */
 .topbar {
-  padding: 16px 20px 14px !important;
-  background: rgba(247,244,238,0.92) !important;
+  min-height: 64px !important;
+  padding: 14px 20px !important;
+  background: rgba(255,255,255,0.9) !important;
+  border-bottom: 1px solid rgba(23,18,10,0.1) !important;
+  box-shadow: 0 8px 28px rgba(23,18,10,0.07) !important;
+  color: var(--ink1) !important;
 }
 .topbar-logo {
   font-size: 17px !important;
-  letter-spacing: 0.18em !important;
+  letter-spacing: 0.14em !important;
+  color: var(--blue);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.72);
 }
 
 /* Modal sheets — rounder, more breathing room */
