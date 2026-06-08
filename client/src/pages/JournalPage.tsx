@@ -257,13 +257,13 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
 
-  const [draft, setDraft] = useState(initialPending?.text || '');
-  const [followUp, setFollowUp] = useState(initialPending?.follow_up || '');
-  const [mood, setMood] = useState(initialPending?.mood || 3);
+  const [draft, setDraft] = useState(initialPending?.text ?? '');
+  const [followUp, setFollowUp] = useState(initialPending?.follow_up ?? '');
+  const [mood, setMood] = useState(initialPending?.mood ?? 3);
   const [cta, setCta] = useState(initialPending?.cta || 'day');
   const [tags, setTags] = useState<string[]>(cleanJournalTags(initialPending?.tags));
   const [dailyType, setDailyType] = useState(typeof initialPending?.metadata?.daily_type === 'string' ? initialPending.metadata.daily_type : 'prompt');
-  const [lucidity, setLucidity] = useState(initialPending?.lucidity || 3);
+  const [lucidity, setLucidity] = useState(initialPending?.lucidity ?? 3);
   const [emotions, setEmotions] = useState<string[]>(cleanJournalTags(initialPending?.metadata?.emotions));
   const [symbols, setSymbols] = useState<string[]>(cleanJournalTags(initialPending?.metadata?.symbols));
 
@@ -302,15 +302,15 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       skipHydrateRef.current = false;
       return;
     }
-    setDraft(currentEntry?.text || '');
-    setFollowUp(currentEntry?.follow_up || '');
-    setMood(currentEntry?.mood || 3);
+    setDraft(currentEntry?.text ?? '');
+    setFollowUp(currentEntry?.follow_up ?? '');
+    setMood(currentEntry?.mood ?? 3);
     setCta(currentEntry?.cta || 'day');
     setTags(currentEntry?.tags || []);
-    setDailyType(typeof currentEntry?.metadata.daily_type === 'string' ? currentEntry.metadata.daily_type : 'prompt');
-    setLucidity(currentEntry?.lucidity || 3);
-    setEmotions(cleanJournalTags(currentEntry?.metadata.emotions));
-    setSymbols(cleanJournalTags(currentEntry?.metadata.symbols));
+    setDailyType(typeof currentEntry?.metadata?.daily_type === 'string' ? currentEntry.metadata.daily_type : 'prompt');
+    setLucidity(currentEntry?.lucidity ?? 3);
+    setEmotions(cleanJournalTags(currentEntry?.metadata?.emotions));
+    setSymbols(cleanJournalTags(currentEntry?.metadata?.symbols));
   }, [activeTab, currentEntry?.id, currentEntry?.entry_date, currentEntry?.entry_type, selectedDate]);
 
   const unsyncedLocalEntries = useMemo(() => {
@@ -335,6 +335,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
     });
     return counts;
   }, [entries]);
+  const heroCount = summary.streak > 0 ? summary.streak : tabCounts[activeTab] > 0 ? tabCounts[activeTab] : 1;
 
   function toggle(list: string[], value: string, setter: (next: string[]) => void) {
     setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
@@ -427,7 +428,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
         <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 78% 4%, ${tone(currentMeta.color, '44')}, transparent 32%), radial-gradient(circle at 10% 92%, rgba(12,166,120,0.2), transparent 32%), radial-gradient(circle at 50% 44%, rgba(255,255,255,0.08), transparent 36%)`, pointerEvents: 'none' }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
           <JournalOrb color={currentMeta.color} size={74}>
-            <span style={{ fontSize: 19 }}>{summary.streak || tabCounts[activeTab] || 1}</span>
+            <span style={{ fontSize: 19 }}>{heroCount}</span>
           </JournalOrb>
           <div style={{ minWidth: 0, flex: 1 }}>
             <SectionLabel color="rgba(255,255,255,0.62)">Private memory</SectionLabel>
@@ -729,7 +730,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
                   }}
                 >
                   <JournalOrb color={meta.color} size={34}>
-                    <span style={{ fontSize: 9 }}>{entry.entry_type === 'checkin' ? entry.mood : entry.entry_type === 'dream' ? entry.lucidity : countJournalWords(entry.text)}</span>
+                    <span style={{ fontSize: 9 }}>{entry.entry_type === 'checkin' ? entry.mood ?? '-' : entry.entry_type === 'dream' ? entry.lucidity ?? '-' : countJournalWords(entry.text || '')}</span>
                   </JournalOrb>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
