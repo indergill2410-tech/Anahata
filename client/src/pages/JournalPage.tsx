@@ -94,7 +94,7 @@ function sameEntry(a: JournalMemoryEntry, b: JournalMemoryEntry) {
 }
 
 function previewText(text = '', fallback = 'Untitled entry', max = 118) {
-  const clean = text.trim() || fallback;
+  const clean = (text || '').trim() || (fallback || 'Untitled entry').trim();
   return clean.length > max ? `${clean.slice(0, max)}...` : clean;
 }
 
