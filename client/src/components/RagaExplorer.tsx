@@ -21,8 +21,8 @@ const TIME_OF_DAY_ALBUM_ID: Record<'morning' | 'evening' | 'night', string> = {
 
 function currentWindow(): 'morning' | 'evening' | 'night' {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12)  return 'morning';
-  if (h >= 17 && h < 21) return 'evening';
+  if (h >= 4 && h < 12)  return 'morning';
+  if (h >= 12 && h < 20) return 'evening';
   return 'night';
 }
 
