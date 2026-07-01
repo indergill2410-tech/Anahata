@@ -1,25 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SoundEngineProvider, useSoundEngine } from './context/SoundEngineContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AntiGravityCanvas from './components/AntiGravityCanvas';
-import AIMixDialog from './components/AIMixDialog';
-import AuthPage from './pages/AuthPage';
 import LandingPage from './pages/LandingPage';
-import OnboardingPage from './pages/OnboardingPage';
-import JourneyPage from './pages/JourneyPage';
-import LibraryPage from './pages/LibraryPage';
-import StudioPage from './pages/StudioPage';
-import SessionsPage from './pages/SessionsPage';
-import ProfilePage from './pages/ProfilePage';
-import JournalPage from './pages/JournalPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 import MobileInstallPrompt from './components/MobileInstallPrompt';
 
+const AIMixDialog = lazy(() => import('./components/AIMixDialog'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const JourneyPage = lazy(() => import('./pages/JourneyPage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const StudioPage = lazy(() => import('./pages/StudioPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const JournalPage = lazy(() => import('./pages/JournalPage'));
+
 type Tab = 'journey' | 'library' | 'studio' | 'journal' | 'profile';
 type PageProps = Record<string, unknown>;
+
+const TAB_ORDER: Tab[] = ['journey', 'library', 'studio', 'journal', 'profile'];
+
+function PageFallback() {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', flex:1, padding:'80px 24px' }}>
+      <div className="spinner" style={{ width:22, height:22 }} />
+    </div>
+  );
+}
 
 function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
   const label = tab === 'profile' ? 'your private practice space' : 'your session history';
@@ -32,10 +42,10 @@ function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
           <path d="M8 11V8a4 4 0 0 1 8 0v3" />
         </svg>
       </div>
-      <h2 style={{ fontSize:20, fontWeight:800, color:'var(--t1)', margin:0, letterSpacing:'0' }}>
+      <h2 className="type-h2" style={{ margin:0 }}>
         Sign in to view {label}
       </h2>
-      <p style={{ fontSize:13, color:'var(--t3)', margin:0, maxWidth:280 }}>
+      <p className="type-caption" style={{ margin:0, maxWidth:280 }}>
         Create a free account or sign in to keep journals, sessions, and personal guidance safely together.
       </p>
       <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
@@ -119,11 +129,12 @@ function Inner() {
   };
   const handleBack = () => { setTab(prevTab === tab ? 'journey' : prevTab); setPrevTab('journey'); };
   const openAuth = () => setShowAuth(true);
+  const navDir = TAB_ORDER.indexOf(tab) >= TAB_ORDER.indexOf(prevTab) ? 'fwd' : 'back';
 
   if (loading) {
     return (
       <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)', flexDirection:'column', gap:16 }}>
-        <div style={{ fontFamily:"'Space Grotesk', sans-serif", fontSize:22, fontWeight:700, color:'var(--blue)', letterSpacing:'0.14em' }}>
+        <div className="type-h1" style={{ color:'var(--blue)', letterSpacing:'0.14em' }}>
           ANAHATA
         </div>
         <div className="spinner" style={{ width:24, height:24 }} />
@@ -132,8 +143,20 @@ function Inner() {
   }
 
   if (!seenLanding) return <LandingPage onEnter={() => setSeenLanding(true)} />;
-  if (showAuth && !isAuthenticated) return <AuthPage onBack={() => setShowAuth(false)} />;
-  if (isAuthenticated && !onboarded) return <OnboardingPage onComplete={() => setOnboarded(true)} />;
+  if (showAuth && !isAuthenticated) {
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <AuthPage onBack={() => setShowAuth(false)} />
+      </Suspense>
+    );
+  }
+  if (isAuthenticated && !onboarded) {
+    return (
+      <Suspense fallback={<PageFallback />}>
+        <OnboardingPage onComplete={() => setOnboarded(true)} />
+      </Suspense>
+    );
+  }
 
   const PROTECTED: Tab[] = ['profile'];
   const needsAuth = PROTECTED.includes(tab) && !isAuthenticated;
@@ -159,11 +182,13 @@ function Inner() {
       <div className="page">
         <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
         <ErrorBoundary>
-          <div ref={contentRef} key={tab} className="page-enter" style={{ flex:1, display:'flex', flexDirection:'column' }}>
-            {needsAuth
-              ? <AuthPrompt onSignIn={openAuth} tab={tab} />
-              : <Page {...pageProps} />
-            }
+          <div ref={contentRef} key={tab} className={`page-enter-${navDir}`} style={{ flex:1, display:'flex', flexDirection:'column' }}>
+            <Suspense fallback={<PageFallback />}>
+              {needsAuth
+                ? <AuthPrompt onSignIn={openAuth} tab={tab} />
+                : <Page {...pageProps} />
+              }
+            </Suspense>
           </div>
         </ErrorBoundary>
         <BottomNav active={tab} onChange={handleTabChange} />
@@ -173,10 +198,12 @@ function Inner() {
       <AIFloatButton onClick={() => setShowAI(true)} />
 
       {showAI && (
-        <AIMixDialog
-          onClose={() => setShowAI(false)}
-          onApplyMix={(mix) => { engine.applyMix(mix as Record<string, unknown>); setShowAI(false); }}
-        />
+        <Suspense fallback={null}>
+          <AIMixDialog
+            onClose={() => setShowAI(false)}
+            onApplyMix={(mix) => { engine.applyMix(mix as Record<string, unknown>); setShowAI(false); }}
+          />
+        </Suspense>
       )}
     </>
   );

@@ -396,7 +396,6 @@ export interface SoundEngineContextType {
   layers: typeof DEFAULT_LAYERS;
   settings: typeof DEFAULT_SETTINGS;
   intention: string | null;
-  elapsed: number;
   bpm: number;
   chaos: number;
   masterVol: number;
@@ -423,6 +422,10 @@ export interface SoundEngineContextType {
 }
 
 const SoundEngineContext = createContext<SoundEngineContextType | null>(null);
+// Ticks once a second while playing. Split out from SoundEngineContext so
+// consumers that don't render the live session timer (e.g. the app shell)
+// aren't forced to re-render every second.
+const ElapsedContext = createContext(0);
 
 export function SoundEngineProvider({ children }: { children: ReactNode }) {
   const [isPlaying,    setIsPlaying]    = useState(false);
@@ -710,8 +713,12 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => stop(), []);
 
-  const value = {
-    isPlaying, layers, settings, intention, elapsed, bpm, chaos, masterVol,
+  // `elapsed` deliberately excluded: it ticks every second during playback
+  // and lives in ElapsedContext instead (see useElapsed()), so this value
+  // only changes when something a typical consumer actually cares about
+  // changes.
+  const value = React.useMemo(() => ({
+    isPlaying, layers, settings, intention, bpm, chaos, masterVol,
     brainwave, analyser: analyserRef.current,
     start, stop, togglePlay,
     setLayerVolume, setLayerPan, toggleMute, toggleSolo,
@@ -720,13 +727,31 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     setBpm, setChaos, setMasterVolume,
     adaptFromHeartRate,
     ragaName: phraseRef.current.getRagaName(),
-  };
+  }), [
+    isPlaying, layers, settings, intention, bpm, chaos, masterVol,
+    brainwave, start, stop, togglePlay,
+    setLayerVolume, setLayerPan, toggleMute, toggleSolo,
+    setLayerEQ, setLayerReverb, setLayerActive,
+    updateLayerSetting, applyIntention, applyMix,
+    setBpm, setChaos, setMasterVolume, adaptFromHeartRate,
+  ]);
 
-  return <SoundEngineContext.Provider value={value}>{children}</SoundEngineContext.Provider>;
+  return (
+    <SoundEngineContext.Provider value={value}>
+      <ElapsedContext.Provider value={elapsed}>{children}</ElapsedContext.Provider>
+    </SoundEngineContext.Provider>
+  );
 }
 
 export function useSoundEngine(): SoundEngineContextType {
   const ctx = useContext(SoundEngineContext);
   if (!ctx) throw new Error('useSoundEngine must be used inside SoundEngineProvider');
   return ctx;
+}
+
+// Live session-timer seconds. Kept out of useSoundEngine() so subscribing
+// to it (e.g. for a ticking display) doesn't re-render every other consumer
+// of the sound engine once a second.
+export function useElapsed(): number {
+  return useContext(ElapsedContext);
 }

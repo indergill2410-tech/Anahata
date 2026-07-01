@@ -3,7 +3,7 @@ import OrbVisualizer from '../components/OrbVisualizer';
 import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 import BreathingGuide, { type BreathingPattern } from '../components/BreathingGuide';
 import NowPlayingBar from '../components/NowPlayingBar';
-import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
+import { useSoundEngine, useElapsed, INTENTIONS } from '../context/SoundEngineContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useBluetooth } from '../hooks/useBluetooth';
 import { useSimulator } from '../hooks/useSimulator';
@@ -30,7 +30,8 @@ interface Ripple { id: number; x: number; y: number; color: string; }
 type BreathSession = { mode: 'start' | 'coach'; cycles: number; pattern?: BreathingPattern; title?: string };
 
 export default function JourneyPage() {
-  const engine = useSoundEngine();
+  const engine  = useSoundEngine();
+  const elapsed = useElapsed();
   const ws     = useWebSocket();
   const ble    = useBluetooth();
   const sim    = useSimulator();
@@ -165,7 +166,7 @@ export default function JourneyPage() {
             background:'var(--bg1)', padding:'3px 10px', borderRadius:20,
             border:'1px solid var(--border)',
           }}>
-            {fmtElapsed(engine.elapsed)}
+            {fmtElapsed(elapsed)}
           </span>
         )}
         {engine.ragaName && (
@@ -364,7 +365,7 @@ export default function JourneyPage() {
       <NowPlayingBar
         isPlaying={engine.isPlaying}
         intention={engine.intention}
-        elapsed={engine.elapsed}
+        elapsed={elapsed}
         brainwave={engine.brainwave}
         bpm={engine.bpm}
         analyser={engine.analyser}

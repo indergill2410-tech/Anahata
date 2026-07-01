@@ -5,7 +5,7 @@ interface BiometricsDisplayProps {
   musicParams?: { targetHeartRate?: number; musicalTempo?: number; desiredBrainwaveState?: string; binauralHz?: number; emotionalTone?: string };
 }
 
-export default function BiometricsDisplay({ biometrics, musicParams }: BiometricsDisplayProps) {
+function BiometricsDisplay({ biometrics, musicParams }: BiometricsDisplayProps) {
   const { heartRate } = biometrics;
 
   return (
@@ -49,3 +49,12 @@ export default function BiometricsDisplay({ biometrics, musicParams }: Biometric
     </div>
   );
 }
+
+export default React.memo(BiometricsDisplay, (prev, next) =>
+  prev.biometrics?.heartRate === next.biometrics?.heartRate &&
+  prev.musicParams?.targetHeartRate === next.musicParams?.targetHeartRate &&
+  prev.musicParams?.musicalTempo === next.musicParams?.musicalTempo &&
+  prev.musicParams?.desiredBrainwaveState === next.musicParams?.desiredBrainwaveState &&
+  prev.musicParams?.binauralHz === next.musicParams?.binauralHz &&
+  prev.musicParams?.emotionalTone === next.musicParams?.emotionalTone
+);
