@@ -1,33 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ALBUMS, CATEGORIES, TOTAL_TRACKS, getAlbumsByCategory, Album, Track } from '../data/libraryData';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function parseDuration(s: string): number {
-  if (s.includes('min')) return parseInt(s) * 60;
-  if (s.includes('hr'))  return parseInt(s) * 3600;
-  const parts = s.split(':').map(Number);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return 300;
-}
-function formatSecs(s: number): string {
-  if (!isFinite(s) || s < 0) return '0:00';
-  const m = Math.floor(s / 60);
-  return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-}
-
-// ─── YouTube IFrame API types ────────────────────────────────────────────────
-declare global {
-  interface Window {
-    YT: { Player: new (el: HTMLElement, opts: object) => YTPlayer; PlayerState: Record<string, number> };
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-interface YTPlayer {
-  playVideo(): void; pauseVideo(): void; stopVideo(): void; destroy(): void;
-  seekTo(s: number, a: boolean): void; setVolume(v: number): void;
-  unMute(): void; getCurrentTime(): number; getDuration(): number;
-}
+import React, { useState } from 'react';
+import { ALBUMS, CATEGORIES, TOTAL_TRACKS, getAlbumsByCategory, Album } from '../data/libraryData';
+import { useTrackPlayer } from '../context/TrackPlayerContext';
+import RagaExplorer from '../components/RagaExplorer';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -140,355 +114,36 @@ function SatelliteOrb({ album, index, ringSize, radius, duration, direction, isA
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function LibraryPage() {
-  const [category,     setCategory]     = useState('All');
-  const [openAlbum,    setOpenAlbum]    = useState<Album | null>(null);
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [currentAlbum, setCurrentAlbum] = useState<Album | null>(null);
-  const [isPlaying,    setIsPlaying]    = useState(false);
-  const [isExpanded,   setIsExpanded]   = useState(false);
-  const [progress,     setProgress]     = useState(0);
-  const [elapsed,      setElapsed]      = useState(0);
-  const [shuffle,      setShuffle]      = useState(false);
-  const [repeat,       setRepeat]       = useState(false);
-  const [volume,       setVolume]       = useState(80);
-  const [loading,      setLoading]      = useState(false);
-  const [ytError,      setYtError]      = useState<string | null>(null);
+  const [category,  setCategory]  = useState('All');
+  const [openAlbum, setOpenAlbum] = useState<Album | null>(null);
+  const [showExplorer, setShowExplorer] = useState(false);
 
-  const ytRef            = useRef<YTPlayer | null>(null);
-  const audioRef         = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-    };
-  }, []);
-  const ytDivRef         = useRef<HTMLDivElement>(null);
-  const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
-  const createTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const queueRef         = useRef<Track[]>([]);
-  const elapsedRef       = useRef(0);
-  const durationRef      = useRef(0);
-  const activeIdRef      = useRef('');
-  const currentTrackRef  = useRef<Track | null>(null);
-  const currentAlbumRef  = useRef<Album | null>(null);
-  const isNativeAudioRef = useRef(false);
-  const repeatRef        = useRef(repeat);
-  const shuffleRef       = useRef(shuffle);
-  const volumeRef        = useRef(volume);
-  currentTrackRef.current = currentTrack;
-  currentAlbumRef.current = currentAlbum;
-  repeatRef.current       = repeat;
-  shuffleRef.current      = shuffle;
-  volumeRef.current       = volume;
+  const {
+    currentTrack, currentAlbum, isPlaying, isExpanded, progress, elapsed,
+    loading, ytError, playTrack, togglePlay, playPrev, playNext,
+    handleShuffle, setIsExpanded,
+  } = useTrackPlayer();
 
   const filteredAlbums = getAlbumsByCategory(category);
   const innerRing = ALBUMS.slice(0, 6);
   const outerRing = ALBUMS.slice(6, 12);
 
-  useEffect(() => {
-    // YouTube IFrame API loaded via index.html <script> tag
-    return () => {
-      stopTimer();
-      if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
-      try { ytRef.current?.destroy(); } catch { /**/ }
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function stopTimer() {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  // ─── EXPLORER ──────────────────────────────────────────────────────────────
+  if (showExplorer) {
+    return (
+      <RagaExplorer
+        albums={ALBUMS}
+        onOpenAlbum={album => { setShowExplorer(false); setOpenAlbum(album); }}
+        onClose={() => setShowExplorer(false)}
+      />
+    );
   }
-
-  function startTimer() {
-    stopTimer();
-    timerRef.current = setInterval(() => {
-      elapsedRef.current += 1;
-      const dur = durationRef.current;
-      if (dur > 0) setProgress(elapsedRef.current / dur);
-      setElapsed(elapsedRef.current);
-      if (elapsedRef.current >= dur && dur > 0) {
-        stopTimer();
-        setIsPlaying(false);
-        if (repeatRef.current) restartCurrent();
-        else playNext();
-      }
-    }, 1000);
-  }
-
-  function restartCurrent() {
-    const t = currentTrackRef.current; const a = currentAlbumRef.current;
-    if (!t || !a) return;
-    triggerPlay(t, a, queueRef.current);
-  }
-
-  const triggerPlay = useCallback((track: Track, album: Album, queue: Track[]) => {
-    setCurrentTrack(track);
-    setCurrentAlbum(album);
-    queueRef.current = queue;
-    setIsPlaying(false);
-    setLoading(true);
-    setProgress(0);
-    setElapsed(0);
-    elapsedRef.current = 0;
-    durationRef.current = parseDuration(track.duration);
-    activeIdRef.current = track.id;
-    setYtError(null);
-
-    stopTimer();
-    if (createTimeoutRef.current) {
-      clearTimeout(createTimeoutRef.current);
-      createTimeoutRef.current = null;
-    }
-
-    // Clean up previous player (audio or YouTube)
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current.oncanplay = null;
-      audioRef.current.onplay = null;
-      audioRef.current.onpause = null;
-      audioRef.current.onended = null;
-      audioRef.current.onerror = null;
-      audioRef.current.ontimeupdate = null;
-      audioRef.current.onloadedmetadata = null;
-      audioRef.current = null;
-    }
-    try { ytRef.current?.destroy(); } catch { /**/ }
-    ytRef.current = null;
-    isNativeAudioRef.current = false;
-
-    // Use native audio if track has audioUrl
-    if (track.audioUrl) {
-      isNativeAudioRef.current = true;
-      const audio = new Audio();
-      audioRef.current = audio;
-      audio.src = track.audioUrl;
-      audio.volume = volumeRef.current / 100;
-
-      const cleanupAudio = () => {
-        audio.onerror = null;
-        audio.oncanplay = null;
-        audio.onplay = null;
-        audio.onpause = null;
-        audio.onended = null;
-        audio.ontimeupdate = null;
-        audio.onloadedmetadata = null;
-        audio.pause();
-        audio.src = '';
-        if (audioRef.current === audio) audioRef.current = null;
-      };
-
-      audio.oncanplay = () => {
-        if (activeIdRef.current !== track.id) return;
-        setLoading(false);
-        setYtError(null);
-      };
-      audio.onplay = () => {
-        if (activeIdRef.current !== track.id) return;
-        setIsPlaying(true);
-      };
-      audio.onpause = () => { setIsPlaying(false); };
-      audio.onended = () => {
-        setIsPlaying(false);
-        if (repeatRef.current) { audio.currentTime = 0; audio.play().catch(() => {}); }
-        else playNext();
-      };
-      audio.ontimeupdate = () => {
-        if (activeIdRef.current !== track.id) return;
-        const cur = audio.currentTime;
-        elapsedRef.current = cur;
-        setElapsed(Math.floor(cur));
-        const dur = audio.duration || durationRef.current;
-        if (dur > 0) setProgress(cur / dur);
-      };
-      audio.onerror = () => {
-        cleanupAudio();
-        setLoading(false);
-        setIsPlaying(false);
-        setYtError('Opening another playback path...');
-        isNativeAudioRef.current = false;
-        setupYouTubePlayer();
-      };
-      audio.onloadedmetadata = () => {
-        if (activeIdRef.current === track.id) durationRef.current = audio.duration;
-      };
-      audio.play().catch(() => {
-        cleanupAudio();
-        setLoading(false);
-        setYtError('Opening another playback path...');
-        isNativeAudioRef.current = false;
-        setupYouTubePlayer();
-      });
-      return;
-    }
-
-    // Fall back to YouTube
-    setupYouTubePlayer();
-
-    function setupYouTubePlayer() {
-      const container = ytDivRef.current;
-      if (!container) { setLoading(false); setYtError('This track needs a fresh start.'); return; }
-      container.innerHTML = '';
-      const div = document.createElement('div');
-      container.appendChild(div);
-
-      let apiWaitMs = 0;
-      function tryCreate() {
-        if (activeIdRef.current !== track.id) return;
-        if (!window.YT?.Player) {
-          apiWaitMs += 200;
-          if (apiWaitMs >= 10000) {
-            setLoading(false);
-            setYtError('This track could not open. Please check your connection.');
-            return;
-          }
-          createTimeoutRef.current = setTimeout(tryCreate, 200);
-          return;
-        }
-
-        ytRef.current = new window.YT.Player(div, {
-          videoId: track.ytId,
-          width: 320, height: 180,
-          playerVars: {
-            autoplay: 1,
-            controls: 0,
-            playsinline: 1,
-            rel: 0,
-            modestbranding: 1,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: (e: { target: YTPlayer }) => {
-              if (activeIdRef.current !== track.id) return;
-              e.target.unMute();
-              e.target.setVolume(volumeRef.current);
-              e.target.playVideo();
-            },
-            onStateChange: (e: { data: number }) => {
-              const S = window.YT?.PlayerState;
-              if (!S) return;
-              if (e.data === S.PLAYING)   { setIsPlaying(true);  setLoading(false); setYtError(null); if (!timerRef.current) startTimer(); }
-              if (e.data === S.PAUSED)    { setIsPlaying(false); stopTimer(); }
-              if (e.data === S.BUFFERING) { setLoading(true); }
-              if (e.data === S.ENDED) {
-                setIsPlaying(false); stopTimer();
-                if (repeatRef.current) { ytRef.current?.seekTo(0, true); ytRef.current?.playVideo(); }
-                else playNext();
-              }
-            },
-            onError: (e: { data: number }) => {
-              setLoading(false); setIsPlaying(false);
-              const code = e.data;
-              const msg =
-                code === 2   ? 'This track could not open.' :
-                code === 5   ? 'This track needs another playback path.' :
-                code === 100 ? 'This track is not available right now.' :
-                (code === 101 || code === 150) ? 'This track is not available here. Try another one.' :
-                'Playback needs another try.';
-              setYtError(msg);
-              console.error('[YT] error code:', code, msg);
-            },
-          },
-        });
-      }
-      tryCreate();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function playTrack(track: Track, album: Album, queue?: Track[]) {
-    triggerPlay(track, album, queue ?? album.tracks);
-  }
-
-  function togglePlay() {
-    if (isNativeAudioRef.current && audioRef.current) {
-      isPlaying ? audioRef.current.pause() : audioRef.current.play().catch(() => {});
-    } else if (ytRef.current) {
-      isPlaying ? ytRef.current.pauseVideo() : ytRef.current.playVideo();
-    }
-  }
-
-  function playNext() {
-    const q = queueRef.current;
-    const track = currentTrackRef.current;
-    const album = currentAlbumRef.current;
-    if (!track || !album || q.length === 0) return;
-    const idx = q.findIndex(t => t.id === track.id);
-    if (shuffleRef.current) {
-      triggerPlay(q[Math.floor(Math.random() * q.length)], album, q);
-    } else if (idx < q.length - 1) {
-      triggerPlay(q[idx + 1], album, q);
-    }
-  }
-
-  function playPrev() {
-    const q = queueRef.current;
-    const curTrack = currentTrackRef.current;
-    const curAlbum = currentAlbumRef.current;
-    if (!curTrack || !curAlbum || q.length === 0) return;
-    const cur = isNativeAudioRef.current && audioRef.current ? audioRef.current.currentTime : ytRef.current?.getCurrentTime() ?? elapsedRef.current;
-    if (cur > 3) {
-      if (isNativeAudioRef.current && audioRef.current) audioRef.current.currentTime = 0;
-      else ytRef.current?.seekTo(0, true);
-      return;
-    }
-    const idx = q.findIndex(t => t.id === curTrack.id);
-    if (idx > 0) triggerPlay(q[idx - 1], curAlbum, q);
-  }
-
-  function handleSeek(pct: number) {
-    const dur = isNativeAudioRef.current && audioRef.current ? audioRef.current.duration : ytRef.current?.getDuration() ?? durationRef.current;
-    const target = Math.floor(dur * pct);
-    if (isNativeAudioRef.current && audioRef.current) audioRef.current.currentTime = target;
-    else ytRef.current?.seekTo(target, true);
-    elapsedRef.current = target;
-    setElapsed(target);
-    setProgress(pct);
-  }
-
-  function handleVolume(v: number) {
-    setVolume(v);
-    if (isNativeAudioRef.current && audioRef.current) audioRef.current.volume = v / 100;
-    else ytRef.current?.setVolume(v);
-  }
-
-  function handleShuffle(album: Album) {
-    const shuffled = [...album.tracks].sort(() => Math.random() - 0.5);
-    playTrack(shuffled[0], album, shuffled);
-    setShuffle(true);
-  }
-
-  // Always-mounted hidden div keeps YT player alive across view changes
-  const ytHost = (
-    <div ref={ytDivRef} style={{ position: 'fixed', bottom: -9999, left: -9999, width: 1, height: 1, zIndex: -1 }} />
-  );
-
-  const miniPlayer = currentTrack && currentAlbum && (
-    <MiniPlayer
-      track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
-      progress={progress} elapsed={elapsed} ytError={ytError}
-      onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onExpand={() => setIsExpanded(true)}
-    />
-  );
-
-  const fullPlayer = isExpanded && currentTrack && currentAlbum && (
-    <FullPlayer
-      track={currentTrack} album={currentAlbum} isPlaying={isPlaying} loading={loading}
-      progress={progress} elapsed={elapsed} volume={volume} shuffle={shuffle} repeat={repeat}
-      ytError={ytError}
-      onPlay={togglePlay} onPrev={playPrev} onNext={playNext} onSeek={handleSeek}
-      onVolume={handleVolume} onShuffle={() => setShuffle(s => !s)}
-      onRepeat={() => setRepeat(r => !r)} onCollapse={() => setIsExpanded(false)}
-    />
-  );
 
   // ─── ALBUM DETAIL ──────────────────────────────────────────────────────────
   if (openAlbum) {
     const album = openAlbum;
     return (
       <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100 }}>
-        {ytHost}
-
         {/* Soft color bloom at top */}
         <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
           background: `radial-gradient(ellipse 70% 40% at 50% -10%, ${album.color}18 0%, transparent 70%)` }} />
@@ -600,8 +255,6 @@ export default function LibraryPage() {
           </div>
         </div>
 
-        {miniPlayer}
-        {fullPlayer}
       </div>
     );
   }
@@ -614,8 +267,6 @@ export default function LibraryPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100, overflowX: 'hidden' }}>
-      {ytHost}
-
       {/* Ambient mandala bloom */}
       <div style={{ position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100vw', height: '60vh', pointerEvents: 'none', zIndex: 0,
         background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${centralColor}12 0%, transparent 70%)`,
@@ -629,11 +280,19 @@ export default function LibraryPage() {
             <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em' }}>Library</h1>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink3 }}>{TOTAL_TRACKS} tracks · {ALBUMS.length} albums</p>
           </div>
-          {currentTrack && (
-            <div style={{ fontSize: 10, fontWeight: 700, color: T.amber, letterSpacing: '0.1em', textTransform: 'uppercase', animation: 'lib-orb-pulse 2s ease-in-out infinite' }}>
-              ♫ Now Playing
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {currentTrack && (
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.amber, letterSpacing: '0.1em', textTransform: 'uppercase', animation: 'lib-orb-pulse 2s ease-in-out infinite' }}>
+                ♫ Now Playing
+              </div>
+            )}
+            <button onClick={() => setShowExplorer(true)} title="Explore collections" style={{
+              width: 38, height: 38, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer',
+              background: T.bg1, color: T.ink2, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow,
+            }}>
+              ✦
+            </button>
+          </div>
         </div>
 
         {/* ── Sacred Mandala ── */}
@@ -746,177 +405,6 @@ export default function LibraryPage() {
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {miniPlayer}
-      {fullPlayer}
-    </div>
-  );
-}
-
-// ─── Mini Player ─────────────────────────────────────────────────────────────
-function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, onPlay, onPrev, onNext, onExpand }:
-  { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    ytError: string | null;
-    onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
-  const totalSec  = parseDuration(track.duration);
-  const remaining = Math.max(0, totalSec - elapsed);
-
-  return (
-    <div style={{ position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
-      <div style={{
-        background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)',
-        borderRadius: 22, border: `1.5px solid ${ytError ? '#EF4444' : album.color + '30'}`,
-        boxShadow: `0 -2px 32px rgba(28,20,16,0.1), 0 0 0 1px rgba(28,20,16,0.04), 0 8px 32px ${album.color}18`,
-        overflow: 'hidden',
-      }}>
-        {/* Progress bar */}
-        <div style={{ height: 3, background: T.bg2 }}>
-          <div style={{ height: '100%', width: `${progress * 100}%`, background: album.color, transition: 'width 1s linear', borderRadius: 99 }} />
-        </div>
-
-        {/* Error banner */}
-        {ytError && (
-          <div style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
-            <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', textDecoration: 'none', whiteSpace: 'nowrap', padding: '2px 8px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, flexShrink: 0 }}>
-              Open YT ↗
-            </a>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
-          {/* Tap to expand */}
-          <button onClick={onExpand} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', minWidth: 0, padding: 0 }}>
-            <OrbSphere color={album.color} accent={album.accent} size={40} glow={isPlaying} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: T.ink1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : T.ink3, marginTop: 1 }}>
-                {loading ? 'Loading…' : ytError ? 'Tap ⏭ to try next track' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
-              </div>
-            </div>
-          </button>
-
-          {/* Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-            <button onClick={onPrev} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${T.bg2}`, background: T.bg1, cursor: 'pointer', fontSize: 13, color: T.ink3, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏮</button>
-            <button onClick={onPlay} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer', background: loading ? T.bg2 : album.color, color: loading ? T.ink3 : 'white', fontSize: loading ? 10 : 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: loading ? 'none' : `0 4px 18px ${album.color}55`, transition: 'all 0.2s' }}>
-              {loading ? '···' : isPlaying ? '▐▐' : '▶'}
-            </button>
-            <button onClick={onNext} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${T.bg2}`, background: T.bg1, cursor: 'pointer', fontSize: 13, color: T.ink3, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏭</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Full Player ─────────────────────────────────────────────────────────────
-function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volume, shuffle, repeat,
-  ytError, onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse }:
-  { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    volume: number; shuffle: boolean; repeat: boolean; ytError: string | null;
-    onPlay(): void; onPrev(): void; onNext(): void; onSeek(p: number): void;
-    onVolume(v: number): void; onShuffle(): void; onRepeat(): void; onCollapse(): void }) {
-
-  const totalSec  = parseDuration(track.duration);
-  const remaining = Math.max(0, totalSec - elapsed);
-
-  function handleProgressClick(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    onSeek((e.clientX - rect.left) / rect.width);
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 150, display: 'flex', flexDirection: 'column', background: T.bg, overflowY: 'auto' }}>
-      {/* Ambient bloom */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
-        background: `radial-gradient(ellipse 80% 50% at 50% 20%, ${album.color}20 0%, transparent 65%)` }} />
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '120%', height: '35%', pointerEvents: 'none', zIndex: 0,
-        background: `radial-gradient(ellipse at 50% 100%, ${album.color}12 0%, transparent 70%)` }} />
-
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
-        {/* Header bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '52px 22px 16px' }}>
-          <button onClick={onCollapse} style={{ width: 40, height: 40, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer', background: T.bg1, color: T.ink2, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>
-            ↓
-          </button>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: album.color }}>Now Playing</div>
-            <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>{album.title}</div>
-          </div>
-          <div style={{ width: 40 }} />
-        </div>
-
-        {/* Orb */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0 24px 20px' }}>
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-            <div style={{
-              padding: 12, borderRadius: '50%',
-              background: `radial-gradient(circle, ${album.color}18, transparent 70%)`,
-              animation: 'lib-orb-pulse 4s ease-in-out infinite',
-            }}>
-              <OrbSphere color={album.color} accent={album.accent} size={220} glow pulse={isPlaying && !loading} />
-            </div>
-            {loading && (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: 13, color: T.ink3, fontWeight: 600, letterSpacing: '0.08em', background: 'rgba(250,247,242,0.85)', padding: '6px 14px', borderRadius: 20 }}>
-                Loading…
-              </div>
-            )}
-            <WaveVisualizer color={album.color} active={isPlaying && !loading} />
-          </div>
-        </div>
-
-        {/* Track info */}
-        <div style={{ padding: '0 28px 20px', textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em', marginBottom: 4 }}>{track.title}</div>
-          <div style={{ fontSize: 14, color: T.ink3 }}>{track.artist}</div>
-          {ytError && (
-            <div style={{ marginTop: 10, padding: '10px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
-              <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', textDecoration: 'none', padding: '4px 14px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10 }}>
-                Listen on YouTube ↗
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* Progress */}
-        <div style={{ padding: '0 28px 8px' }}>
-          <div onClick={handleProgressClick} style={{ height: 6, background: T.bg2, borderRadius: 99, cursor: 'pointer', position: 'relative', marginBottom: 10 }}>
-            <div style={{ height: '100%', width: `${progress * 100}%`, background: `linear-gradient(90deg, ${album.color}, ${album.color}BB)`, borderRadius: 99, transition: 'width 1s linear' }} />
-            <div style={{ position: 'absolute', top: '50%', left: `${progress * 100}%`, transform: 'translate(-50%, -50%)', width: 18, height: 18, borderRadius: '50%', background: album.color, boxShadow: `0 0 14px ${album.color}70`, border: `2px solid ${T.bg}`, transition: 'left 1s linear' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, color: T.ink4, fontFamily: "'JetBrains Mono', monospace" }}>{formatSecs(elapsed)}</span>
-            <span style={{ fontSize: 11, color: T.ink4, fontFamily: "'JetBrains Mono', monospace" }}>−{formatSecs(remaining)}</span>
-          </div>
-        </div>
-
-        {/* Main controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '16px 28px 18px' }}>
-          <button onClick={onShuffle} style={{ width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', background: shuffle ? T.amberLo : T.bg1, color: shuffle ? T.amber : T.ink3, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: shuffle ? `1.5px solid ${T.amber}50` : `1px solid ${T.bg2}`, transition: 'all 0.2s', boxShadow: T.shadow }}>
-            ⇄
-          </button>
-          <button onClick={onPrev} style={{ width: 56, height: 56, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer', background: T.bg1, color: T.ink2, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏮</button>
-          <button onClick={onPlay} style={{ width: 76, height: 76, borderRadius: '50%', border: 'none', cursor: 'pointer', background: loading ? T.bg2 : album.color, color: loading ? T.ink3 : 'white', fontSize: loading ? 12 : 24, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: loading ? T.shadow : `0 8px 32px ${album.color}60`, transition: 'all 0.3s' }}>
-            {loading ? '···' : isPlaying ? '▐▐' : '▶'}
-          </button>
-          <button onClick={onNext} style={{ width: 56, height: 56, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer', background: T.bg1, color: T.ink2, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow }}>⏭</button>
-          <button onClick={onRepeat} style={{ width: 44, height: 44, borderRadius: '50%', cursor: 'pointer', background: repeat ? T.amberLo : T.bg1, color: repeat ? T.amber : T.ink3, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: repeat ? `1.5px solid ${T.amber}50` : `1px solid ${T.bg2}`, transition: 'all 0.2s', boxShadow: T.shadow }}>
-            ↻
-          </button>
-        </div>
-
-        {/* Volume */}
-        <div style={{ padding: '0 32px 44px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.ink4} strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
-          <input type="range" min={0} max={100} value={volume} onChange={e => onVolume(Number(e.target.value))}
-            style={{ flex: 1, accentColor: album.color, height: 4, cursor: 'pointer' }} />
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.ink4} strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         </div>
       </div>
     </div>

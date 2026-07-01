@@ -146,7 +146,38 @@ function Toggle({ label, desc, value, onChange }: ToggleProps) {
   );
 }
 
+// A small bloom whose petal count grows with the metric it represents, so
+// the garden visibly fills in as journals/dreams/sessions/plays accumulate
+// instead of the number sitting there as a flat stat.
+function Bloom({ color, count }: { color: string; count: number }) {
+  const petals = Math.max(3, Math.min(8, count));
+  const size = 34;
+  const petalLen = 9 + Math.min(count, 12) * 0.4;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <g transform={`translate(${size / 2},${size / 2})`}>
+        {Array.from({ length: petals }).map((_, i) => (
+          <ellipse
+            key={i}
+            cx={0} cy={-petalLen / 2 - 3} rx={4} ry={petalLen / 2}
+            fill={color} opacity={0.85}
+            transform={`rotate(${(360 / petals) * i})`}
+          >
+            <animateTransform
+              attributeName="transform" type="rotate"
+              values={`${(360 / petals) * i} 0 0; ${(360 / petals) * i + 6} 0 0; ${(360 / petals) * i} 0 0`}
+              dur={`${3 + i * 0.2}s`} repeatCount="indefinite"
+            />
+          </ellipse>
+        ))}
+        <circle r={4.5} fill="#FFFFFF" opacity={0.9} />
+      </g>
+    </svg>
+  );
+}
+
 function MemoryNode({ label, value, color, note }: { label: string; value: string; color: string; note: string }) {
+  const count = parseInt(value, 10) || 0;
   return (
     <div style={{
       minWidth: 0,
@@ -157,7 +188,7 @@ function MemoryNode({ label, value, color, note }: { label: string; value: strin
       boxShadow: '0 6px 18px rgba(23,18,10,0.055)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-        <span style={{ width: 13, height: 13, borderRadius: '50%', background: color, boxShadow: `0 0 16px ${color}55`, flexShrink: 0 }} />
+        <Bloom color={color} count={count} />
         <span style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>{label}</span>
       </div>
       <div style={{ fontSize: 24, lineHeight: 1, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{value}</div>
@@ -309,8 +340,12 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-        {memoryNodes.map(node => <MemoryNode key={node.label} {...node} />)}
+      <section>
+        <SectionLabel>Your garden</SectionLabel>
+        <p style={{ margin: '4px 0 12px', fontSize: 11, color: 'var(--ink3)' }}>Each bloom grows a petal for every entry, dream, session, and track.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+          {memoryNodes.map(node => <MemoryNode key={node.label} {...node} />)}
+        </div>
       </section>
 
       <section style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, rgba(255,255,255,0.96), rgba(12,166,120,0.07))', border: '1px solid rgba(12,166,120,0.14)', boxShadow: 'var(--shadow)' }}>

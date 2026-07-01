@@ -2,8 +2,10 @@ import React, { useState, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SoundEngineProvider, useSoundEngine } from './context/SoundEngineContext';
+import { TrackPlayerProvider } from './context/TrackPlayerContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AntiGravityCanvas from './components/AntiGravityCanvas';
+import GlobalTrackPlayer from './components/GlobalTrackPlayer';
 import LandingPage from './pages/LandingPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
@@ -172,7 +174,7 @@ function Inner() {
   const pageProps: PageProps = tab === 'library'
     ? { onTabChange: handleTabChange }
     : tab === 'journal'
-      ? { onRequireAuth: openAuth }
+      ? { onRequireAuth: openAuth, onTabChange: handleTabChange }
       : {};
 
   return (
@@ -194,6 +196,7 @@ function Inner() {
         <BottomNav active={tab} onChange={handleTabChange} />
       </div>
 
+      <GlobalTrackPlayer />
       <MobileInstallPrompt />
       <AIFloatButton onClick={() => setShowAI(true)} />
 
@@ -215,7 +218,9 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <SoundEngineProvider>
-            <Inner />
+            <TrackPlayerProvider>
+              <Inner />
+            </TrackPlayerProvider>
           </SoundEngineProvider>
         </AuthProvider>
       </ToastProvider>

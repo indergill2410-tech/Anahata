@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect, ReactNode } from 'react';
 import { PhraseEngine } from '../utils/PhraseEngine';
+import { TRACK_PLAYER_START_EVENT, SOUND_ENGINE_START_EVENT } from './audioEvents';
 
 // ── Intention presets ────────────────────────────────────────────────────────
 export const INTENTIONS = {
@@ -533,6 +534,7 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     setElapsed(0);
     if (timerRef.current !== null) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    window.dispatchEvent(new CustomEvent(SOUND_ENGINE_START_EVENT));
   }, [masterVol, masterReverb, buildLayer]);
 
   // ── Stop ────────────────────────────────────────────────────────────────────
@@ -712,6 +714,14 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => () => stop(), []);
+
+  // Auto-duck: if a real library track starts, stop the generative engine
+  // so the two audio systems never fight for the speaker at once.
+  useEffect(() => {
+    const onTrackPlayerStart = () => { if (isPlaying) stop(); };
+    window.addEventListener(TRACK_PLAYER_START_EVENT, onTrackPlayerStart);
+    return () => window.removeEventListener(TRACK_PLAYER_START_EVENT, onTrackPlayerStart);
+  }, [isPlaying, stop]);
 
   // `elapsed` deliberately excluded: it ticks every second during playback
   // and lives in ElapsedContext instead (see useElapsed()), so this value
