@@ -50,4 +50,11 @@ function BiometricsDisplay({ biometrics, musicParams }: BiometricsDisplayProps) 
   );
 }
 
-export default React.memo(BiometricsDisplay);
+export default React.memo(BiometricsDisplay, (prev, next) =>
+  prev.biometrics?.heartRate === next.biometrics?.heartRate &&
+  prev.musicParams?.targetHeartRate === next.musicParams?.targetHeartRate &&
+  prev.musicParams?.musicalTempo === next.musicParams?.musicalTempo &&
+  prev.musicParams?.desiredBrainwaveState === next.musicParams?.desiredBrainwaveState &&
+  prev.musicParams?.binauralHz === next.musicParams?.binauralHz &&
+  prev.musicParams?.emotionalTone === next.musicParams?.emotionalTone
+);
