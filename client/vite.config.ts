@@ -30,6 +30,19 @@ export default defineConfig({
             urlPattern: /^\/api\/library/,
             handler: 'NetworkFirst',
             options: { cacheName: 'library-api', expiration: { maxAgeSeconds: 86400 } }
+          },
+          {
+            // Raga/track audio hosted on R2 — cache-first so replays are
+            // instant and recently-played tracks stay available offline.
+            urlPattern: /^https:\/\/pub-[a-z0-9]+\.r2\.dev\/.*\.mp3$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'track-audio',
+              cacheableResponse: { statuses: [0, 200, 206] },
+              matchOptions: { ignoreVary: true },
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              rangeRequests: true
+            }
           }
         ]
       }
