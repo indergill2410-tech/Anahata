@@ -710,7 +710,7 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => stop(), []);
 
-  const value = {
+  const value = React.useMemo(() => ({
     isPlaying, layers, settings, intention, elapsed, bpm, chaos, masterVol,
     brainwave, analyser: analyserRef.current,
     start, stop, togglePlay,
@@ -720,7 +720,14 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     setBpm, setChaos, setMasterVolume,
     adaptFromHeartRate,
     ragaName: phraseRef.current.getRagaName(),
-  };
+  }), [
+    isPlaying, layers, settings, intention, elapsed, bpm, chaos, masterVol,
+    brainwave, start, stop, togglePlay,
+    setLayerVolume, setLayerPan, toggleMute, toggleSolo,
+    setLayerEQ, setLayerReverb, setLayerActive,
+    updateLayerSetting, applyIntention, applyMix,
+    setBpm, setChaos, setMasterVolume, adaptFromHeartRate,
+  ]);
 
   return <SoundEngineContext.Provider value={value}>{children}</SoundEngineContext.Provider>;
 }

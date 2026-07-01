@@ -749,7 +749,7 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
             {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} entries yet.` : 'Create an account to keep a private journal history.'}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div className="stagger-list" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {filteredHistory.slice(0, 12).map(entry => {
               const meta = TAB_META[entry.entry_type];
               return (

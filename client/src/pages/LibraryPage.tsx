@@ -720,7 +720,7 @@ export default function LibraryPage() {
         </div>
 
         {/* Album grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '0 14px' }}>
+        <div className="stagger-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '0 14px' }}>
           {filteredAlbums.map(album => {
             const isActive = currentAlbum?.id === album.id && !!currentTrack;
             return (

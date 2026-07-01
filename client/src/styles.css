@@ -78,6 +78,18 @@ body{
   font-size:15px;line-height:1.6;min-height:100dvh;overflow-x:hidden;
 }
 
+/* ── Typography hierarchy ──────────────────────────────────
+   One scale, used everywhere instead of ad-hoc inline sizes.
+   Display/heading text rides Space Grotesk; running copy stays
+   on Plus Jakarta Sans; numeric readouts use JetBrains Mono. */
+.type-display{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;line-height:1.1;letter-spacing:-0.01em;color:var(--ink1);}
+.type-h1{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;line-height:1.2;letter-spacing:-0.005em;color:var(--ink1);}
+.type-h2{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;line-height:1.25;color:var(--ink1);}
+.type-body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:14px;font-weight:500;line-height:1.55;color:var(--ink2);}
+.type-caption{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:12px;font-weight:500;line-height:1.5;color:var(--ink3);}
+.type-label{font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink3);}
+.type-mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;}
+
 #antigravity-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.92;}
 
 .page{min-height:100dvh;display:flex;flex-direction:column;position:relative;z-index:1;}
@@ -99,6 +111,7 @@ body{
   border:1px solid var(--border);border-radius:var(--r);
   padding:16px;
   box-shadow:var(--shadow);
+  transition:transform 0.15s var(--spring),box-shadow 0.15s var(--ease);
 }
 
 button{font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
@@ -396,6 +409,31 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 
 .page-enter{animation:pageEnter 0.18s var(--ease) both;will-change:opacity,transform;}
 @keyframes pageEnter{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+
+/* Directional tab transitions — reinforces the left-to-right order of
+   the bottom nav instead of every tab fading in the same flat way. */
+.page-enter-fwd{animation:pageEnterFwd 0.26s var(--ease) both;will-change:opacity,transform;}
+.page-enter-back{animation:pageEnterBack 0.26s var(--ease) both;will-change:opacity,transform;}
+@keyframes pageEnterFwd{from{opacity:0;transform:translateX(14px);}to{opacity:1;transform:translateX(0);}}
+@keyframes pageEnterBack{from{opacity:0;transform:translateX(-14px);}to{opacity:1;transform:translateX(0);}}
+
+/* Card press feedback + staggered list entrance, opt-in via classes
+   so existing dense component-level card styles are untouched. */
+.card-tap{transition:transform 0.15s var(--spring),box-shadow 0.15s var(--ease);}
+.card-tap:active{transform:scale(0.97);}
+
+.stagger-list > *{animation:staggerIn 0.32s var(--ease) both;}
+.stagger-list > *:nth-child(1){animation-delay:0.02s;}
+.stagger-list > *:nth-child(2){animation-delay:0.06s;}
+.stagger-list > *:nth-child(3){animation-delay:0.10s;}
+.stagger-list > *:nth-child(4){animation-delay:0.14s;}
+.stagger-list > *:nth-child(5){animation-delay:0.18s;}
+.stagger-list > *:nth-child(n+6){animation-delay:0.20s;}
+@keyframes staggerIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+@media (prefers-reduced-motion: reduce){
+  .page-enter,.page-enter-fwd,.page-enter-back,.stagger-list > *,.card-tap{animation:none !important;transition:none !important;}
+}
 
 ::-webkit-scrollbar{width:3px;height:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
