@@ -59,14 +59,14 @@ export default function GlobalTrackPlayer() {
     <>
       <MiniPlayer
         track={p.currentTrack} album={p.currentAlbum} isPlaying={p.isPlaying} loading={p.loading}
-        progress={p.progress} elapsed={p.elapsed} ytError={p.ytError}
+        progress={p.progress} elapsed={p.elapsed}
         onPlay={p.togglePlay} onPrev={p.playPrev} onNext={p.playNext} onExpand={() => p.setIsExpanded(true)}
       />
       {p.isExpanded && (
         <FullPlayer
           track={p.currentTrack} album={p.currentAlbum} isPlaying={p.isPlaying} loading={p.loading}
           progress={p.progress} elapsed={p.elapsed} volume={p.volume} shuffle={p.shuffle} repeat={p.repeat}
-          ytError={p.ytError} sleepTimerMinutes={p.sleepTimerMinutes}
+          sleepTimerMinutes={p.sleepTimerMinutes}
           queue={p.queue} isFavorite={p.isFavorite(p.currentTrack.id)}
           onPlay={p.togglePlay} onPrev={p.playPrev} onNext={p.playNext} onSeek={p.handleSeek}
           onVolume={p.handleVolume} onShuffle={() => p.handleShuffle(p.currentAlbum!)}
@@ -81,9 +81,8 @@ export default function GlobalTrackPlayer() {
 }
 
 // ─── Mini Player ─────────────────────────────────────────────────────────────
-function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, onPlay, onPrev, onNext, onExpand }:
+function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPlay, onPrev, onNext, onExpand }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    ytError: string | null;
     onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
   const totalSec  = parseDuration(track.duration);
   const remaining = Math.max(0, totalSec - elapsed);
@@ -92,7 +91,7 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
     <div style={{ position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
       <div style={{
         background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)',
-        borderRadius: 22, border: `1.5px solid ${ytError ? '#EF4444' : album.color + '30'}`,
+        borderRadius: 22, border: `1.5px solid ${album.color}30`,
         boxShadow: `0 -2px 32px rgba(28,20,16,0.1), 0 0 0 1px rgba(28,20,16,0.04), 0 8px 32px ${album.color}18`,
         overflow: 'hidden',
       }}>
@@ -101,25 +100,14 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
           <div style={{ height: '100%', width: `${progress * 100}%`, background: album.color, transition: 'width 1s linear', borderRadius: 99 }} />
         </div>
 
-        {/* Error banner */}
-        {ytError && (
-          <div style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
-            <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', textDecoration: 'none', whiteSpace: 'nowrap', padding: '2px 8px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, flexShrink: 0 }}>
-              Open YT ↗
-            </a>
-          </div>
-        )}
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
           {/* Tap to expand */}
           <button onClick={onExpand} style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', minWidth: 0, padding: 0 }}>
             <OrbSphere color={album.color} accent={album.accent} size={40} glow={isPlaying} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.ink1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : T.ink3, marginTop: 1 }}>
-                {loading ? 'Loading…' : ytError ? 'Tap ⏭ to try next track' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
+              <div style={{ fontSize: 11, color: T.ink3, marginTop: 1 }}>
+                {loading ? 'Loading…' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
               </div>
             </div>
           </button>
@@ -140,11 +128,11 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
 
 // ─── Full Player ─────────────────────────────────────────────────────────────
 function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volume, shuffle, repeat,
-  ytError, sleepTimerMinutes, queue, isFavorite,
+  sleepTimerMinutes, queue, isFavorite,
   onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse, onSleepTimer,
   onToggleFavorite, onPlayFromQueue }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    volume: number; shuffle: boolean; repeat: boolean; ytError: string | null; sleepTimerMinutes: number | null;
+    volume: number; shuffle: boolean; repeat: boolean; sleepTimerMinutes: number | null;
     queue: Track[]; isFavorite: boolean;
     onPlay(): void; onPrev(): void; onNext(): void; onSeek(p: number): void;
     onVolume(v: number): void; onShuffle(): void; onRepeat(): void; onCollapse(): void;
@@ -269,15 +257,6 @@ function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volum
         <div style={{ padding: '0 28px 20px', textAlign: 'center' }}>
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em', marginBottom: 4 }}>{track.title}</div>
           <div style={{ fontSize: 14, color: T.ink3 }}>{track.artist}</div>
-          {ytError && (
-            <div style={{ marginTop: 10, padding: '10px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>⚠ {ytError}</span>
-              <a href={`https://www.youtube.com/watch?v=${track.ytId}`} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', textDecoration: 'none', padding: '4px 14px', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 10 }}>
-                Listen on YouTube ↗
-              </a>
-            </div>
-          )}
         </div>
 
         {/* Progress */}

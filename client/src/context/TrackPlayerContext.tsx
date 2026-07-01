@@ -140,6 +140,7 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
       if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
       if (sleepTimeoutRef.current) clearTimeout(sleepTimeoutRef.current);
       if (sleepFadeRef.current) clearInterval(sleepFadeRef.current);
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
       try { ytRef.current?.destroy(); } catch { /**/ }
       if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; }
       if (prefetchRef.current) { prefetchRef.current.src = ''; }
@@ -271,12 +272,14 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
     // Use native audio if track has audioUrl
     if (track.audioUrl) {
       isNativeAudioRef.current = true;
-      const audio = prefetchRef.current && prefetchRef.current.src === new URL(track.audioUrl, window.location.href).href
-        ? prefetchRef.current
-        : new Audio();
+      const isPrefetched = !!prefetchRef.current && prefetchRef.current.src === new URL(track.audioUrl, window.location.href).href;
+      const audio = isPrefetched ? prefetchRef.current! : new Audio();
       prefetchRef.current = null;
       audioRef.current = audio;
-      audio.src = track.audioUrl;
+      // Re-assigning .src to the same URL would abort the prefetch's
+      // buffered data and restart the network request — only set it when
+      // this isn't the already-primed prefetch element.
+      if (!isPrefetched) audio.src = track.audioUrl;
       audio.volume = 0;
       fadingOutRef.current = false;
 
@@ -323,6 +326,11 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
         if (!repeatRef.current && dur > 3 && remaining <= 1.2 && remaining > 0 && !fadingOutRef.current) {
           fadingOutRef.current = true;
           fadeVolume(audio, audio.volume, 0, Math.max(150, remaining * 1000));
+        } else if (fadingOutRef.current && remaining > 1.2) {
+          // User seeked back out of the fade-out window — restore volume
+          // so the track doesn't keep playing silently.
+          fadingOutRef.current = false;
+          fadeVolume(audio, audio.volume, volumeRef.current / 100, 300);
         }
       };
       audio.onerror = () => {
@@ -344,8 +352,10 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
         }
       };
       audio.play().then(() => {
+        if (activeIdRef.current !== track.id) return;
         prefetchNext(track);
       }).catch(() => {
+        if (activeIdRef.current !== track.id) return;
         cleanupAudio();
         setLoading(false);
         setYtError('Opening another playback path...');
@@ -399,6 +409,7 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
               e.target.playVideo();
             },
             onStateChange: (e: { data: number }) => {
+              if (activeIdRef.current !== track.id) return;
               const S = window.YT?.PlayerState;
               if (!S) return;
               if (e.data === S.PLAYING)   { setIsPlaying(true);  setLoading(false); setYtError(null); if (!timerRef.current) startTimer(); }
@@ -411,6 +422,7 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
               }
             },
             onError: (e: { data: number }) => {
+              if (activeIdRef.current !== track.id) return;
               setLoading(false); setIsPlaying(false);
               const code = e.data;
               const msg =
@@ -521,9 +533,22 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Sleep timer: fades volume out over the last 20s, then pauses ──────────
+  // Sets the volume of whichever engine is actually playing without
+  // touching the `volume` React state — the sleep-timer fade ticks once a
+  // second and shouldn't re-render the whole player or overwrite the
+  // user's chosen volume setting.
+  function setEngineVolume(v: number) {
+    if (isNativeAudioRef.current && audioRef.current) audioRef.current.volume = Math.max(0, v) / 100;
+    else ytRef.current?.setVolume(Math.max(0, v));
+  }
+
   function setSleepTimer(minutes: number | null) {
     if (sleepTimeoutRef.current) { clearTimeout(sleepTimeoutRef.current); sleepTimeoutRef.current = null; }
-    if (sleepFadeRef.current) { clearInterval(sleepFadeRef.current); sleepFadeRef.current = null; }
+    if (sleepFadeRef.current) {
+      clearInterval(sleepFadeRef.current);
+      sleepFadeRef.current = null;
+      setEngineVolume(volumeRef.current); // cancelled mid-fade — restore
+    }
     setSleepTimerMinutes(minutes);
     if (minutes == null) return;
 
@@ -534,13 +559,13 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
       let i = 0;
       sleepFadeRef.current = setInterval(() => {
         i += 1;
-        const v = Math.round(startVol * (1 - i / steps));
-        handleVolume(Math.max(0, v));
+        setEngineVolume(Math.round(startVol * (1 - i / steps)));
         if (i >= steps) {
           if (sleepFadeRef.current) clearInterval(sleepFadeRef.current);
+          sleepFadeRef.current = null;
           if (isNativeAudioRef.current && audioRef.current) audioRef.current.pause();
           else ytRef.current?.pauseVideo();
-          handleVolume(startVol);
+          setEngineVolume(startVol);
           setSleepTimerMinutes(null);
         }
       }, 1000);
