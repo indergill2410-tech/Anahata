@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ALBUMS, CATEGORIES, TOTAL_TRACKS, getAlbumsByCategory, Album } from '../data/libraryData';
 import { useTrackPlayer } from '../context/TrackPlayerContext';
+import RagaExplorer from '../components/RagaExplorer';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -115,6 +116,7 @@ function SatelliteOrb({ album, index, ringSize, radius, duration, direction, isA
 export default function LibraryPage() {
   const [category,  setCategory]  = useState('All');
   const [openAlbum, setOpenAlbum] = useState<Album | null>(null);
+  const [showExplorer, setShowExplorer] = useState(false);
 
   const {
     currentTrack, currentAlbum, isPlaying, isExpanded, progress, elapsed,
@@ -126,6 +128,16 @@ export default function LibraryPage() {
   const innerRing = ALBUMS.slice(0, 6);
   const outerRing = ALBUMS.slice(6, 12);
 
+  // ─── EXPLORER ──────────────────────────────────────────────────────────────
+  if (showExplorer) {
+    return (
+      <RagaExplorer
+        albums={ALBUMS}
+        onOpenAlbum={album => { setShowExplorer(false); setOpenAlbum(album); }}
+        onClose={() => setShowExplorer(false)}
+      />
+    );
+  }
 
   // ─── ALBUM DETAIL ──────────────────────────────────────────────────────────
   if (openAlbum) {
@@ -268,11 +280,19 @@ export default function LibraryPage() {
             <h1 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 800, color: T.ink1, letterSpacing: '-0.02em' }}>Library</h1>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink3 }}>{TOTAL_TRACKS} tracks · {ALBUMS.length} albums</p>
           </div>
-          {currentTrack && (
-            <div style={{ fontSize: 10, fontWeight: 700, color: T.amber, letterSpacing: '0.1em', textTransform: 'uppercase', animation: 'lib-orb-pulse 2s ease-in-out infinite' }}>
-              ♫ Now Playing
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {currentTrack && (
+              <div style={{ fontSize: 10, fontWeight: 700, color: T.amber, letterSpacing: '0.1em', textTransform: 'uppercase', animation: 'lib-orb-pulse 2s ease-in-out infinite' }}>
+                ♫ Now Playing
+              </div>
+            )}
+            <button onClick={() => setShowExplorer(true)} title="Explore collections" style={{
+              width: 38, height: 38, borderRadius: '50%', border: `1px solid ${T.bg2}`, cursor: 'pointer',
+              background: T.bg1, color: T.ink2, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.shadow,
+            }}>
+              ✦
+            </button>
+          </div>
         </div>
 
         {/* ── Sacred Mandala ── */}

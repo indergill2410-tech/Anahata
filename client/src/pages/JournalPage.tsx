@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
 import { createJournalApi, JournalEntryPayload, JournalEntryType } from '../services/journalApi';
 import {
   cleanJournalTags,
@@ -18,6 +19,17 @@ type JournalTab = JournalEntryType;
 
 type JournalPageProps = {
   onRequireAuth?: () => void;
+  onTabChange?: (tab: 'journey') => void;
+};
+
+// A mood check-in naturally maps onto one of the SoundEngine's intentions,
+// so saving how you feel can lead straight into a session tuned for it.
+const MOOD_INTENTION: Record<number, keyof typeof INTENTIONS> = {
+  1: 'heal',
+  2: 'meditate',
+  3: 'focus',
+  4: 'energize',
+  5: 'meditate',
 };
 
 const PENDING_KEY = 'anahata_pending_journal';
@@ -241,9 +253,11 @@ function DateChip({ date, selected, hasEntry, color, onClick }: { date: string; 
   );
 }
 
-export default function JournalPage({ onRequireAuth }: JournalPageProps) {
+export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageProps) {
   const { isAuthenticated, authFetch } = useAuth();
   const { success, error, info } = useToast();
+  const engine = useSoundEngine();
+  const [moodSuggestion, setMoodSuggestion] = useState<{ key: keyof typeof INTENTIONS; mood: number } | null>(null);
   const initialPending = useMemo(() => readPendingDraft(), []);
   const skipHydrateRef = useRef(Boolean(initialPending));
   const api = useMemo(() => createJournalApi(authFetch), [authFetch]);
@@ -393,6 +407,9 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
       refreshLocal();
       localStorage.removeItem(PENDING_KEY);
       success('Journal saved to your private space');
+      if (activeTab === 'checkin' && payload.mood) {
+        setMoodSuggestion({ key: MOOD_INTENTION[payload.mood], mood: payload.mood });
+      }
     } catch (err) {
       error((err as Error).message || 'Your journal needs another try before it saves.');
     } finally {
@@ -728,6 +745,40 @@ export default function JournalPage({ onRequireAuth }: JournalPageProps) {
           </div>
         </div>
       </section>
+
+      {moodSuggestion && (() => {
+        const intention = INTENTIONS[moodSuggestion.key];
+        const moodMeta = MOODS.find(m => m.value === moodSuggestion.mood);
+        return (
+          <section className="fade-in" style={{
+            borderRadius: 24, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14,
+            background: `linear-gradient(135deg, ${tone(moodMeta?.color || '#7048E8', '14')}, ${tone('#3B5BDB', '10')})`,
+            border: `1px solid ${tone(moodMeta?.color || '#7048E8', '30')}`,
+          }}>
+            <div style={{ fontSize: 28, flexShrink: 0 }}>{intention.emoji}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink1)' }}>
+                Feeling {moodMeta?.label.toLowerCase()}? Try a {intention.label} session
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Tuned music picks up where your check-in left off.</div>
+            </div>
+            <button
+              onClick={() => {
+                engine.applyIntention(moodSuggestion.key);
+                if (!engine.isPlaying) engine.start();
+                setMoodSuggestion(null);
+                onTabChange?.('journey');
+              }}
+              className="btn-primary" style={{ flexShrink: 0, padding: '9px 16px', fontSize: 12 }}
+            >
+              Start
+            </button>
+            <button onClick={() => setMoodSuggestion(null)} aria-label="Dismiss" style={{
+              background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink4)', fontSize: 14, flexShrink: 0, padding: 4,
+            }}>✕</button>
+          </section>
+        );
+      })()}
 
       <section style={{ borderRadius: 30, padding: 18, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>

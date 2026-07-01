@@ -174,7 +174,7 @@ function Inner() {
   const pageProps: PageProps = tab === 'library'
     ? { onTabChange: handleTabChange }
     : tab === 'journal'
-      ? { onRequireAuth: openAuth }
+      ? { onRequireAuth: openAuth, onTabChange: handleTabChange }
       : {};
 
   return (
