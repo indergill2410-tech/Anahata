@@ -109,6 +109,24 @@ async function assertOwnEntry(id, userId) {
   return entry.user_id === userId ? entry : null;
 }
 
+async function listUserEntries(userId) {
+  const entries = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const result = await pb.collection(COLLECTION).getList(page, 100, {
+      filter: eq('user_id', userId),
+      sort: '-entry_date,-created',
+    });
+    entries.push(...(result.items || []));
+    totalPages = result.totalPages || page;
+    page += 1;
+  } while (page <= totalPages);
+
+  return entries;
+}
+
 // GET /api/journal?type=checkin&from=2026-01-01&to=2026-01-31&page=1&limit=50
 router.get('/', async (req, res, next) => {
   try {
@@ -190,6 +208,32 @@ router.post('/import', async (req, res, next) => {
     }
 
     res.status(201).json({ imported, skipped, count: imported.length });
+  } catch (err) { next(err); }
+});
+
+// GET /api/journal/export - download a private copy of the authenticated user's journal
+router.get('/export', async (req, res, next) => {
+  try {
+    if (!requireDb(res)) return;
+
+    const entries = await listUserEntries(req.user.userId);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      exported_at: new Date().toISOString(),
+      count: entries.length,
+      entries,
+    });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/journal - clear the authenticated user's journal entries
+router.delete('/', async (req, res, next) => {
+  try {
+    if (!requireDb(res)) return;
+
+    const entries = await listUserEntries(req.user.userId);
+    await Promise.all(entries.map(entry => pb.collection(COLLECTION).delete(entry.id)));
+    res.json({ deleted: entries.length });
   } catch (err) { next(err); }
 });
 
