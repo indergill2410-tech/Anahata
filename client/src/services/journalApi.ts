@@ -83,5 +83,17 @@ export function createJournalApi(authFetch: AuthFetch) {
         })
       );
     },
+
+    async exportEntries() {
+      return readJson<{ exported_at: string; count: number; entries: JournalEntry[] }>(
+        await authFetch('/api/journal/export')
+      );
+    },
+
+    async deleteAll() {
+      return readJson<{ deleted: number }>(
+        await authFetch('/api/journal', { method: 'DELETE' })
+      );
+    },
   };
 }
