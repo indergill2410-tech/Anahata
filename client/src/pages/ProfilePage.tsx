@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useUserDashboard } from '../hooks/useUserDashboard';
 import InstallAppControl from '../components/InstallAppControl';
+import { createJournalApi } from '../services/journalApi';
+import { clearLocalJournalEntries } from '../services/journalMemory';
 
 type PrefKey = 'binaural' | 'reminders' | 'haptics' | 'autoSession';
 
@@ -213,10 +215,12 @@ function RhythmRow({ color, label, meta, body }: { color: string; label: string;
 }
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
-  const { success } = useToast();
+  const { user, logout, authFetch } = useAuth();
+  const { success, error, info } = useToast();
   const dashboard = useUserDashboard();
+  const journalApi = useMemo(() => createJournalApi(authFetch), [authFetch]);
   const summary = dashboard.journal.summary;
+  const [privacyBusy, setPrivacyBusy] = useState<'export' | 'delete' | null>(null);
   const [prefs, setPrefs] = useState<Record<PrefKey, boolean>>({
     binaural: readPref('binaural', true),
     reminders: readPref('reminders', false),
@@ -228,6 +232,48 @@ export default function ProfilePage() {
     setPrefs(p => ({ ...p, [key]: val }));
     localStorage.setItem(`pref_${key}`, JSON.stringify(val));
     success('Saved');
+  }
+
+  async function handleExportJournal() {
+    setPrivacyBusy('export');
+    try {
+      const data = await journalApi.exportEntries();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `anahata-journal-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      success(data.count ? 'Your journal copy is ready.' : 'Your journal is still waiting for its first entry.');
+    } catch (err) {
+      error((err as Error).message || 'Your journal copy needs another try.');
+    } finally {
+      setPrivacyBusy(null);
+    }
+  }
+
+  async function handleClearJournal() {
+    const ok = window.confirm('This clears your private journal entries from this account and this device. This cannot be undone. Continue?');
+    if (!ok) {
+      info('Nothing changed.');
+      return;
+    }
+
+    setPrivacyBusy('delete');
+    try {
+      const result = await journalApi.deleteAll();
+      clearLocalJournalEntries();
+      localStorage.removeItem('anahata_pending_journal');
+      await dashboard.refresh();
+      success(result.deleted ? 'Your private journal has been cleared.' : 'There was no journal writing to clear.');
+    } catch (err) {
+      error((err as Error).message || 'Your journal needs another try before it can be cleared.');
+    } finally {
+      setPrivacyBusy(null);
+    }
   }
 
   const initials = (user?.name?.[0] || user?.email?.[0] || '?').toUpperCase();
@@ -426,6 +472,57 @@ export default function ProfilePage() {
           <Toggle label="Daily reminders" desc="A small nudge to return" value={prefs.reminders} onChange={v => setPref('reminders', v)} />
           <Toggle label="Gentle vibration" desc="Soft cues for important moments" value={prefs.haptics} onChange={v => setPref('haptics', v)} />
           <Toggle label="Begin with watch" desc="Start when your watch connects" value={prefs.autoSession} onChange={v => setPref('autoSession', v)} />
+        </div>
+      </section>
+
+      <section style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, #FFFFFF, rgba(112,72,232,0.07))', border: '1px solid rgba(112,72,232,0.16)', boxShadow: 'var(--shadow)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+          <div style={{ minWidth: 0 }}>
+            <SectionLabel color="#7048E8">Private memory</SectionLabel>
+            <p style={{ margin: '7px 0 0', color: 'var(--ink3)', fontSize: 12, lineHeight: 1.65 }}>
+              Your journal belongs to you. Download a copy whenever you need it, or clear it from this account when a clean page feels right.
+            </p>
+          </div>
+          <div style={{ borderRadius: 18, padding: '10px 12px', minWidth: 72, textAlign: 'center', background: 'rgba(112,72,232,0.1)', border: '1px solid rgba(112,72,232,0.18)', color: '#7048E8' }}>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, lineHeight: 1, fontWeight: 900 }}>{summary.totalEntries}</div>
+            <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>Entries</div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginTop: 15 }}>
+          <button
+            type="button"
+            onClick={handleExportJournal}
+            disabled={Boolean(privacyBusy)}
+            style={{
+              minHeight: 48,
+              borderRadius: 17,
+              border: '1px solid rgba(112,72,232,0.22)',
+              background: '#FFFFFF',
+              color: '#7048E8',
+              fontSize: 12,
+              fontWeight: 900,
+              fontFamily: "'Space Grotesk', sans-serif",
+            }}
+          >
+            {privacyBusy === 'export' ? 'Preparing' : 'Download copy'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClearJournal}
+            disabled={Boolean(privacyBusy)}
+            style={{
+              minHeight: 48,
+              borderRadius: 17,
+              border: '1px solid rgba(217,72,15,0.22)',
+              background: 'rgba(217,72,15,0.06)',
+              color: '#D9480F',
+              fontSize: 12,
+              fontWeight: 900,
+              fontFamily: "'Space Grotesk', sans-serif",
+            }}
+          >
+            {privacyBusy === 'delete' ? 'Clearing' : 'Clear journal'}
+          </button>
         </div>
       </section>
 
