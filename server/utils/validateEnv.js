@@ -8,6 +8,8 @@ const REQUIRED = [
   'POCKETBASE_URL',
 ];
 
+const { isUnsafeJwtSecret } = require('./jwtSecret');
+
 const RECOMMENDED = [
   'SENTRY_DSN',
 ];
@@ -29,11 +31,8 @@ function validateEnv() {
     missingRecommended.forEach(k => console.warn(`  • ${k}`));
   }
 
-  if (
-    process.env.NODE_ENV === 'production' &&
-    process.env.JWT_SECRET?.includes('change-me')
-  ) {
-    console.error('[Anahata] ❌ FATAL: JWT_SECRET is still the default dev value. Set a real secret.');
+  if (process.env.NODE_ENV === 'production' && isUnsafeJwtSecret(process.env.JWT_SECRET)) {
+    console.error('[Anahata] ❌ FATAL: JWT_SECRET must be a strong production secret.');
     process.exit(1);
   }
 
