@@ -216,6 +216,13 @@ export function mirrorJournalEntriesToLocal(entries: Array<JournalEntry | Journa
   entries.forEach(mirrorJournalEntryToLocal);
 }
 
+export function clearLocalJournalEntries() {
+  if (!canUseStorage()) return;
+  localStorage.removeItem(CHECKIN_KEY);
+  localStorage.removeItem(DAILY_KEY);
+  localStorage.removeItem(DREAM_KEY);
+}
+
 export function memoryEntryToPayload(entry: JournalMemoryEntry): JournalEntryPayload {
   return {
     entry_type: entry.entry_type,
