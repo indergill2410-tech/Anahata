@@ -60,8 +60,8 @@ export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
           className="topbar-logo"
           style={{
             fontFamily: isHome ? undefined : "'Space Grotesk', sans-serif",
-            fontSize: isHome ? undefined : 16,
-            fontWeight: isHome ? undefined : 800,
+            fontSize: isHome ? undefined : 17,
+            fontWeight: isHome ? undefined : 900,
             letterSpacing: isHome ? undefined : '0',
             color: isHome ? undefined : 'var(--ink1)',
             textTransform: isHome ? undefined : 'none',
@@ -92,20 +92,21 @@ export default function TopBar({ tab, onSignIn, onBack }: TopBarProps) {
         <button
           onClick={onSignIn}
           style={{
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: '0.08em',
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: '0',
             color: 'var(--violet)',
-            background: 'rgba(112,72,232,0.08)',
-            border: '1px solid rgba(112,72,232,0.2)',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(112,72,232,0.08))',
+            border: '1px solid rgba(112,72,232,0.18)',
             borderRadius: 20,
-            padding: '6px 16px',
+            padding: '8px 15px',
             cursor: 'pointer',
-            fontFamily: 'inherit',
+            fontFamily: "'Space Grotesk', sans-serif",
+            boxShadow: '0 8px 18px rgba(112,72,232,0.12)',
             transition: 'all 0.18s ease',
           }}
         >
-          SIGN IN
+          Sign in
         </button>
       )}
     </div>
