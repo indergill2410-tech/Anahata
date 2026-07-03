@@ -25,6 +25,12 @@ type PageProps = Record<string, unknown>;
 
 const TAB_ORDER: Tab[] = ['journey', 'library', 'studio', 'journal', 'profile'];
 
+function readRequestedTab(): Tab | null {
+  if (typeof window === 'undefined') return null;
+  const requested = new URLSearchParams(window.location.search).get('tab');
+  return TAB_ORDER.includes(requested as Tab) ? requested as Tab : null;
+}
+
 function PageFallback() {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', flex:1, padding:'80px 24px' }}>
@@ -73,9 +79,10 @@ function Inner() {
   const { isAuthenticated, loading } = useAuth();
   const engine = useSoundEngine();
   const contentRef = React.useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<Tab>('journey');
+  const requestedTab = React.useMemo(readRequestedTab, []);
+  const [tab, setTab] = useState<Tab>(requestedTab || 'journey');
   const [prevTab, setPrevTab] = useState<Tab>('journey');
-  const [seenLanding, setSeenLanding] = useState(false);
+  const [seenLanding, setSeenLanding] = useState(Boolean(requestedTab));
   const [onboarded, setOnboarded] = useState(!!localStorage.getItem('anahata_onboarded'));
   const [showAuth, setShowAuth] = useState(false);
   const [showAI, setShowAI] = useState(false);
