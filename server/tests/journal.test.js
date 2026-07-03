@@ -123,4 +123,63 @@ describe('journal routes', () => {
     expect(res.body.error).toMatch(/entry_type/);
     expect(mockCollection.create).not.toHaveBeenCalled();
   });
+
+  test('exports only the authenticated user journal entries', async () => {
+    mockCollection.getList.mockResolvedValue({
+      page: 1,
+      perPage: 100,
+      totalItems: 2,
+      totalPages: 1,
+      items: [
+        { id: 'entry_1', user_id: 'user_123', entry_type: 'checkin' },
+        { id: 'entry_2', user_id: 'user_123', entry_type: 'dream' },
+      ],
+    });
+
+    const res = await request(buildApp())
+      .get('/api/journal/export')
+      .expect(200);
+
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.body.count).toBe(2);
+    expect(res.body.entries).toHaveLength(2);
+    expect(mockCollection.getList.mock.calls[0][2].filter).toBe('user_id = "user_123"');
+  });
+
+  test('clears only the authenticated user journal entries', async () => {
+    mockCollection.getList.mockResolvedValue({
+      page: 1,
+      perPage: 100,
+      totalItems: 2,
+      totalPages: 1,
+      items: [
+        { id: 'entry_1', user_id: 'user_123' },
+        { id: 'entry_2', user_id: 'user_123' },
+      ],
+    });
+    mockCollection.delete.mockResolvedValue({});
+
+    const res = await request(buildApp())
+      .delete('/api/journal')
+      .expect(200);
+
+    expect(res.body.deleted).toBe(2);
+    expect(mockCollection.getList.mock.calls[0][2].filter).toBe('user_id = "user_123"');
+    expect(mockCollection.delete).toHaveBeenCalledWith('entry_1');
+    expect(mockCollection.delete).toHaveBeenCalledWith('entry_2');
+  });
+
+  test('does not return or delete an entry owned by another user', async () => {
+    mockCollection.getOne.mockResolvedValue({ id: 'entry_other', user_id: 'someone_else' });
+
+    await request(buildApp())
+      .get('/api/journal/entry_other')
+      .expect(404);
+
+    await request(buildApp())
+      .delete('/api/journal/entry_other')
+      .expect(404);
+
+    expect(mockCollection.delete).not.toHaveBeenCalled();
+  });
 });
