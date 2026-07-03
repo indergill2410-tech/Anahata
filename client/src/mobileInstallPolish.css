@@ -1,0 +1,290 @@
+/* Premium mobile install and app shell polish */
+:root {
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Fraunces', 'Space Grotesk', Georgia, serif;
+  --font-label: 'Space Grotesk', system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+}
+
+.type-display,
+.type-h1,
+.type-h2 {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.topbar {
+  min-height: 66px !important;
+  padding-top: max(env(safe-area-inset-top, 0px), 12px) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,247,240,0.88)) !important;
+  border-bottom: 1px solid rgba(23,18,10,0.075) !important;
+  box-shadow: 0 12px 34px rgba(23,18,10,0.075) !important;
+}
+
+.topbar-logo {
+  font-family: var(--font-label);
+  font-weight: 900 !important;
+  color: var(--ink1) !important;
+}
+
+.fnav-pill {
+  background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(251,248,242,0.86));
+  border-color: rgba(23,18,10,0.09);
+  box-shadow: 0 18px 50px rgba(23,18,10,0.14), 0 1px 0 rgba(255,255,255,0.9) inset;
+}
+
+.fnav-indicator {
+  height: 36px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 28% 18%, rgba(255,255,255,0.9), rgba(112,72,232,0.16) 42%, rgba(59,91,219,0.12));
+  border-color: rgba(112,72,232,0.22);
+  box-shadow: 0 10px 22px rgba(112,72,232,0.16);
+}
+
+.fnav-label {
+  font-family: var(--font-label);
+  font-weight: 900;
+}
+
+.fnav-btn.active .fnav-icon svg {
+  filter: drop-shadow(0 0 7px rgba(112,72,232,0.42));
+}
+
+.install-control-premium {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 28px;
+  background: radial-gradient(circle at 8% 0%, rgba(255,255,255,0.95), transparent 36%), radial-gradient(circle at 92% 16%, rgba(112,72,232,0.16), transparent 34%), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(244,239,230,0.9));
+  border: 1px solid rgba(23,18,10,0.08);
+  box-shadow: 0 16px 44px rgba(23,18,10,0.09), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.install-control-premium::before {
+  width: 190px;
+  height: 190px;
+  inset: auto -76px -82px auto;
+  background: radial-gradient(circle at 35% 28%, rgba(255,255,255,0.9), rgba(59,91,219,0.18), transparent 68%);
+}
+
+.install-control-head {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.install-kicker {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: var(--violet);
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.install-control-copy h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.install-control-copy p {
+  max-width: 29rem;
+}
+
+.install-status {
+  position: relative;
+  z-index: 1;
+  align-self: start;
+  border-radius: 999px;
+  padding: 7px 9px;
+  background: rgba(12,166,120,0.1);
+  border: 1px solid rgba(12,166,120,0.18);
+  color: #0CA678;
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.install-steps {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 0;
+}
+
+.install-steps .install-step {
+  min-width: 0;
+  border-radius: 16px;
+  padding: 8px;
+  background: rgba(255,255,255,0.76);
+  border: 1px solid rgba(23,18,10,0.07);
+  color: var(--ink2);
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.install-steps .install-step span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 35% 25%, #FFFFFF, var(--violet) 72%);
+  color: #FFFFFF;
+  font-size: 9px;
+}
+
+.install-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.install-copy-action {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(23,18,10,0.1);
+  background: rgba(255,255,255,0.74);
+  color: var(--ink2);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.install-note,
+.install-complete {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: rgba(245,159,0,0.09);
+  border: 1px solid rgba(245,159,0,0.18);
+  color: #8A5A00;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.install-complete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(12,166,120,0.09);
+  border-color: rgba(12,166,120,0.18);
+  color: #087F5B;
+}
+
+.install-complete span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0CA678;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.mobile-install-card {
+  max-width: 440px;
+  margin: 0 auto;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 26px;
+  background: radial-gradient(circle at 0% 0%, rgba(255,255,255,0.94), transparent 38%), linear-gradient(135deg, rgba(255,255,255,0.96), rgba(247,244,238,0.9));
+}
+
+.mobile-install-copy {
+  gap: 4px;
+}
+
+.mobile-install-copy strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.mobile-install-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.mobile-install-steps span {
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(112,72,232,0.08);
+  color: var(--violet);
+  font-family: var(--font-label);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .dashboard {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .install-control-premium {
+    padding: 14px;
+  }
+
+  .install-control-head {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .install-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .install-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .install-control-action,
+  .install-copy-action {
+    flex: 1 1 132px;
+  }
+}
+
+@media (max-width: 380px) {
+  .install-control-copy h3 {
+    font-size: 18px;
+  }
+
+  .mobile-install-card {
+    gap: 8px;
+  }
+
+  .mobile-install-steps span:nth-child(3) {
+    display: none;
+  }
+}
