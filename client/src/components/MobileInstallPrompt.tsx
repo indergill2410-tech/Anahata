@@ -7,6 +7,7 @@ export default function MobileInstallPrompt() {
   const installApp = useInstallApp();
   const [ready, setReady] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(() => localStorage.getItem(DISMISS_KEY) === '1');
+  const needsSafari = installApp.isIOS && !installApp.isSafari;
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setReady(true), 1400);
@@ -30,6 +31,27 @@ export default function MobileInstallPrompt() {
 
   if (!ready || dismissed || installApp.isStandalone || !installApp.isMobile) return null;
 
+  const title = installApp.canInstall
+    ? 'Install Anahata'
+    : needsSafari
+      ? 'Open in Safari'
+      : installApp.isIOS
+        ? 'Add Anahata to Home Screen'
+        : 'Keep Anahata close';
+  const copy = installApp.canInstall
+    ? 'Create a calm full-screen app space on this phone.'
+    : needsSafari
+      ? 'Copy this link, open Safari, then add it to your Home Screen.'
+      : installApp.isIOS
+        ? 'Tap Share, then Add to Home Screen.'
+        : 'Use your phone browser to add it to your Home Screen.';
+  const actionLabel = installApp.canInstall
+    ? 'Install'
+    : installApp.canShare
+      ? installApp.isIOS && installApp.isSafari ? 'Share' : 'Send'
+      : installApp.copied ? 'Copied' : 'Copy';
+  const steps = installApp.isIOS ? ['Safari', 'Share', 'Add'] : installApp.canInstall ? ['Install', 'Open', 'Practice'] : ['Copy', 'Open', 'Add'];
+
   return (
     <section className="mobile-install-card" aria-label="Install Anahata">
       <div className="mobile-install-orb" aria-hidden="true">
@@ -39,17 +61,14 @@ export default function MobileInstallPrompt() {
         </svg>
       </div>
       <div className="mobile-install-copy">
-        <strong>Keep Anahata on this phone</strong>
-        <span>
-          {installApp.isIOS
-            ? 'Open in Safari, tap Share, then Add to Home Screen.'
-            : installApp.canInstall
-              ? 'Install from this calm space.'
-              : 'Add it from your browser menu.'}
-        </span>
+        <strong>{title}</strong>
+        <span>{copy}</span>
+        <div className="mobile-install-steps" aria-label="Install steps">
+          {steps.map(step => <span key={step}>{step}</span>)}
+        </div>
       </div>
       <button className="mobile-install-action" onClick={install}>
-        {installApp.canInstall ? 'Install' : installApp.canShare ? 'Share' : installApp.copied ? 'Copied' : 'Copy link'}
+        {actionLabel}
       </button>
       <button className="mobile-install-close" onClick={dismiss} aria-label="Dismiss install prompt">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
