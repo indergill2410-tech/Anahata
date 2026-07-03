@@ -11,16 +11,24 @@ export default defineConfig({
       manifest: {
         name: 'Anahata',
         short_name: 'Anahata',
+        id: '/',
         description: 'Personal breath, music, journaling, and body-signal guidance.',
         theme_color: '#F7F4EE',
         background_color: '#F7F4EE',
         display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
+        categories: ['health', 'lifestyle', 'music'],
         icons: [
+          { src: '/icons/icon-32.png', sizes: '32x32', type: 'image/png' },
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+        ],
+        shortcuts: [
+          { name: 'Open journal', short_name: 'Journal', url: '/?tab=journal', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+          { name: 'Start practice', short_name: 'Practice', url: '/?tab=journey', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] }
         ]
       },
       workbox: {
