@@ -253,6 +253,173 @@ function DateChip({ date, selected, hasEntry, color, onClick }: { date: string; 
   );
 }
 
+function monthKey(dateKey: string) {
+  return /^\d{4}-\d{2}/.test(dateKey) ? dateKey.slice(0, 7) : todayKey().slice(0, 7);
+}
+
+function dateKeyFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function shiftMonth(key: string, amount: number) {
+  const [year, month] = key.split('-').map(Number);
+  const date = new Date(year, (month || 1) - 1 + amount, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonth(key: string) {
+  const [year, month] = key.split('-').map(Number);
+  return new Date(year, (month || 1) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function buildCalendarDays(key: string) {
+  const [year, month] = key.split('-').map(Number);
+  const first = new Date(year, (month || 1) - 1, 1);
+  const start = new Date(first);
+  start.setDate(1 - first.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    const date = dateKeyFromDate(day);
+    return { date, inMonth: monthKey(date) === key, day: day.getDate() };
+  });
+}
+
+function CalendarMonth({
+  month,
+  selectedDate,
+  entries,
+  activeTab,
+  onMonthChange,
+  onSelectDate,
+  onSelectEntryType,
+}: {
+  month: string;
+  selectedDate: string;
+  entries: JournalMemoryEntry[];
+  activeTab: JournalTab;
+  onMonthChange: (next: string) => void;
+  onSelectDate: (date: string) => void;
+  onSelectEntryType: (tab: JournalTab) => void;
+}) {
+  const selectedEntries = entries.filter(entry => entry.entry_date === selectedDate);
+  const activeColor = TAB_META[activeTab].color;
+  const days = buildCalendarDays(month);
+
+  return (
+    <section style={{
+      borderRadius: 28,
+      padding: 16,
+      background: 'linear-gradient(145deg, #FFFFFF, rgba(112,72,232,0.055))',
+      border: '1px solid rgba(112,72,232,0.13)',
+      boxShadow: 'var(--shadow)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 13,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+          <SectionLabel color="#7048E8">Practice calendar</SectionLabel>
+          <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>Every saved day becomes part of your rhythm.</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          <button aria-label="Previous month" onClick={() => onMonthChange(shiftMonth(month, -1))} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(23,18,10,0.08)', background: '#FFFFFF', color: 'var(--ink2)', display: 'grid', placeItems: 'center' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+          </button>
+          <button aria-label="Next month" onClick={() => onMonthChange(shiftMonth(month, 1))} style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid rgba(23,18,10,0.08)', background: '#FFFFFF', color: 'var(--ink2)', display: 'grid', placeItems: 'center' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <h2 style={{ margin: 0, fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, lineHeight: 1, color: 'var(--ink1)' }}>{formatMonth(month)}</h2>
+        <button onClick={() => { onMonthChange(monthKey(todayKey())); onSelectDate(todayKey()); }} style={{ borderRadius: 999, border: '1px solid rgba(112,72,232,0.18)', background: 'rgba(112,72,232,0.08)', color: '#7048E8', padding: '8px 11px', fontSize: 11, fontWeight: 900 }}>
+          Today
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6 }}>
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+          <div key={`${day}-${index}`} style={{ textAlign: 'center', fontSize: 10, color: 'var(--ink3)', fontWeight: 900 }}>{day}</div>
+        ))}
+        {days.map(day => {
+          const dayEntries = entries.filter(entry => entry.entry_date === day.date);
+          const isSelected = day.date === selectedDate;
+          const hasActive = dayEntries.some(entry => entry.entry_type === activeTab);
+          return (
+            <button
+              key={day.date}
+              onClick={() => onSelectDate(day.date)}
+              aria-pressed={isSelected}
+              style={{
+                minWidth: 0,
+                aspectRatio: '1 / 1',
+                borderRadius: 16,
+                border: `1.5px solid ${isSelected ? activeColor : hasActive ? tone(activeColor, '40') : 'rgba(23,18,10,0.065)'}`,
+                background: isSelected ? `linear-gradient(180deg, #FFFFFF, ${tone(activeColor, '12')})` : day.inMonth ? '#FFFFFF' : 'rgba(255,255,255,0.45)',
+                color: day.inMonth ? 'var(--ink2)' : 'rgba(23,18,10,0.34)',
+                boxShadow: isSelected ? `0 8px 20px ${tone(activeColor, '24')}` : 'none',
+                padding: 5,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, fontWeight: 900 }}>{day.day}</span>
+              <span style={{ display: 'flex', justifyContent: 'center', gap: 2, minHeight: 10 }}>
+                {(Object.keys(TAB_META) as JournalTab[]).map(tab => {
+                  const visible = dayEntries.some(entry => entry.entry_type === tab);
+                  return visible ? <span key={tab} style={{ width: 6, height: 6, borderRadius: '50%', background: TAB_META[tab].color, boxShadow: `0 0 10px ${tone(TAB_META[tab].color, '65')}` }} /> : null;
+                })}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ borderRadius: 20, padding: 13, background: '#FFFFFF', border: `1px solid ${tone(activeColor, '1E')}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: selectedEntries.length ? 10 : 0 }}>
+          <div>
+            <SectionLabel color={activeColor}>{formatDate(selectedDate, 'short')}</SectionLabel>
+            <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{selectedEntries.length ? 'Saved on this day' : 'A fresh space is open for this day.'}</p>
+          </div>
+          <JournalOrb color={activeColor} size={34}>
+            <span style={{ fontSize: 10 }}>{selectedEntries.length || '+'}</span>
+          </JournalOrb>
+        </div>
+        {selectedEntries.length > 0 && (
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            {selectedEntries.map(entry => {
+              const meta = TAB_META[entry.entry_type];
+              return (
+                <button
+                  key={`${entry.entry_type}-${entry.entry_date}-${entry.id || 'local'}`}
+                  onClick={() => onSelectEntryType(entry.entry_type)}
+                  style={{
+                    borderRadius: 999,
+                    border: `1px solid ${tone(meta.color, '2A')}`,
+                    background: tone(meta.color, '0F'),
+                    color: meta.color,
+                    padding: '7px 10px',
+                    fontSize: 11,
+                    fontWeight: 900,
+                    fontFamily: "'Space Grotesk', sans-serif",
+                  }}
+                >
+                  {meta.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageProps) {
   const { isAuthenticated, authFetch } = useAuth();
   const { success, error, info } = useToast();
@@ -264,6 +431,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   const [activeTab, setActiveTab] = useState<JournalTab>(initialPending?.entry_type || 'checkin');
   const [selectedDate, setSelectedDate] = useState(initialPending?.entry_date || todayKey());
+  const [calendarMonth, setCalendarMonth] = useState(monthKey(initialPending?.entry_date || todayKey()));
   const [localEntries, setLocalEntries] = useState<JournalMemoryEntry[]>(() => readLocalJournalEntries());
   const [remoteEntries, setRemoteEntries] = useState<JournalMemoryEntry[]>([]);
   const [loadingRemote, setLoadingRemote] = useState(false);
@@ -317,6 +485,10 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
   }, [activeTab, selectedDate]);
 
   useEffect(() => {
+    setCalendarMonth(monthKey(selectedDate));
+  }, [selectedDate]);
+
+  useEffect(() => {
     if (skipHydrateRef.current) {
       skipHydrateRef.current = false;
       return;
@@ -358,6 +530,13 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   function toggle(list: string[], value: string, setter: (next: string[]) => void) {
     setter(list.includes(value) ? list.filter(item => item !== value) : [...list, value]);
+  }
+
+  function handleCalendarMonthChange(next: string) {
+    setCalendarMonth(next);
+    if (monthKey(selectedDate) !== next) {
+      setSelectedDate(`${next}-01`);
+    }
   }
 
   function buildPayload(text: string): JournalEntryPayload {
@@ -538,6 +717,16 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
           return <DateChip key={date} date={date} selected={selected} hasEntry={hasEntry} color={currentMeta.color} onClick={() => setSelectedDate(date)} />;
         })}
       </div>
+
+      <CalendarMonth
+        month={calendarMonth}
+        selectedDate={selectedDate}
+        entries={entries}
+        activeTab={activeTab}
+        onMonthChange={handleCalendarMonthChange}
+        onSelectDate={setSelectedDate}
+        onSelectEntryType={setActiveTab}
+      />
 
       <section style={{
         position: 'relative',
@@ -775,7 +964,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
             </button>
             <button onClick={() => setMoodSuggestion(null)} aria-label="Dismiss" style={{
               background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink4)', fontSize: 14, flexShrink: 0, padding: 4,
-            }}>✕</button>
+            }}>x</button>
           </section>
         );
       })()}
