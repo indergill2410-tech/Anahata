@@ -1,13 +1,14 @@
-# Store-Free Mobile Distribution
+# Store-Free Mobile Install
 
-Anahata can reach phones without public app-store release through two practical paths.
+Anahata can reach phones without a public app-store release through the Home Screen app flow.
 
-## Recommended: PWA from Render
+## Recommended: Home Screen App
 
-Use the deployed HTTPS URL as the mobile app entry point. The app already includes a web manifest, icons, and service worker setup through Vite PWA.
+Use the deployed HTTPS URL as the mobile app entry point. The app includes a web manifest, icons, service worker setup, and in-app install guidance.
 
-- iPhone: open the Render URL in Safari, use Share, then Add to Home Screen.
-- Android: open the Render URL in Chrome and use the in-app install prompt or browser Install option.
+- iPhone: open Anahata in Safari, tap Share, then Add to Home Screen.
+- Android: open Anahata in Chrome and use the in-app Install button when it appears.
+- If a browser cannot install directly, use the permanent dashboard control to share or copy the link to the phone.
 
 This gives users a Home Screen app experience without App Store or Play Store submission.
 
