@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Sphere, MeshDistortMaterial } from '@react-three/drei';
+import { Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   useSoundEngine,
@@ -69,12 +69,10 @@ function StudioOrb3D({ color, isPlaying, brainwave, hz }: { color: string; isPla
   });
   return (
     <Sphere ref={mesh} args={[2.2, 64, 64]}>
-      <MeshDistortMaterial
+      <meshPhysicalMaterial
         color={color}
         roughness={0.1}
         metalness={0.1}
-        distort={0.45}
-        speed={speed * 2}
         transparent
         opacity={0.9}
         transmission={0.8}

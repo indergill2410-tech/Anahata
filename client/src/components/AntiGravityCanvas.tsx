@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, Float, Sphere, MeshDistortMaterial } from '@react-three/drei';
+import { Environment, Float, Sphere } from '@react-three/drei';
 import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
@@ -37,11 +37,8 @@ function AnimatedSpheres({ brainwave = 'Theta', isPlaying = false, bpm = 60 }: P
           ]}
         >
           <Sphere args={[0.6 + Math.random() * 1.5, 32, 32]}>
-            <MeshDistortMaterial
+            <meshPhysicalMaterial
               color={`hsl(${baseHue + (Math.random() - 0.5) * 50}, 65%, 65%)`}
-              attach="material"
-              distort={0.4}
-              speed={speed * 4}
               roughness={0.15}
               transmission={0.85}
               thickness={1.5}
