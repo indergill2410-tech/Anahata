@@ -22,8 +22,13 @@
     "@capacitor/keyboard": "^8.0.3",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@types/three": "^0.185.0",
+    "framer-motion": "^12.42.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

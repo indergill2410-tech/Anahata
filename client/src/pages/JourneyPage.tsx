@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import OrbVisualizer from '../components/OrbVisualizer';
 import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 import BreathingGuide, { type BreathingPattern } from '../components/BreathingGuide';
@@ -177,11 +178,15 @@ export default function JourneyPage() {
       </div>
 
       {/* Orb container */}
-      <div ref={orbRef} onClick={handleOrbTap}
+      <motion.div ref={orbRef} onClick={handleOrbTap}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', damping: 15 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         style={{
           position:'relative', marginTop:12, cursor:'pointer', userSelect:'none',
           filter: engine.isPlaying ? `drop-shadow(0 8px 40px ${bwGlow})` : 'none',
-          transition:'filter 0.8s ease',
         }}
       >
         {ripples.map(r => (
@@ -211,7 +216,7 @@ export default function JourneyPage() {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Intention label */}
       {engine.intention && (
@@ -251,10 +256,14 @@ export default function JourneyPage() {
       )}
 
       {advice && (
-        <div style={{
+        <motion.div 
+          initial={{ y: 50, opacity: 0, rotateX: -15 }}
+          animate={{ y: 0, opacity: 1, rotateX: 0 }}
+          transition={{ type: 'spring', damping: 20 }}
+          style={{
           width:'calc(100% - 36px)', maxWidth:430, marginTop:14,
-          background:'rgba(255,255,255,0.94)', border:`1px solid ${advice.metrics.zone.color}28`,
-          borderRadius:18, boxShadow:'0 8px 28px rgba(23,18,10,0.08)', padding:13,
+          background:'rgba(255,255,255,0.4)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)', border:`1px solid rgba(255,255,255,0.6)`,
+          borderRadius:18, boxShadow:'0 12px 40px rgba(23,18,10,0.06), inset 0 1px 0 rgba(255,255,255,0.7)', padding:13,
           display:'flex', flexDirection:'column', gap:10,
         }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
@@ -307,7 +316,7 @@ export default function JourneyPage() {
               Try breath
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Bottom status bar */}
