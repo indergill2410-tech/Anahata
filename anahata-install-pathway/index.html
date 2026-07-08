@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Install Anahata from your web browser on iPhone, Android, or desktop."
+    />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Anahata" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Install Anahata</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./assets/app-icon-192.png" />
+    <link rel="icon" href="./assets/app-icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar" aria-label="Anahata installer">
+        <a class="brand" href="./" aria-label="Anahata install home">
+          <img src="./assets/app-icon-192.png" width="44" height="44" alt="" />
+          <span>
+            <strong>Anahata</strong>
+            <small>Browser install</small>
+          </span>
+        </a>
+        <span class="status" id="standaloneStatus">Checking device</span>
+      </header>
+
+      <section class="installer" aria-labelledby="installTitle">
+        <article class="install-panel">
+          <p class="eyebrow" id="deviceLabel">Install pathway</p>
+          <h1 id="installTitle">Install Anahata from your browser.</h1>
+          <p class="lede" id="primaryCopy">
+            Open this page once, add Anahata to your home screen, then launch it
+            like any other app.
+          </p>
+
+          <div class="actions" aria-label="Install actions">
+            <button class="button primary" id="installButton" type="button" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+              </svg>
+              Install Anahata
+            </button>
+            <a class="button secondary" id="openButton" href="./">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 17 17 7M9 7h8v8" />
+              </svg>
+              Open web app
+            </a>
+          </div>
+
+          <p class="hint" id="installHint" role="status">
+            Your phone will show the safest available install route.
+          </p>
+
+          <div class="trust-list" aria-label="Trust checklist">
+            <div>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" />
+                <path d="m9 12 2 2 4-5" />
+              </svg>
+              <span>Official domain only</span>
+            </div>
+            <div>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+                <path d="M8 11h8M8 15h5" />
+              </svg>
+              <span>No store account required</span>
+            </div>
+            <div>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+                <path d="M10 18h4" />
+              </svg>
+              <span>iPhone and Android ready</span>
+            </div>
+          </div>
+        </article>
+
+        <aside class="phone-preview" aria-label="Anahata app preview">
+          <div class="phone-frame">
+            <img src="./assets/anahata-screen.png" alt="Anahata home screen preview" />
+          </div>
+        </aside>
+      </section>
+
+      <section class="routes" aria-label="Device install routes">
+        <article class="route" id="iosRoute">
+          <span class="route-icon">iOS</span>
+          <h2>iPhone</h2>
+          <ol>
+            <li>Open this page in Safari.</li>
+            <li>Tap the Share button.</li>
+            <li>Choose Add to Home Screen.</li>
+            <li>Tap Add, then open Anahata from your home screen.</li>
+          </ol>
+        </article>
+
+        <article class="route" id="androidRoute">
+          <span class="route-icon">PWA</span>
+          <h2>Android</h2>
+          <ol>
+            <li>Open this page in Chrome, Edge, Brave, or Samsung Internet.</li>
+            <li>Tap Install Anahata when the button appears.</li>
+            <li>If prompted, confirm Install.</li>
+            <li>Open Anahata from your home screen or app list.</li>
+          </ol>
+        </article>
+
+        <article class="route" id="desktopRoute">
+          <span class="route-icon">Web</span>
+          <h2>Desktop</h2>
+          <ol>
+            <li>Open this page in a Chromium browser.</li>
+            <li>Use the install icon in the address bar.</li>
+            <li>Keep Anahata pinned where your daily tools live.</li>
+          </ol>
+        </article>
+      </section>
+
+      <section class="advanced" aria-label="Advanced Android option">
+        <details>
+          <summary>
+            <span>Advanced Android APK fallback</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <div class="advanced-body">
+            <p>
+              Use this only when the web app install prompt is unavailable and
+              Anahata support has published a signed APK. Keep the APK on the
+              official Anahata domain and publish a checksum beside it.
+            </p>
+            <a class="button secondary disabled" href="#apk-not-ready" aria-disabled="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+              </svg>
+              APK not uploaded
+            </a>
+          </div>
+        </details>
+      </section>
+
+      <footer class="footer">
+        <span>Anahata install pathway</span>
+        <nav aria-label="Legal links">
+          <a href="#privacy">Privacy</a>
+          <a href="#support">Support</a>
+        </nav>
+      </footer>
+    </main>
+
+    <script src="./install.js" defer></script>
+  </body>
+</html>
