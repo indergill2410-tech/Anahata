@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, Float, Sphere, MeshDistortMaterial } from '@react-three/drei';
+import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
 interface Props { brainwave?: string; isPlaying?: boolean; bpm?: number; }
@@ -63,6 +64,10 @@ export default function AntiGravityCanvas(props: Props) {
         <pointLight position={[-10, -10, -5]} intensity={1} color="white" />
         <AnimatedSpheres {...props} />
         <Environment preset="studio" />
+        <EffectComposer disableNormalPass>
+          <DepthOfField focusDistance={0} focalLength={0.02} bokehScale={2} height={480} />
+          <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.9} height={300} opacity={0.6} intensity={1.5} />
+        </EffectComposer>
       </Canvas>
     </div>
   );

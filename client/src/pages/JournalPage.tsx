@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useSoundEngine, INTENTIONS } from '../context/SoundEngineContext';
@@ -198,9 +199,11 @@ function SignalPill({ label, value, color, dark = false }: { label: string; valu
 function ModeLens({ tab, active, count, onClick }: { tab: JournalTab; active: boolean; count: number; onClick: () => void }) {
   const meta = TAB_META[tab];
   return (
-    <button
+    <motion.button
       aria-pressed={active}
       onClick={onClick}
+      whileHover={{ scale: 1.02, y: -2 }}
+      whileTap={{ scale: 0.96 }}
       style={{
         minHeight: 78,
         borderRadius: 22,
@@ -222,16 +225,18 @@ function ModeLens({ tab, active, count, onClick }: { tab: JournalTab; active: bo
         <span style={{ display: 'block', fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 900 }}>{meta.label}</span>
         <span style={{ display: 'block', marginTop: 2, fontSize: 10, color: active ? meta.color : 'var(--ink3)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{count} saved</span>
       </span>
-    </button>
+    </motion.button>
   );
 }
 
 function DateChip({ date, selected, hasEntry, color, onClick }: { date: string; selected: boolean; hasEntry: boolean; color: string; onClick: () => void }) {
   const isToday = date === todayKey();
   return (
-    <button
+    <motion.button
       aria-pressed={selected}
       onClick={onClick}
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.95 }}
       style={{
         flex: '0 0 auto',
         width: 72,
@@ -249,7 +254,7 @@ function DateChip({ date, selected, hasEntry, color, onClick }: { date: string; 
     >
       <span style={{ display: 'block' }}>{isToday ? 'Today' : formatDate(date, 'short')}</span>
       <span style={{ display: 'block', width: hasEntry ? 8 : 4, height: hasEntry ? 8 : 4, borderRadius: '50%', margin: '9px auto 0', background: hasEntry ? color : 'rgba(23,18,10,0.12)', boxShadow: hasEntry ? `0 0 14px ${tone(color, '65')}` : 'none' }} />
-    </button>
+    </motion.button>
   );
 }
 

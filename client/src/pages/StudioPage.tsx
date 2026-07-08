@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Sphere, MeshDistortMaterial } from '@react-three/drei';
+import * as THREE from 'three';
 import {
   useSoundEngine,
   INTENTIONS,
@@ -54,135 +57,63 @@ interface LayerState { volume: number; pan: number; mute: boolean; solo: boolean
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StudioOrb({ color, isPlaying, brainwave, hz }: { color: string; isPlaying: boolean; brainwave: string; hz: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const tRef = useRef(0);
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-    const S = 200;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = S * dpr; canvas.height = S * dpr;
-    canvas.style.width = `${S}px`; canvas.style.height = `${S}px`;
-    ctx.scale(dpr, dpr);
-    const cx = S / 2, cy = S / 2;
-
-    const particles = Array.from({ length: 60 }, (_, i) => ({
-      angle: (i / 60) * Math.PI * 2,
-      r: S * 0.28 + Math.random() * S * 0.14,
-      speed: 0.003 + Math.random() * 0.008,
-      size:  1 + Math.random() * 2,
-      phase: Math.random() * Math.PI * 2,
-    }));
-
-    const draw = () => {
-      rafRef.current = requestAnimationFrame(draw);
-      tRef.current += isPlaying ? 0.018 : 0.006;
-      const t = tRef.current;
-      ctx.clearRect(0, 0, S, S);
-
-      const breathScale = 1 + 0.06 * Math.sin(t * 0.7);
-      const orbR = S * 0.26 * breathScale;
-
-      // ambient glow rings
-      for (let i = 4; i >= 1; i--) {
-        const gr = orbR * (1 + i * 0.6);
-        const grd = ctx.createRadialGradient(cx, cy, orbR * 0.3, cx, cy, gr);
-        grd.addColorStop(0, `${color}${Math.round((0.06 / i) * 255).toString(16).padStart(2,'0')}`);
-        grd.addColorStop(1, `${color}00`);
-        ctx.beginPath(); ctx.arc(cx, cy, gr, 0, Math.PI * 2);
-        ctx.fillStyle = grd; ctx.fill();
-      }
-
-      // orbit rings (speed up when playing)
-      const speed = isPlaying ? 1 : 0.3;
-      for (let r = 0; r < 3; r++) {
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(t * (0.18 + r * 0.09) * (r % 2 === 0 ? 1 : -1) * speed);
-        ctx.beginPath();
-        ctx.ellipse(0, 0, orbR * (1.4 + r * 0.3), orbR * (0.46 + r * 0.1), r * 0.55, 0, Math.PI * 2);
-        ctx.setLineDash(r === 1 ? [3, 7] : []);
-        ctx.strokeStyle = `${color}${r === 0 ? '30' : '18'}`;
-        ctx.lineWidth = r === 0 ? 1.2 : 0.7;
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-
-      // orb body
-      const parsed = hexToRgb(color);
-      const body = ctx.createRadialGradient(cx - orbR * 0.18, cy - orbR * 0.18, 0, cx, cy, orbR);
-      body.addColorStop(0,   `rgba(${parsed},0.95)`);
-      body.addColorStop(0.5, `rgba(${parsed},0.75)`);
-      body.addColorStop(1,   `rgba(${parsed},0.55)`);
-      ctx.beginPath(); ctx.arc(cx, cy, orbR, 0, Math.PI * 2);
-      ctx.fillStyle = body; ctx.fill();
-
-      // specular
-      const hi = ctx.createRadialGradient(cx - orbR * 0.3, cy - orbR * 0.3, 0, cx - orbR * 0.3, cy - orbR * 0.3, orbR * 0.55);
-      hi.addColorStop(0, 'rgba(255,255,255,0.5)');
-      hi.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.beginPath(); ctx.arc(cx, cy, orbR, 0, Math.PI * 2);
-      ctx.fillStyle = hi; ctx.fill();
-
-      // inner pulse (stronger when playing)
-      const pulseAlpha = isPlaying ? 0.55 + 0.2 * Math.sin(t * 3.5) : 0.2 + 0.1 * Math.sin(t * 1.5);
-      const pR = orbR * (0.4 + 0.07 * Math.sin(t * 3));
-      const pulse = ctx.createRadialGradient(cx, cy, 0, cx, cy, pR);
-      pulse.addColorStop(0, `rgba(255,255,255,${pulseAlpha})`);
-      pulse.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.beginPath(); ctx.arc(cx, cy, pR, 0, Math.PI * 2);
-      ctx.fillStyle = pulse; ctx.fill();
-
-      // particles (orbit faster when playing)
-      particles.forEach(p => {
-        p.angle += p.speed * (isPlaying ? 1.6 : 0.4);
-        const wobble = Math.sin(t * 1.5 + p.phase) * S * 0.02;
-        const px = cx + Math.cos(p.angle) * (p.r + wobble);
-        const py = cy + Math.sin(p.angle) * (p.r + wobble);
-        const alpha = (0.18 + 0.2 * Math.sin(t * 2 + p.phase)) * (isPlaying ? 1.4 : 0.6);
-        const pgrd = ctx.createRadialGradient(px, py, 0, px, py, p.size * 2);
-        pgrd.addColorStop(0, `${color}${Math.round(Math.max(0, Math.min(alpha, 1)) * 255).toString(16).padStart(2,'0')}`);
-        pgrd.addColorStop(1, `${color}00`);
-        ctx.beginPath(); ctx.arc(px, py, p.size * 2, 0, Math.PI * 2);
-        ctx.fillStyle = pgrd; ctx.fill();
-      });
-
-      // brainwave label
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = `700 ${Math.round(S * 0.076)}px 'Space Grotesk', sans-serif`;
-      ctx.fillStyle = `rgba(255,255,255,${0.75 + 0.1 * Math.sin(t * 0.5)})`;
-      ctx.fillText(BW_LABEL[brainwave] || brainwave, cx, cy - 6);
-      ctx.font = `500 ${Math.round(S * 0.052)}px 'Space Grotesk', sans-serif`;
-      ctx.fillStyle = `rgba(255,255,255,${0.55 + 0.08 * Math.sin(t * 0.5)})`;
-      ctx.fillText(`${hz} Hz`, cx, cy + 14);
-    };
-
-    draw();
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [color, isPlaying, brainwave, hz]);
-
+function StudioOrb3D({ color, isPlaying, brainwave, hz }: { color: string; isPlaying: boolean; brainwave: string; hz: number }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const speed = isPlaying ? 1.5 : 0.4;
+  useFrame((state) => {
+    if (mesh.current) {
+      mesh.current.rotation.y = state.clock.elapsedTime * 0.2 * speed;
+      mesh.current.rotation.x = state.clock.elapsedTime * 0.1 * speed;
+      mesh.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * speed * 2) * 0.03);
+    }
+  });
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        borderRadius: '50%',
-        filter: `drop-shadow(0 0 28px ${color}55) drop-shadow(0 12px 40px ${color}30)`,
-        transition: 'filter 0.6s ease',
-      }}
-    />
+    <Sphere ref={mesh} args={[2.2, 64, 64]}>
+      <MeshDistortMaterial
+        color={color}
+        roughness={0.1}
+        metalness={0.1}
+        distort={0.45}
+        speed={speed * 2}
+        transparent
+        opacity={0.9}
+        transmission={0.8}
+        thickness={1.5}
+      />
+    </Sphere>
   );
 }
 
-function hexToRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r},${g},${b}`;
+function StudioOrb({ color, isPlaying, brainwave, hz }: { color: string; isPlaying: boolean; brainwave: string; hz: number }) {
+  return (
+    <div style={{
+      width: 200,
+      height: 200,
+      borderRadius: '50%',
+      position: 'relative',
+      filter: `drop-shadow(0 0 28px ${color}55) drop-shadow(0 12px 40px ${color}30)`,
+      transition: 'filter 0.6s ease',
+    }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 60 }} gl={{ alpha: true, antialias: true }} style={{ width: 200, height: 200 }}>
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[5, 5, 2]} intensity={2.5} color="white" />
+        <pointLight position={[-5, -5, -2]} intensity={1} color={color} />
+        <StudioOrb3D color={color} isPlaying={isPlaying} brainwave={brainwave} hz={hz} />
+      </Canvas>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+        color: 'white', textShadow: '0 2px 10px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>
+          {BW_LABEL[brainwave] || brainwave}
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.9, marginTop: 2, fontFamily: "'Space Grotesk', sans-serif" }}>
+          {hz} Hz
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function GenOrb({ color, size = 96 }: { color: string; size?: number }) {

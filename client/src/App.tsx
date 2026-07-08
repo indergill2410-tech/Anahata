@@ -1,4 +1,5 @@
 import React, { useState, Suspense, lazy } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SoundEngineProvider, useSoundEngine } from './context/SoundEngineContext';
@@ -191,14 +192,24 @@ function Inner() {
       <div className="page">
         <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
         <ErrorBoundary>
-          <div ref={contentRef} key={tab} className={`page-enter-${navDir}`} style={{ flex:1, display:'flex', flexDirection:'column' }}>
-            <Suspense fallback={<PageFallback />}>
-              {needsAuth
-                ? <AuthPrompt onSignIn={openAuth} tab={tab} />
-                : <Page {...pageProps} />
-              }
-            </Suspense>
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: navDir === 'fwd' ? 30 : -30, rotateX: navDir === 'fwd' ? 15 : -15, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
+              exit={{ opacity: 0, y: navDir === 'fwd' ? -30 : 30, rotateX: navDir === 'fwd' ? -15 : 15, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              style={{ flex:1, display:'flex', flexDirection:'column', perspective: 1200 }}
+              ref={contentRef}
+            >
+              <Suspense fallback={<PageFallback />}>
+                {needsAuth
+                  ? <AuthPrompt onSignIn={openAuth} tab={tab} />
+                  : <Page {...pageProps} />
+                }
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
         </ErrorBoundary>
         <BottomNav active={tab} onChange={handleTabChange} />
       </div>
