@@ -39,11 +39,6 @@ function readPref(key: PrefKey, fallback: boolean) {
   }
 }
 
-function compactNumber(value: number) {
-  if (value >= 1000) return `${Math.round(value / 100) / 10}k`;
-  return String(value);
-}
-
 function shortText(text = '', max = 136) {
   const clean = text.trim();
   if (!clean) return 'No note yet.';
@@ -148,57 +143,6 @@ function Toggle({ label, desc, value, onChange }: ToggleProps) {
   );
 }
 
-// A small bloom whose petal count grows with the metric it represents, so
-// the garden visibly fills in as journals/dreams/sessions/plays accumulate
-// instead of the number sitting there as a flat stat.
-function Bloom({ color, count }: { color: string; count: number }) {
-  const petals = Math.max(3, Math.min(8, count));
-  const size = 34;
-  const petalLen = 9 + Math.min(count, 12) * 0.4;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-      <g transform={`translate(${size / 2},${size / 2})`}>
-        {Array.from({ length: petals }).map((_, i) => (
-          <ellipse
-            key={i}
-            cx={0} cy={-petalLen / 2 - 3} rx={4} ry={petalLen / 2}
-            fill={color} opacity={0.85}
-            transform={`rotate(${(360 / petals) * i})`}
-          >
-            <animateTransform
-              attributeName="transform" type="rotate"
-              values={`${(360 / petals) * i} 0 0; ${(360 / petals) * i + 6} 0 0; ${(360 / petals) * i} 0 0`}
-              dur={`${3 + i * 0.2}s`} repeatCount="indefinite"
-            />
-          </ellipse>
-        ))}
-        <circle r={4.5} fill="#FFFFFF" opacity={0.9} />
-      </g>
-    </svg>
-  );
-}
-
-function MemoryNode({ label, value, color, note }: { label: string; value: string; color: string; note: string }) {
-  const count = parseInt(value, 10) || 0;
-  return (
-    <div style={{
-      minWidth: 0,
-      borderRadius: 18,
-      padding: '13px 12px',
-      background: `linear-gradient(180deg, #FFFFFF, ${color}0C)`,
-      border: `1px solid ${color}22`,
-      boxShadow: '0 6px 18px rgba(23,18,10,0.055)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-        <Bloom color={color} count={count} />
-        <span style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 24, lineHeight: 1, fontWeight: 900, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{value}</div>
-      <div style={{ fontSize: 11, color, fontWeight: 900, marginTop: 7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{note}</div>
-    </div>
-  );
-}
-
 function RhythmRow({ color, label, meta, body }: { color: string; label: string; meta: string; body: string }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr', gap: 12, alignItems: 'start', padding: '12px 0', borderBottom: '1px solid rgba(23,18,10,0.055)' }}>
@@ -297,16 +241,15 @@ export default function ProfilePage() {
   const memoryOrbitSignal = latestBiometric?.heart_rate
     ?? biometricMetrics?.heartRate
     ?? (summary.streak > 0 ? summary.streak : dashboard.totals.sessions > 0 ? dashboard.totals.sessions : '-');
-  const watchHeartRate = latestBiometric?.heart_rate ?? biometricMetrics?.heartRate ?? '-';
   const watchSummary = biometricAdvice
     ? `${sourceLabel(biometricMetrics?.source)} - ${biometricZone?.label || 'Gentle signal'} - ${biometricTrend?.label || 'Learning your rhythm'}`
     : 'Connect a watch from Home to shape breath and music guidance around your body signals.';
 
   const memoryNodes = [
-    { label: 'Journal', value: compactNumber(dashboard.totals.journalEntries), color: '#7048E8', note: `${summary.streak} days in a row` },
-    { label: 'Dreams', value: compactNumber(dashboard.totals.dreamLogs), color: '#6366F1', note: dashboard.dreamLucidityAverage ? `${dashboard.dreamLucidityAverage}/5 lucidity` : 'Start tonight' },
-    { label: 'Sessions', value: compactNumber(dashboard.totals.sessions), color: '#0CA678', note: formatMinutes(sessionMinutes) },
-    { label: 'Music', value: compactNumber(dashboard.totals.plays), color: '#D97706', note: `${dashboard.totals.favourites} favourites` },
+    { label: 'Journal', color: '#7048E8' },
+    { label: 'Dreams', color: '#6366F1' },
+    { label: 'Sessions', color: '#0CA678' },
+    { label: 'Music', color: '#D97706' },
   ];
 
   return (
@@ -337,18 +280,9 @@ export default function ProfilePage() {
           </span>
         </div>
 
-        <div style={{ position: 'relative', marginTop: 18, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          {[
-            { label: 'State', value: resonanceTitle, color: resonanceColor },
-            { label: 'Mood', value: topMood, color: '#E64980' },
-            { label: 'Wave', value: topBrainwave, color: '#3B5BDB' },
-          ].map(item => (
-            <div key={item.label} style={{ borderRadius: 16, padding: '10px 8px', background: '#FFFFFFB8', border: `1px solid ${item.color}18`, minWidth: 0 }}>
-              <div style={{ fontSize: 10, color: 'var(--ink3)', fontWeight: 900, textTransform: 'uppercase' }}>{item.label}</div>
-              <div style={{ marginTop: 3, color: item.color, fontFamily: "'Space Grotesk', sans-serif", fontWeight: 900, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
+        <p style={{ position: 'relative', margin: '16px 0 0', color: 'var(--ink3)', fontSize: 12, lineHeight: 1.65 }}>
+          Your resonance adapts from writing, sound choices, sessions, and body signals without turning the page into a scoreboard.
+        </p>
       </section>
 
       <section style={{ position: 'relative', minHeight: 250, borderRadius: 30, padding: 18, background: '#17120A', color: '#FFFFFF', overflow: 'hidden', boxShadow: '0 18px 54px rgba(23,18,10,0.22)' }}>
@@ -358,7 +292,6 @@ export default function ProfilePage() {
             <SectionLabel color="rgba(255,255,255,0.62)">Your rhythm</SectionLabel>
             <p style={{ margin: '5px 0 0', color: 'rgba(255,255,255,0.78)', fontSize: 12 }}>Journals, dreams, sessions, music, and body signals gathered clearly.</p>
           </div>
-          <div style={{ color: '#FFFFFF', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900 }}>{summary.totalWords}w</div>
         </div>
 
         <div style={{ position: 'relative', margin: '18px auto 0', width: 210, height: 154 }}>
@@ -383,14 +316,6 @@ export default function ProfilePage() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      <section>
-        <SectionLabel>Your garden</SectionLabel>
-        <p style={{ margin: '4px 0 12px', fontSize: 11, color: 'var(--ink3)' }}>Each bloom grows a petal for every entry, dream, session, and track.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-          {memoryNodes.map(node => <MemoryNode key={node.label} {...node} />)}
         </div>
       </section>
 
@@ -446,10 +371,6 @@ export default function ProfilePage() {
               {watchSummary}
             </p>
           </div>
-          <div style={{ borderRadius: 18, padding: '11px 12px', minWidth: 82, textAlign: 'center', background: `${resonanceColor}12`, border: `1px solid ${resonanceColor}22`, color: resonanceColor }}>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{watchHeartRate}</div>
-            <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>BPM</div>
-          </div>
         </div>
         {biometricAdvice && (
           <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
@@ -482,10 +403,6 @@ export default function ProfilePage() {
             <p style={{ margin: '7px 0 0', color: 'var(--ink3)', fontSize: 12, lineHeight: 1.65 }}>
               Your journal belongs to you. Download a copy whenever you need it, or clear it from this account when a clean page feels right.
             </p>
-          </div>
-          <div style={{ borderRadius: 18, padding: '10px 12px', minWidth: 72, textAlign: 'center', background: 'rgba(112,72,232,0.1)', border: '1px solid rgba(112,72,232,0.18)', color: '#7048E8' }}>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, lineHeight: 1, fontWeight: 900 }}>{summary.totalEntries}</div>
-            <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>Entries</div>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginTop: 15 }}>

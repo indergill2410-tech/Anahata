@@ -185,27 +185,6 @@ function Chip({ active, color, children, onClick }: { active: boolean; color: st
   );
 }
 
-function SignalPill({ label, value, color, dark = false }: { label: string; value: string | number; color: string; dark?: boolean }) {
-  return (
-    <div style={{
-      minWidth: 0,
-      borderRadius: 18,
-      padding: '12px 10px',
-      background: dark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
-      border: `1px solid ${dark ? 'rgba(255,255,255,0.12)' : tone(color, '1F')}`,
-      boxShadow: dark ? 'none' : '0 6px 18px rgba(23,18,10,0.045)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 16px ${tone(color, '66')}`, flexShrink: 0 }} />
-        <span style={{ color: dark ? 'rgba(255,255,255,0.62)' : 'var(--ink3)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>{label}</span>
-      </div>
-      <div style={{ color: dark ? '#FFFFFF' : 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif", fontSize: 21, lineHeight: 1, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function ModeLens({ tab, active, count, onClick }: { tab: JournalTab; active: boolean; count: number; onClick: () => void }) {
   const meta = TAB_META[tab];
   return (
@@ -730,11 +709,9 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
           </button>
         </div>
 
-        <div style={{ position: 'relative', marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-          <SignalPill label="Signals" value={summary.totalEntries} color="#7048E8" dark />
-          <SignalPill label="Streak" value={`${summary.streak}d`} color="#F59F00" dark />
-          <SignalPill label="Words" value={summary.totalWords} color="#0CA678" dark />
-        </div>
+        <p style={{ position: 'relative', margin: '16px 0 0', color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 1.6 }}>
+          Capture journals, field notes, dreams, and flight paths as separate signals, even when they land on the same day.
+        </p>
       </section>
 
       {!isAuthenticated && (

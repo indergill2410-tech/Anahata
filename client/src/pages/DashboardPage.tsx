@@ -95,27 +95,6 @@ function HomeOrb() {
   return <canvas ref={canvasRef} style={{ width: 220, height: 220, display: 'block' }} />;
 }
 
-// ─── Streak Ring ─────────────────────────────────────────────────────────────
-function StreakRing({ streak }: { streak: number }) {
-  const target = Math.max(streak, 1);
-  const pct = Math.min(streak / 30, 1);
-  const r = 26, circ = 2 * Math.PI * r;
-  return (
-    <div style={{ position: 'relative', width: 68, height: 68, flexShrink: 0 }}>
-      <svg width="68" height="68" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)' }}>
-        <circle cx="34" cy="34" r={r} fill="none" stroke="rgba(245,159,0,0.15)" strokeWidth="5" />
-        <circle cx="34" cy="34" r={r} fill="none" stroke="#F59F00" strokeWidth="5"
-          strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
-          strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s ease' }} />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 16, lineHeight: 1 }}>🔥</span>
-        <span style={{ fontSize: 11, fontWeight: 800, color: '#F59F00', lineHeight: 1.2 }}>{streak}d</span>
-      </div>
-    </div>
-  );
-}
-
 // ─── Suggested session card ───────────────────────────────────────────────────
 const SUGGESTIONS: Record<string, { title: string; desc: string; duration: string; color: string }> = {
   Delta: { title: 'Deep Delta Sleep',  desc: 'Ocean waves + 2Hz binaural drift',   duration: '28 min', color: '#3B5BDB' },
@@ -158,17 +137,6 @@ function ActivityDots({ store }: { store: Record<string, { mood: number }> }) {
   );
 }
 
-// ─── Quick stat pill ─────────────────────────────────────────────────────────
-function StatPill({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '12px 10px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
-      <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif" }}>{value}</div>
-      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2, letterSpacing: '0.04em' }}>{label}</div>
-    </div>
-  );
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { text, sub, bw, color } = getTimeGreeting();
@@ -184,9 +152,6 @@ export default function DashboardPage() {
     const k = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
     if (store[k]) { streak++; cur.setDate(cur.getDate() - 1); } else break;
   }
-
-  const totalSessions = Object.keys(store).length;
-  const totalHours    = Math.round(totalSessions * 18 / 60 * 10) / 10;
 
   const [breathPhase, setBreathPhase] = useState<'inhale' | 'hold' | 'exhale'>('inhale');
   useEffect(() => {
@@ -217,19 +182,6 @@ export default function DashboardPage() {
         <div style={{ marginTop: 8, padding: '8px 20px', borderRadius: 24, background: 'rgba(112,72,232,0.08)', border: '1px solid rgba(112,72,232,0.15)' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--violet)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{breathLabel}</span>
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <StatPill icon="🧘" label="Sessions" value={String(totalSessions || 0)} />
-        <StatPill icon="⏱" label="Hours" value={String(totalHours || 0)} />
-        {streak > 0 ? (
-          <div style={{ flex: 1, background: 'rgba(245,159,0,0.06)', borderRadius: 16, padding: '12px 10px', border: '1px solid rgba(245,159,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <StreakRing streak={streak} />
-          </div>
-        ) : (
-          <StatPill icon="🔥" label="Streak" value="0d" />
-        )}
       </div>
 
       {/* Suggested session */}

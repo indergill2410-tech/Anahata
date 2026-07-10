@@ -50,20 +50,6 @@ function SessionOrb({ color, size = 58, children }: { color: string; size?: numb
   );
 }
 
-function SignalCard({ label, value, color }: { label: string; value: string | number; color: string }) {
-  return (
-    <div style={{ borderRadius: 18, padding: '12px 10px', background: '#FFFFFF', border: `1px solid ${tone(color, '20')}`, boxShadow: '0 6px 18px rgba(23,18,10,0.045)', minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 14px ${tone(color, '62')}` }} />
-        <span style={{ color: 'var(--ink3)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' }}>{label}</span>
-      </div>
-      <div style={{ color: 'var(--ink1)', fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, lineHeight: 1, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 export default function SessionsPage() {
   const { authFetch } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -113,10 +99,11 @@ export default function SessionsPage() {
         </div>
       </section>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
-        <SignalCard label="Time" value={loading ? '-' : fmtDur(stats.totalMinutes * 60)} color="#0CA678" />
-        <SignalCard label="BPM" value={loading ? '-' : stats.avgHeartRate || '-'} color="#E64980" />
-        <SignalCard label="Wave" value={loading ? '-' : stats.topWave} color={heroColor} />
+      <section style={{ borderRadius: 26, padding: 17, background: 'rgba(255,255,255,0.78)', border: `1px solid ${tone(heroColor, '22')}`, boxShadow: 'var(--shadow)' }}>
+        <SectionLabel color={heroColor}>Journey stream</SectionLabel>
+        <p style={{ margin: '7px 0 0', color: 'var(--ink2)', fontSize: 13, lineHeight: 1.65 }}>
+          Completed practices appear as visited worlds, with wave state, breath, and body signal details inside each record.
+        </p>
       </section>
 
       {loading && (
