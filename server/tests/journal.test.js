@@ -60,8 +60,7 @@ describe('journal routes', () => {
     expect(mockCollection.getList.mock.calls[0][2].filter).toContain('entry_type = "checkin"');
   });
 
-  test('creates a dated journal entry when none exists', async () => {
-    mockCollection.getList.mockResolvedValue({ items: [] });
+  test('creates a dated journal entry', async () => {
     mockCollection.create.mockImplementation(async payload => ({ id: 'entry_1', ...payload }));
 
     const res = await request(buildApp())
@@ -88,11 +87,12 @@ describe('journal routes', () => {
     }));
   });
 
-  test('updates same user/type/date instead of duplicating entries', async () => {
-    mockCollection.getList.mockResolvedValue({ items: [{ id: 'entry_1' }] });
-    mockCollection.update.mockImplementation(async (id, payload) => ({ id, ...payload }));
+  test('creates multiple entries for the same user/type/date', async () => {
+    mockCollection.create
+      .mockImplementationOnce(async payload => ({ id: 'entry_1', ...payload }))
+      .mockImplementationOnce(async payload => ({ id: 'entry_2', ...payload }));
 
-    const res = await request(buildApp())
+    await request(buildApp())
       .post('/api/journal')
       .send({
         type: 'dreams',
@@ -100,18 +100,59 @@ describe('journal routes', () => {
         lucidity: 4,
         text: 'A bright hallway and a quiet door.',
       })
-      .expect(200);
+      .expect(201);
+
+    const res = await request(buildApp())
+      .post('/api/journal')
+      .send({
+        type: 'dreams',
+        date: '2026-06-08',
+        lucidity: 2,
+        text: 'A second signal from the same night.',
+      })
+      .expect(201);
 
     expect(res.body.entry).toMatchObject({
-      id: 'entry_1',
+      id: 'entry_2',
       entry_type: 'dream',
-      lucidity: 4,
+      lucidity: 2,
     });
-    expect(mockCollection.update).toHaveBeenCalledWith('entry_1', expect.objectContaining({
+    expect(mockCollection.create).toHaveBeenCalledTimes(2);
+    expect(mockCollection.create).toHaveBeenLastCalledWith(expect.objectContaining({
       user_id: 'user_123',
       entry_type: 'dream',
     }));
-    expect(mockCollection.create).not.toHaveBeenCalled();
+    expect(mockCollection.update).not.toHaveBeenCalled();
+  });
+
+  test('creates notes and plans as journal entries', async () => {
+    mockCollection.create.mockImplementation(async payload => ({ id: 'entry_1', ...payload }));
+
+    await request(buildApp())
+      .post('/api/journal')
+      .send({
+        entry_type: 'note',
+        entry_date: '2026-06-08',
+        title: 'Field note',
+        text: 'A quick signal.',
+      })
+      .expect(201);
+
+    const res = await request(buildApp())
+      .post('/api/journal')
+      .send({
+        entry_type: 'plan',
+        entry_date: '2026-06-08',
+        title: 'Flight path',
+        text: 'Meditate, write, rest.',
+        metadata: { status: 'active', checklist: ['meditate', 'write'] },
+      })
+      .expect(201);
+
+    expect(res.body.entry).toMatchObject({
+      entry_type: 'plan',
+      metadata: { status: 'active', checklist: ['meditate', 'write'] },
+    });
   });
 
   test('rejects invalid entry payloads', async () => {

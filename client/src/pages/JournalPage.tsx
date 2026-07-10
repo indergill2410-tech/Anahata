@@ -37,8 +37,10 @@ const PENDING_KEY = 'anahata_pending_journal';
 
 const TAB_META: Record<JournalTab, { label: string; color: string; sub: string }> = {
   checkin: { label: 'Check-in', color: '#7048E8', sub: 'Mood, tags, and one honest reflection.' },
-  daily: { label: 'Daily', color: '#D97706', sub: 'A deeper page for the day.' },
+  daily: { label: 'Journal', color: '#D97706', sub: 'A deeper page from the inner universe.' },
   dream: { label: 'Dreams', color: '#6366F1', sub: 'Capture dream fragments before they fade.' },
+  note: { label: 'Notes', color: '#0CA678', sub: 'Quick field notes and passing signals.' },
+  plan: { label: 'Plans', color: '#3B5BDB', sub: 'Flight paths, intentions, and next steps.' },
 };
 
 const MOODS = [
@@ -103,7 +105,15 @@ function tone(color: string, alpha = '14') {
 }
 
 function sameEntry(a: JournalMemoryEntry, b: JournalMemoryEntry) {
+  if (a.id && b.id) return a.id === b.id;
+  if (a.entry_type === 'note' || a.entry_type === 'plan' || b.entry_type === 'note' || b.entry_type === 'plan') {
+    return a.entry_type === b.entry_type && a.entry_date === b.entry_date && a.text === b.text && a.title === b.title;
+  }
   return a.entry_type === b.entry_type && a.entry_date === b.entry_date;
+}
+
+function entryKey(entry: JournalMemoryEntry) {
+  return entry.id || `${entry.source}-${entry.entry_type}-${entry.entry_date}-${entry.created || entry.title || ''}-${entry.text.slice(0, 40)}`;
 }
 
 function previewText(text = '', fallback = 'Untitled entry', max = 118) {
@@ -436,6 +446,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   const [activeTab, setActiveTab] = useState<JournalTab>(initialPending?.entry_type || 'checkin');
   const [selectedDate, setSelectedDate] = useState(initialPending?.entry_date || todayKey());
+  const [selectedEntryKey, setSelectedEntryKey] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(monthKey(initialPending?.entry_date || todayKey()));
   const [localEntries, setLocalEntries] = useState<JournalMemoryEntry[]>(() => readLocalJournalEntries());
   const [remoteEntries, setRemoteEntries] = useState<JournalMemoryEntry[]>([]);
@@ -457,7 +468,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   const entries = isAuthenticated ? remoteEntries : localEntries;
   const summary = useMemo(() => summarizeJournalEntries(entries), [entries]);
-  const currentEntry = entries.find(entry => entry.entry_type === activeTab && entry.entry_date === selectedDate);
+  const currentEntry = selectedEntryKey ? entries.find(entry => entryKey(entry) === selectedEntryKey) : null;
   const currentMeta = TAB_META[activeTab];
   const prompt = DAILY_PROMPTS[new Date(`${selectedDate}T00:00:00`).getDay()] || DAILY_PROMPTS[0];
 
@@ -498,7 +509,19 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
       skipHydrateRef.current = false;
       return;
     }
-    setDraft(currentEntry?.text ?? '');
+    if (!currentEntry) {
+      setDraft('');
+      setFollowUp('');
+      setMood(3);
+      setCta('day');
+      setTags([]);
+      setDailyType('prompt');
+      setLucidity(3);
+      setEmotions([]);
+      setSymbols([]);
+      return;
+    }
+    setDraft(currentEntry.text ?? '');
     setFollowUp(currentEntry?.follow_up ?? '');
     setMood(currentEntry?.mood ?? 3);
     setCta(currentEntry?.cta || 'day');
@@ -507,7 +530,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
     setLucidity(currentEntry?.lucidity ?? 3);
     setEmotions(cleanJournalTags(currentEntry?.metadata?.emotions));
     setSymbols(cleanJournalTags(currentEntry?.metadata?.symbols));
-  }, [activeTab, currentEntry?.id, currentEntry?.entry_date, currentEntry?.entry_type, selectedDate]);
+  }, [currentEntry, selectedEntryKey]);
 
   const unsyncedLocalEntries = useMemo(() => {
     if (!isAuthenticated) return [];
@@ -523,7 +546,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
   }, [activeTab, entries, search]);
 
   const tabCounts = useMemo(() => {
-    const counts: Record<JournalTab, number> = { checkin: 0, daily: 0, dream: 0 };
+    const counts: Record<JournalTab, number> = { checkin: 0, daily: 0, dream: 0, note: 0, plan: 0 };
     entries.forEach(entry => {
       if (entry.entry_type in counts) {
         counts[entry.entry_type] += 1;
@@ -541,7 +564,24 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
     setCalendarMonth(next);
     if (monthKey(selectedDate) !== next) {
       setSelectedDate(`${next}-01`);
+      setSelectedEntryKey(null);
     }
+  }
+
+  function startNewEntry(nextTab = activeTab, nextDate = selectedDate) {
+    setActiveTab(nextTab);
+    setSelectedDate(nextDate);
+    setSelectedEntryKey(null);
+    setDraft('');
+    setFollowUp('');
+    setMood(3);
+    setCta('day');
+    setTags([]);
+    setDailyType('prompt');
+    setLucidity(3);
+    setEmotions([]);
+    setSymbols([]);
+    setShowDetails(nextTab === 'plan' || nextTab === 'note');
   }
 
   function buildPayload(text: string): JournalEntryPayload {
@@ -550,19 +590,26 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
       entry_date: selectedDate,
       title: activeTab === 'daily'
         ? DAILY_TYPES.find(type => type.id === dailyType)?.label || 'Daily entry'
-        : activeTab === 'dream' ? 'Dream journal' : 'Daily check-in',
+        : activeTab === 'dream' ? 'Dream journal'
+          : activeTab === 'note' ? 'Field note'
+            : activeTab === 'plan' ? 'Flight path'
+              : 'Daily check-in',
       text,
       follow_up: activeTab === 'checkin' ? followUp.trim() : '',
       prompt: activeTab === 'daily' ? prompt : '',
       cta: activeTab === 'checkin' ? cta : '',
       mood: activeTab === 'checkin' ? mood : null,
       lucidity: activeTab === 'dream' ? lucidity : null,
-      tags: activeTab === 'checkin' ? tags : activeTab === 'dream' ? [...emotions, ...symbols] : [],
+      tags: activeTab === 'checkin' || activeTab === 'note' || activeTab === 'plan' ? tags : activeTab === 'dream' ? [...emotions, ...symbols] : [],
       metadata: activeTab === 'daily'
         ? { daily_type: dailyType, word_count: countJournalWords(text) }
         : activeTab === 'dream'
           ? { emotions, symbols }
-          : {},
+          : activeTab === 'plan'
+            ? { status: 'active', checklist: text.split('\n').map(item => item.trim()).filter(Boolean).slice(0, 20) }
+            : activeTab === 'note'
+              ? { capture: 'signal' }
+              : {},
     };
   }
 
@@ -584,13 +631,16 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
     setSaving(true);
     try {
-      const saved = await api.save(payload);
+      const saved = currentEntry?.id
+        ? await api.update(currentEntry.id, payload)
+        : await api.save(payload);
       const remote = normalizeRemoteJournalEntry(saved.entry);
-      setRemoteEntries(prev => [remote, ...prev.filter(item => !sameEntry(item, remote))]);
+      setRemoteEntries(prev => [remote, ...prev.filter(item => item.id !== remote.id)]);
+      setSelectedEntryKey(entryKey(remote));
       mirrorJournalEntryToLocal(saved.entry);
       refreshLocal();
       localStorage.removeItem(PENDING_KEY);
-      success('Journal saved to your private space');
+      success(currentEntry?.id ? 'Signal updated in your private universe' : 'Signal saved to your private universe');
       if (activeTab === 'checkin' && payload.mood) {
         setMoodSuggestion({ key: MOOD_INTENTION[payload.mood], mood: payload.mood });
       }
@@ -617,14 +667,18 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   const today = todayKey();
   const dateRail = Array.from({ length: 7 }, (_, idx) => offsetDateKey(idx - 6));
-  const saveLabel = saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update entry' : 'Save entry' : 'Create account to keep it';
-  const saveState = isAuthenticated ? currentEntry ? 'Saved' : 'Ready to save' : 'Private with an account';
+  const saveLabel = saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update signal' : 'Save signal' : 'Create account to keep it';
+  const saveState = isAuthenticated ? currentEntry ? 'Opened signal' : 'New signal' : 'Private with an account';
   const assistantNudge = activeTab === 'dream'
     ? 'Start with the strongest image you remember. The rest can stay blurry.'
     : activeTab === 'daily'
       ? prompt
-      : CTA_OPTIONS.find(option => option.id === cta)?.label || 'Begin with one honest sentence.';
-  const detailsLabel = activeTab === 'dream' ? 'Dream details' : activeTab === 'daily' ? 'Writing style' : 'Mood and tags';
+      : activeTab === 'note'
+        ? 'Catch the signal before it passes. One line is enough.'
+        : activeTab === 'plan'
+          ? 'Name the orbit. Each line can become one step on the path.'
+          : CTA_OPTIONS.find(option => option.id === cta)?.label || 'Begin with one honest sentence.';
+  const detailsLabel = activeTab === 'dream' ? 'Dream details' : activeTab === 'daily' ? 'Writing style' : activeTab === 'plan' ? 'Plan path' : activeTab === 'note' ? 'Signal tags' : 'Mood and tags';
 
   return (
     <div className="dashboard fade-in" style={{ gap: 16 }}>
@@ -643,9 +697,9 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
             <span style={{ fontSize: 19 }}>{heroCount}</span>
           </JournalOrb>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <SectionLabel color="rgba(255,255,255,0.62)">Your journal</SectionLabel>
+            <SectionLabel color="rgba(255,255,255,0.62)">Inner universe</SectionLabel>
             <h1 style={{ margin: '5px 0 3px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, lineHeight: 1.02, fontWeight: 900, color: '#FFFFFF', letterSpacing: 0 }}>
-              Journal
+              Journey log
             </h1>
             <p style={{ margin: 0, color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 1.5 }}>{formatDate(selectedDate)}</p>
           </div>
@@ -677,7 +731,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
         </div>
 
         <div style={{ position: 'relative', marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-          <SignalPill label="Saved" value={summary.totalEntries} color="#7048E8" dark />
+          <SignalPill label="Signals" value={summary.totalEntries} color="#7048E8" dark />
           <SignalPill label="Streak" value={`${summary.streak}d`} color="#F59F00" dark />
           <SignalPill label="Words" value={summary.totalWords} color="#0CA678" dark />
         </div>
@@ -709,17 +763,29 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
         </section>
       )}
 
-      <nav aria-label="Journal modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
+      <nav aria-label="Journal modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: 9 }}>
         {(Object.keys(TAB_META) as JournalTab[]).map(tab => (
-          <ModeLens key={tab} tab={tab} active={activeTab === tab} count={tabCounts[tab]} onClick={() => setActiveTab(tab)} />
+          <ModeLens key={tab} tab={tab} active={activeTab === tab} count={tabCounts[tab]} onClick={() => startNewEntry(tab)} />
         ))}
       </nav>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+        <button onClick={() => startNewEntry('daily')} className="btn-primary" style={{ minHeight: 44, background: '#D97706', boxShadow: '0 8px 18px rgba(217,119,6,0.22)' }}>
+          New journal
+        </button>
+        <button onClick={() => startNewEntry('note')} className="btn-primary" style={{ minHeight: 44, background: '#0CA678', boxShadow: '0 8px 18px rgba(12,166,120,0.22)' }}>
+          Quick note
+        </button>
+        <button onClick={() => startNewEntry('plan')} className="btn-primary" style={{ minHeight: 44, background: '#3B5BDB', boxShadow: '0 8px 18px rgba(59,91,219,0.22)' }}>
+          Create plan
+        </button>
+      </div>
 
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 1px 6px' }}>
         {dateRail.map(date => {
           const selected = selectedDate === date;
           const hasEntry = entries.some(entry => entry.entry_date === date && entry.entry_type === activeTab);
-          return <DateChip key={date} date={date} selected={selected} hasEntry={hasEntry} color={currentMeta.color} onClick={() => setSelectedDate(date)} />;
+          return <DateChip key={date} date={date} selected={selected} hasEntry={hasEntry} color={currentMeta.color} onClick={() => startNewEntry(activeTab, date)} />;
         })}
       </div>
 
@@ -729,8 +795,8 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
         entries={entries}
         activeTab={activeTab}
         onMonthChange={handleCalendarMonthChange}
-        onSelectDate={setSelectedDate}
-        onSelectEntryType={setActiveTab}
+        onSelectDate={(date) => startNewEntry(activeTab, date)}
+        onSelectEntryType={(tab) => startNewEntry(tab)}
       />
 
       <section style={{
@@ -855,6 +921,20 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
             </>
           )}
 
+          {showDetails && (activeTab === 'note' || activeTab === 'plan') && (
+            <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+                <SectionLabel color={currentMeta.color}>Signal tags</SectionLabel>
+                <span style={{ fontSize: 10, color: currentMeta.color, fontWeight: 900 }}>{tags.length} markers</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {CHECKIN_TAGS.map(tag => (
+                  <Chip key={tag} active={tags.includes(tag)} color={currentMeta.color} onClick={() => toggle(tags, tag, setTags)}>{tag}</Chip>
+                ))}
+              </div>
+            </section>
+          )}
+
           {showDetails && activeTab === 'dream' && (
             <>
               <section style={{ borderRadius: 22, padding: 14, background: '#FFFFFF', border: '1px solid rgba(23,18,10,0.07)' }}>
@@ -896,15 +976,15 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
           )}
 
           <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <SectionLabel color={currentMeta.color}>{activeTab === 'dream' ? 'Dream notes' : 'Reflection'}</SectionLabel>
+            <SectionLabel color={currentMeta.color}>{activeTab === 'dream' ? 'Dream notes' : activeTab === 'note' ? 'Field note' : activeTab === 'plan' ? 'Flight path' : 'Reflection'}</SectionLabel>
             <textarea
               value={draft}
               onChange={e => setDraft(e.target.value)}
-              rows={activeTab === 'daily' ? 8 : 6}
-              placeholder={activeTab === 'dream' ? 'Write the image, feeling, place, or fragment...' : 'Begin anywhere. A few honest words are enough.'}
+              rows={activeTab === 'daily' || activeTab === 'plan' ? 8 : 6}
+              placeholder={activeTab === 'dream' ? 'Write the image, feeling, place, or fragment...' : activeTab === 'note' ? 'Capture a quick signal, thought, idea, or observation...' : activeTab === 'plan' ? 'One step per line. Let this become a path you can return to...' : 'Begin anywhere. A few honest words are enough.'}
               style={{
                 resize: 'vertical',
-                minHeight: activeTab === 'daily' ? 190 : 146,
+                minHeight: activeTab === 'daily' || activeTab === 'plan' ? 190 : 146,
                 borderRadius: 22,
                 lineHeight: 1.75,
                 padding: 15,
@@ -977,8 +1057,8 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
       <section style={{ borderRadius: 30, padding: 18, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div>
-            <SectionLabel color={currentMeta.color}>Saved entries</SectionLabel>
-            <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.label} history</p>
+            <SectionLabel color={currentMeta.color}>Saved signals</SectionLabel>
+            <p style={{ margin: '4px 0 0', color: 'var(--ink3)', fontSize: 12 }}>{currentMeta.label} constellation</p>
           </div>
           {loadingRemote && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Gathering...</span>}
         </div>
@@ -991,7 +1071,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
         {filteredHistory.length === 0 ? (
           <div style={{ borderRadius: 24, border: `1px dashed ${tone(currentMeta.color, '35')}`, padding: 24, textAlign: 'center', color: 'var(--ink3)', fontSize: 13, lineHeight: 1.7, background: tone(currentMeta.color, '08') }}>
-            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} entries yet.` : 'Create an account to keep a private journal history.'}
+            {isAuthenticated ? `No ${currentMeta.label.toLowerCase()} signals yet.` : 'Create an account to keep a private journal history.'}
           </div>
         ) : (
           <div className={search.trim() ? '' : 'stagger-list'} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -1000,7 +1080,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
               return (
                 <button
                   key={`${entry.entry_type}-${entry.entry_date}-${entry.id || 'local'}`}
-                  onClick={() => { setActiveTab(entry.entry_type); setSelectedDate(entry.entry_date); }}
+                  onClick={() => { setActiveTab(entry.entry_type); setSelectedDate(entry.entry_date); setSelectedEntryKey(entryKey(entry)); }}
                   style={{
                     width: '100%',
                     textAlign: 'left',
@@ -1016,7 +1096,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
                   }}
                 >
                   <JournalOrb color={meta.color} size={34}>
-                    <span style={{ fontSize: 9 }}>{entry.entry_type === 'checkin' ? entry.mood ?? '-' : entry.entry_type === 'dream' ? entry.lucidity ?? '-' : countJournalWords(entry.text || '')}</span>
+                    <span style={{ fontSize: 9 }}>{entry.entry_type === 'checkin' ? entry.mood ?? '-' : entry.entry_type === 'dream' ? entry.lucidity ?? '-' : entry.entry_type === 'plan' ? 'GO' : entry.entry_type === 'note' ? 'N' : countJournalWords(entry.text || '')}</span>
                   </JournalOrb>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>

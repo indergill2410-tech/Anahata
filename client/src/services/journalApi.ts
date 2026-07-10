@@ -1,4 +1,4 @@
-export type JournalEntryType = 'checkin' | 'daily' | 'dream';
+export type JournalEntryType = 'checkin' | 'daily' | 'dream' | 'note' | 'plan';
 
 export interface JournalEntryPayload {
   entry_type: JournalEntryType;

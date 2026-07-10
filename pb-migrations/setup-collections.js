@@ -144,7 +144,7 @@ async function run() {
     type: 'base',
     schema: [
       { name: 'user_id', type: 'relation', required: true, options: USER_RELATION },
-      { name: 'entry_type', type: 'select', required: true, options: { maxSelect: 1, values: ['checkin', 'daily', 'dream'] } },
+      { name: 'entry_type', type: 'select', required: true, options: { maxSelect: 1, values: ['checkin', 'daily', 'dream', 'note', 'plan'] } },
       { name: 'entry_date', type: 'text', required: true, options: { max: 10 } },
       { name: 'mood', type: 'number', required: false },
       { name: 'lucidity', type: 'number', required: false },

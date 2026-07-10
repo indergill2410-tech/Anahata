@@ -16,6 +16,8 @@ export interface JournalMemoryEntry {
   tags: string[];
   metadata: Record<string, unknown>;
   source: JournalMemorySource;
+  created?: string;
+  updated?: string;
 }
 
 export interface JournalSummary {
@@ -25,6 +27,8 @@ export interface JournalSummary {
   checkinCount: number;
   dailyCount: number;
   dreamCount: number;
+  noteCount: number;
+  planCount: number;
   totalWords: number;
   streak: number;
   moodStore: Record<string, { mood: number }>;
@@ -41,6 +45,7 @@ type DreamStore = Record<string, { date?: string; lucidity?: number; emotions?: 
 export const CHECKIN_KEY = 'anahata_journal';
 export const DAILY_KEY = 'anahata_daily';
 export const DREAM_KEY = 'anahata_dreams';
+export const MEMORY_KEY = 'anahata_memory_entries';
 
 const DAILY_TYPES: Record<string, string> = {
   prompt: "Today's prompt",
@@ -96,7 +101,11 @@ function dateDayIndex(key: string) {
 }
 
 function sortNewest(entries: JournalMemoryEntry[]) {
-  return [...entries].sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+  return [...entries].sort((a, b) => {
+    const dateOrder = b.entry_date.localeCompare(a.entry_date);
+    if (dateOrder !== 0) return dateOrder;
+    return String(b.created || b.updated || '').localeCompare(String(a.created || a.updated || ''));
+  });
 }
 
 export function normalizeRemoteJournalEntry(entry: JournalEntry): JournalMemoryEntry {
@@ -114,6 +123,8 @@ export function normalizeRemoteJournalEntry(entry: JournalEntry): JournalMemoryE
     tags: cleanJournalTags(entry.tags),
     metadata: asRecord(entry.metadata),
     source: 'remote',
+    created: entry.created,
+    updated: entry.updated,
   };
 }
 
@@ -121,6 +132,7 @@ export function readLocalJournalEntries(): JournalMemoryEntry[] {
   const checkins = readStore<CheckinStore>(CHECKIN_KEY);
   const daily = readStore<DailyStore>(DAILY_KEY);
   const dreams = readStore<DreamStore>(DREAM_KEY);
+  const memory = readStore<JournalMemoryEntry[]>(MEMORY_KEY);
   const entries: JournalMemoryEntry[] = [];
 
   Object.entries(checkins).forEach(([date, entry]) => {
@@ -167,12 +179,35 @@ export function readLocalJournalEntries(): JournalMemoryEntry[] {
     });
   });
 
-  return sortNewest(entries);
+  return sortNewest([...entries, ...(Array.isArray(memory) ? memory : [])]);
 }
 
 export function mirrorJournalEntryToLocal(entry: JournalEntry | JournalEntryPayload) {
   const metadata = asRecord(entry.metadata);
   const date = entry.entry_date;
+
+  if (entry.entry_type === 'note' || entry.entry_type === 'plan') {
+    const store = readStore<JournalMemoryEntry[]>(MEMORY_KEY);
+    const next: JournalMemoryEntry = {
+      id: 'id' in entry ? entry.id : undefined,
+      entry_type: entry.entry_type,
+      entry_date: date,
+      title: entry.title || (entry.entry_type === 'plan' ? 'Flight path' : 'Field note'),
+      text: entry.text || '',
+      follow_up: entry.follow_up || '',
+      prompt: entry.prompt || '',
+      cta: entry.cta || '',
+      tags: cleanJournalTags(entry.tags),
+      metadata,
+      source: 'id' in entry ? 'remote' : 'local',
+      created: 'created' in entry ? entry.created : new Date().toISOString(),
+      updated: 'updated' in entry ? entry.updated : undefined,
+    };
+    const key = next.id || `${next.entry_type}-${next.entry_date}-${next.created}`;
+    const filtered = (Array.isArray(store) ? store : []).filter(item => (item.id || `${item.entry_type}-${item.entry_date}-${item.created}`) !== key);
+    writeStore(MEMORY_KEY, sortNewest([next, ...filtered]));
+    return;
+  }
 
   if (entry.entry_type === 'checkin') {
     const store = readStore<CheckinStore>(CHECKIN_KEY);
@@ -221,6 +256,7 @@ export function clearLocalJournalEntries() {
   localStorage.removeItem(CHECKIN_KEY);
   localStorage.removeItem(DAILY_KEY);
   localStorage.removeItem(DREAM_KEY);
+  localStorage.removeItem(MEMORY_KEY);
 }
 
 export function memoryEntryToPayload(entry: JournalMemoryEntry): JournalEntryPayload {
@@ -286,6 +322,8 @@ export function summarizeJournalEntries(entries: JournalMemoryEntry[]): JournalS
     checkinCount: sorted.filter(entry => entry.entry_type === 'checkin').length,
     dailyCount: sorted.filter(entry => entry.entry_type === 'daily').length,
     dreamCount: sorted.filter(entry => entry.entry_type === 'dream').length,
+    noteCount: sorted.filter(entry => entry.entry_type === 'note').length,
+    planCount: sorted.filter(entry => entry.entry_type === 'plan').length,
     totalWords: sorted.reduce((sum, entry) => sum + countJournalWords(entry.text), 0),
     streak: computeJournalStreak(sorted),
     moodStore,

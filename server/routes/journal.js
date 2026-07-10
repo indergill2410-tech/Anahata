@@ -11,7 +11,7 @@ const { requireAuth } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 
 const COLLECTION = 'journal_entries';
-const ENTRY_TYPES = new Set(['checkin', 'daily', 'dream']);
+const ENTRY_TYPES = new Set(['checkin', 'daily', 'dream', 'note', 'plan']);
 
 router.use(requireAuth);
 
@@ -70,7 +70,7 @@ function normalizeEntry(body) {
   const entryType = parseEntryType(body.entry_type || body.type);
   const entryDate = parseEntryDate(body.entry_date || body.date);
 
-  if (!entryType) return { error: 'entry_type must be one of checkin, daily, or dream.' };
+  if (!entryType) return { error: 'entry_type must be one of checkin, daily, dream, note, or plan.' };
   if (!entryDate) return { error: 'entry_date must use YYYY-MM-DD format.' };
 
   return {
@@ -86,17 +86,6 @@ function normalizeEntry(body) {
     tags: asStringArray(body.tags),
     metadata: asObject(body.metadata),
   };
-}
-
-async function findExisting(userId, entryType, entryDate) {
-  const result = await pb.collection(COLLECTION).getList(1, 1, {
-    filter: [
-      eq('user_id', userId),
-      eq('entry_type', entryType),
-      eq('entry_date', entryDate),
-    ].join(' && '),
-  });
-  return result.items[0] || null;
 }
 
 async function assertOwnEntry(id, userId) {
@@ -162,7 +151,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/journal - create or update one entry per user/type/date
+// POST /api/journal - create a private entry. Multiple entries can share a day.
 router.post('/', async (req, res, next) => {
   try {
     if (!requireDb(res)) return;
@@ -170,14 +159,11 @@ router.post('/', async (req, res, next) => {
     const normalized = normalizeEntry(req.body || {});
     if (normalized.error) return res.status(400).json({ error: normalized.error });
 
-    const existing = await findExisting(req.user.userId, normalized.entry_type, normalized.entry_date);
     const payload = { ...normalized, user_id: req.user.userId };
 
-    const entry = existing
-      ? await pb.collection(COLLECTION).update(existing.id, payload)
-      : await pb.collection(COLLECTION).create(payload);
+    const entry = await pb.collection(COLLECTION).create(payload);
 
-    res.status(existing ? 200 : 201).json({ entry });
+    res.status(201).json({ entry });
   } catch (err) { next(err); }
 });
 
@@ -199,11 +185,8 @@ router.post('/import', async (req, res, next) => {
         continue;
       }
 
-      const existing = await findExisting(req.user.userId, normalized.entry_type, normalized.entry_date);
       const payload = { ...normalized, user_id: req.user.userId };
-      const entry = existing
-        ? await pb.collection(COLLECTION).update(existing.id, payload)
-        : await pb.collection(COLLECTION).create(payload);
+      const entry = await pb.collection(COLLECTION).create(payload);
       imported.push(entry);
     }
 
