@@ -5,7 +5,6 @@ import { ToastProvider } from './context/ToastContext';
 import { SoundEngineProvider, useSoundEngine } from './context/SoundEngineContext';
 import { TrackPlayerProvider } from './context/TrackPlayerContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import AntiGravityCanvas from './components/AntiGravityCanvas';
 import GlobalTrackPlayer from './components/GlobalTrackPlayer';
 import LandingPage from './pages/LandingPage';
 import BottomNav from './components/BottomNav';
@@ -187,8 +186,6 @@ function Inner() {
 
   return (
     <>
-      <AntiGravityCanvas brainwave={engine.brainwave} isPlaying={engine.isPlaying} bpm={engine.bpm} />
-
       <div className="page">
         <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
         <ErrorBoundary>
@@ -215,7 +212,7 @@ function Inner() {
       </div>
 
       <GlobalTrackPlayer />
-      <MobileInstallPrompt />
+      {tab === 'journey' && <MobileInstallPrompt />}
       <AIFloatButton onClick={() => setShowAI(true)} />
 
       {showAI && (
