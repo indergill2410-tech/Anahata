@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireVerified } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 const { sanitizeBiometricSample, buildBiometricAdvice } = require('../services/biometricCoach');
 
@@ -68,7 +68,7 @@ router.get('/samples', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/samples', async (req, res, next) => {
+router.post('/samples', requireVerified, async (req, res, next) => {
   try {
     const samplePayload = sanitizeBiometricSample(req.body, { user_id: req.user.userId });
     requireWatchConsent(samplePayload);

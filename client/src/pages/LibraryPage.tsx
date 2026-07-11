@@ -143,7 +143,7 @@ export default function LibraryPage() {
   if (openAlbum) {
     const album = openAlbum;
     return (
-      <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100 }}>
+      <div className="library-page library-page-detail" style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100 }}>
         {/* Soft color bloom at top */}
         <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
           background: `radial-gradient(ellipse 70% 40% at 50% -10%, ${album.color}18 0%, transparent 70%)` }} />
@@ -266,7 +266,7 @@ export default function LibraryPage() {
   const centerSize  = 80;
 
   return (
-    <div style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100, overflowX: 'hidden' }}>
+    <div className="library-page" style={{ minHeight: '100vh', background: T.bg, paddingBottom: currentTrack ? 200 : 100, overflowX: 'hidden' }}>
       {/* Ambient mandala bloom */}
       <div style={{ position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100vw', height: '60vh', pointerEvents: 'none', zIndex: 0,
         background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${centralColor}12 0%, transparent 70%)`,

@@ -360,19 +360,16 @@ export default function AIMixDialog({ onClose, onApplyMix }: Props) {
                   })}
                 </div>
 
-                {/* Stats */}
-                <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                   {response.mix.bpm && (
-                    <div>
-                      <div style={{ fontSize: 9, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>BPM</div>
-                      <div style={{ fontSize: 18, fontFamily: 'JetBrains Mono, monospace', color: 'var(--neon-gold)', fontWeight: 600 }}>{response.mix.bpm}</div>
-                    </div>
+                    <span style={{ borderRadius: 999, padding: '7px 11px', border: '1px solid rgba(212,168,83,0.3)', background: 'rgba(212,168,83,0.1)', color: 'var(--neon-gold)', fontSize: 11, fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' }}>
+                      {response.mix.bpm} BPM
+                    </span>
                   )}
                   {response.mix.intention && (
-                    <div>
-                      <div style={{ fontSize: 9, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Intention</div>
-                      <div style={{ fontSize: 14, color: '#fff', fontWeight: 700, marginTop: 2 }}>{response.mix.intention}</div>
-                    </div>
+                    <span style={{ borderRadius: 999, padding: '7px 11px', border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
+                      {response.mix.intention}
+                    </span>
                   )}
                 </div>
 

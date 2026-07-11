@@ -20,9 +20,10 @@ const mockPb = {
 jest.mock('../services/pbClient', () => mockPb);
 jest.mock('../middleware/auth', () => ({
   requireAuth: (req, res, next) => {
-    req.user = { userId: 'user_123', email: 'test@example.com' };
+    req.user = { userId: 'user_123', email: 'test@example.com', verified: true };
     next();
   },
+  requireVerified: (req, res, next) => next(),
 }));
 
 const biometricsRoutes = require('../routes/biometrics');

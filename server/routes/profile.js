@@ -6,10 +6,20 @@
 
 const express = require('express');
 const router  = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireVerified } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 
 router.use(requireAuth);
+
+const PREFERENCE_KEYS = new Set(['binaural', 'reminders', 'haptics', 'autoSession']);
+
+function cleanPreferences(value = {}) {
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => PREFERENCE_KEYS.has(key))
+      .map(([key, val]) => [key, Boolean(val)])
+  );
+}
 
 // GET /api/profile
 router.get('/', async (req, res, next) => {
@@ -27,14 +37,27 @@ router.get('/', async (req, res, next) => {
         email:        user.email,
         name:         user.name || '',
         avatar_url:   user.avatar_url || '',
-        subscription: user.subscription || 'free'
+        subscription: user.subscription || 'free',
+        verified:     user.verified === true
       }
     });
   } catch (err) { next(err); }
 });
 
+// GET /api/profile/preferences
+router.get('/preferences', async (req, res, next) => {
+  try {
+    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
+    const result = await pb.collection('user_preferences').getList(1, 1, {
+      filter: `user_id = "${req.user.userId}"`,
+    });
+    const record = result.items[0];
+    res.json({ preferences: cleanPreferences(record?.settings || {}) });
+  } catch (err) { next(err); }
+});
+
 // PUT /api/profile
-router.put('/', async (req, res, next) => {
+router.put('/', requireVerified, async (req, res, next) => {
   try {
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
     const { name, avatar_url } = req.body;
@@ -53,9 +76,35 @@ router.put('/', async (req, res, next) => {
         email:        user.email,
         name:         user.name || '',
         avatar_url:   user.avatar_url || '',
-        subscription: user.subscription || 'free'
+        subscription: user.subscription || 'free',
+        verified:     user.verified === true
       }
     });
+  } catch (err) { next(err); }
+});
+
+// PUT /api/profile/preferences
+router.put('/preferences', requireVerified, async (req, res, next) => {
+  try {
+    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
+    const preferences = cleanPreferences(req.body?.preferences || req.body?.settings || req.body || {});
+    if (!Object.keys(preferences).length) {
+      return res.status(400).json({ error: 'Provide at least one supported preference.' });
+    }
+
+    const result = await pb.collection('user_preferences').getList(1, 1, {
+      filter: `user_id = "${req.user.userId}"`,
+    });
+    const existing = result.items[0];
+    const current = cleanPreferences(existing?.settings || {});
+    const nextPreferences = { ...current, ...preferences };
+    const payload = { user_id: req.user.userId, settings: nextPreferences };
+
+    const record = existing
+      ? await pb.collection('user_preferences').update(existing.id, payload)
+      : await pb.collection('user_preferences').create(payload);
+
+    res.json({ preferences: cleanPreferences(record.settings || nextPreferences) });
   } catch (err) { next(err); }
 });
 

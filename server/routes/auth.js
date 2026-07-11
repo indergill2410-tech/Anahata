@@ -20,6 +20,28 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
+function publicUser(record) {
+  return {
+    id: record.id || record.userId,
+    email: record.email,
+    name: record.name || '',
+    verified: record.verified === true,
+  };
+}
+
+function sessionFor(record) {
+  const user = publicUser(record);
+  return {
+    token: signToken({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      verified: user.verified,
+    }),
+    user,
+  };
+}
+
 // POST /api/auth/register
 router.post('/register', authLimiter, async (req, res, next) => {
   try {
@@ -46,8 +68,13 @@ router.post('/register', authLimiter, async (req, res, next) => {
       emailVisibility: true
     });
 
-    const token = signToken({ userId: user.id, email: user.email, name: user.name });
-    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    try {
+      await pb.collection('users').requestVerification(email);
+    } catch {
+      // SMTP may not be configured in local/dev environments. Registration should still succeed.
+    }
+
+    res.status(201).json(sessionFor(user));
   } catch (err) {
     // PocketBase returns 400 with data.email when email already exists
     if (err.status === 400 && err.data?.data?.email) {
@@ -77,15 +104,50 @@ router.post('/login', authLimiter, async (req, res, next) => {
     }
 
     const { record } = authData;
-    const name  = record.name || '';
-    const token = signToken({ userId: record.id, email: record.email, name });
-    res.json({ token, user: { id: record.id, email: record.email, name } });
+    res.json(sessionFor(record));
   } catch (err) { next(err); }
 });
 
 // GET /api/auth/me
-router.get('/me', requireAuth, (req, res) => {
-  res.json({ user: req.user });
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    if (!pb) return res.json(sessionFor({
+      id: req.user.userId,
+      email: req.user.email,
+      name: req.user.name,
+      verified: req.user.verified === true,
+    }));
+
+    const record = await pb.collection('users').getOne(req.user.userId);
+    res.json(sessionFor(record));
+  } catch (err) { next(err); }
+});
+
+// POST /api/auth/verification/request
+router.post('/verification/request', requireAuth, async (req, res, next) => {
+  try {
+    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
+    const email = req.user.email;
+    if (!email) return res.status(400).json({ error: 'Email is required.' });
+    await pb.collection('users').requestVerification(email);
+    res.json({ message: 'Verification email sent.' });
+  } catch (err) { next(err); }
+});
+
+// POST /api/auth/verification/confirm
+router.post('/verification/confirm', async (req, res, next) => {
+  try {
+    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
+    const token = String(req.body?.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'Verification token is required.' });
+    await pb.collection('users').confirmVerification(token);
+    res.json({ message: 'Email verified.' });
+  } catch (err) {
+    if (err.status === 400 || err.status === 404) {
+      return res.status(400).json({ error: 'Verification link is invalid or expired.' });
+    }
+    next(err);
+  }
 });
 
 // POST /api/auth/logout — client should discard token; this endpoint confirms

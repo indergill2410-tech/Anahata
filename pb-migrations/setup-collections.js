@@ -163,6 +163,21 @@ async function run() {
     deleteRule: '@request.auth.id = user_id',
   });
 
+  console.log('\nSetting up user_preferences ...');
+  await ensureCollection({
+    name: 'user_preferences',
+    type: 'base',
+    schema: [
+      { name: 'user_id', type: 'relation', required: true, options: USER_RELATION },
+      { name: 'settings', type: 'json', required: false },
+    ],
+    listRule: '@request.auth.id = user_id',
+    viewRule: '@request.auth.id = user_id',
+    createRule: '@request.auth.id = user_id',
+    updateRule: '@request.auth.id = user_id',
+    deleteRule: '@request.auth.id = user_id',
+  });
+
   console.log('\nSetting up biometric_samples ...');
   await ensureCollection({
     name: 'biometric_samples',

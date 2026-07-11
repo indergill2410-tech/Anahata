@@ -12,7 +12,7 @@
 const express = require('express');
 const router = express.Router();
 const { TRACKS, CATEGORIES } = require('../data/tracks');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireVerified } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 
 // GET /api/library
@@ -105,7 +105,7 @@ router.get('/favourites', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/library/favourites/:trackId - add a favourite
-router.post('/favourites/:trackId', requireAuth, async (req, res, next) => {
+router.post('/favourites/:trackId', requireAuth, requireVerified, async (req, res, next) => {
   try {
     const { trackId } = req.params;
     if (!trackId) return res.status(400).json({ error: 'trackId is required.' });
@@ -127,7 +127,7 @@ router.post('/favourites/:trackId', requireAuth, async (req, res, next) => {
 });
 
 // DELETE /api/library/favourites/:trackId - remove a favourite
-router.delete('/favourites/:trackId', requireAuth, async (req, res, next) => {
+router.delete('/favourites/:trackId', requireAuth, requireVerified, async (req, res, next) => {
   try {
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
     const existing = await pb.collection('library_favourites').getList(1, 1, {
@@ -154,7 +154,7 @@ router.get('/plays', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/library/plays - record a track play
-router.post('/plays', requireAuth, async (req, res, next) => {
+router.post('/plays', requireAuth, requireVerified, async (req, res, next) => {
   try {
     const { track_id, duration_played } = req.body;
     if (!track_id) return res.status(400).json({ error: 'track_id is required.' });

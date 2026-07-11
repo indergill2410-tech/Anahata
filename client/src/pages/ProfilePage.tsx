@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useUserDashboard } from '../hooks/useUserDashboard';
@@ -20,6 +20,13 @@ type OrbProps = {
   accent?: string;
   size?: number;
   children?: React.ReactNode;
+};
+
+const DEFAULT_PREFS: Record<PrefKey, boolean> = {
+  binaural: true,
+  reminders: false,
+  haptics: true,
+  autoSession: false,
 };
 
 const MOOD_LABELS: Record<number, string> = {
@@ -159,23 +166,65 @@ function RhythmRow({ color, label, meta, body }: { color: string; label: string;
 }
 
 export default function ProfilePage() {
-  const { user, logout, authFetch } = useAuth();
+  const { user, logout, authFetch, requestVerification } = useAuth();
   const { success, error, info } = useToast();
   const dashboard = useUserDashboard();
   const journalApi = useMemo(() => createJournalApi(authFetch), [authFetch]);
   const summary = dashboard.journal.summary;
   const [privacyBusy, setPrivacyBusy] = useState<'export' | 'delete' | null>(null);
   const [prefs, setPrefs] = useState<Record<PrefKey, boolean>>({
-    binaural: readPref('binaural', true),
-    reminders: readPref('reminders', false),
-    haptics: readPref('haptics', true),
-    autoSession: readPref('autoSession', false),
+    binaural: readPref('binaural', DEFAULT_PREFS.binaural),
+    reminders: readPref('reminders', DEFAULT_PREFS.reminders),
+    haptics: readPref('haptics', DEFAULT_PREFS.haptics),
+    autoSession: readPref('autoSession', DEFAULT_PREFS.autoSession),
   });
 
-  function setPref(key: PrefKey, val: boolean) {
-    setPrefs(p => ({ ...p, [key]: val }));
-    localStorage.setItem(`pref_${key}`, JSON.stringify(val));
-    success('Saved');
+  useEffect(() => {
+    let active = true;
+    authFetch('/api/profile/preferences')
+      .then(async res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (!active || !data?.preferences) return;
+        const next = { ...DEFAULT_PREFS, ...data.preferences };
+        setPrefs(next);
+        (Object.keys(next) as PrefKey[]).forEach(key => {
+          localStorage.setItem(`pref_${key}`, JSON.stringify(next[key]));
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [authFetch, user?.id]);
+
+  async function ensureVerified(message: string) {
+    if (user?.verified === true) return true;
+    try { await requestVerification(); } catch { /* global banner keeps retry available */ }
+    info(message);
+    return false;
+  }
+
+  async function setPref(key: PrefKey, val: boolean) {
+    if (!(await ensureVerified('Verify your email to save personal settings.'))) return;
+
+    const next = { ...prefs, [key]: val };
+    try {
+      const res = await authFetch('/api/profile/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ preferences: { [key]: val } }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Preference save failed');
+      const saved = { ...next, ...(data.preferences || {}) };
+      setPrefs(saved);
+      (Object.keys(saved) as PrefKey[]).forEach(prefKey => {
+        localStorage.setItem(`pref_${prefKey}`, JSON.stringify(saved[prefKey]));
+      });
+      success('Saved');
+    } catch (err) {
+      error((err as Error).message || 'Personal settings need another try.');
+    }
   }
 
   async function handleExportJournal() {
@@ -200,6 +249,8 @@ export default function ProfilePage() {
   }
 
   async function handleClearJournal() {
+    if (!(await ensureVerified('Verify your email before clearing private journal data.'))) return;
+
     const ok = window.confirm('This clears your private journal entries from this account and this device. This cannot be undone. Continue?');
     if (!ok) {
       info('Nothing changed.');
@@ -254,7 +305,7 @@ export default function ProfilePage() {
 
   return (
     <div className="dashboard fade-in" style={{ gap: 18 }}>
-      <section style={{
+      <section data-effect="profile-identity" style={{
         position: 'relative',
         overflow: 'hidden',
         borderRadius: 28,
@@ -285,7 +336,7 @@ export default function ProfilePage() {
         </p>
       </section>
 
-      <section style={{ position: 'relative', minHeight: 250, borderRadius: 30, padding: 18, background: '#17120A', color: '#FFFFFF', overflow: 'hidden', boxShadow: '0 18px 54px rgba(23,18,10,0.22)' }}>
+      <section data-effect="profile-orbit" style={{ position: 'relative', minHeight: 250, borderRadius: 30, padding: 18, background: '#17120A', color: '#FFFFFF', overflow: 'hidden', boxShadow: '0 18px 54px rgba(23,18,10,0.22)' }}>
         <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 38%, ${resonanceColor}38, transparent 33%), radial-gradient(circle at 10% 12%, rgba(245,159,0,0.16), transparent 28%), radial-gradient(circle at 88% 88%, rgba(12,166,120,0.18), transparent 30%)` }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
           <div>
@@ -319,7 +370,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, rgba(255,255,255,0.96), rgba(12,166,120,0.07))', border: '1px solid rgba(12,166,120,0.14)', boxShadow: 'var(--shadow)' }}>
+      <section data-effect="profile-guidance" style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, rgba(255,255,255,0.96), rgba(12,166,120,0.07))', border: '1px solid rgba(12,166,120,0.14)', boxShadow: 'var(--shadow)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start' }}>
           <div>
             <SectionLabel color="#0CA678">Today's guidance</SectionLabel>
@@ -336,7 +387,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section style={{ borderRadius: 26, padding: 17, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+      <section data-effect="profile-rhythm" style={{ borderRadius: 26, padding: 17, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <SectionLabel>Practice rhythm</SectionLabel>
           <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 900 }}>{formatDate(latestJournal?.entry_date)}</span>
@@ -363,7 +414,7 @@ export default function ProfilePage() {
         )}
       </section>
 
-      <section style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, #FFFFFF, rgba(59,91,219,0.07))', border: '1px solid rgba(59,91,219,0.14)', boxShadow: 'var(--shadow)' }}>
+      <section data-effect="profile-watch" style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, #FFFFFF, rgba(59,91,219,0.07))', border: '1px solid rgba(59,91,219,0.14)', boxShadow: 'var(--shadow)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
           <div>
             <SectionLabel color="#3B5BDB">Smart watch</SectionLabel>
@@ -386,7 +437,7 @@ export default function ProfilePage() {
         )}
       </section>
 
-      <section style={{ borderRadius: 26, padding: 17, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+      <section data-effect="profile-settings" style={{ borderRadius: 26, padding: 17, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
         <SectionLabel>Personal settings</SectionLabel>
         <div style={{ marginTop: 8 }}>
           <Toggle label="Binaural beats" desc="Stereo headphones recommended" value={prefs.binaural} onChange={v => setPref('binaural', v)} />
@@ -396,7 +447,7 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, #FFFFFF, rgba(112,72,232,0.07))', border: '1px solid rgba(112,72,232,0.16)', boxShadow: 'var(--shadow)' }}>
+      <section data-effect="profile-memory" style={{ borderRadius: 26, padding: 17, background: 'linear-gradient(135deg, #FFFFFF, rgba(112,72,232,0.07))', border: '1px solid rgba(112,72,232,0.16)', boxShadow: 'var(--shadow)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ minWidth: 0 }}>
             <SectionLabel color="#7048E8">Private memory</SectionLabel>

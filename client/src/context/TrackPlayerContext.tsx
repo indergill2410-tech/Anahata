@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { Track, Album } from '../data/libraryData';
 import { TRACK_PLAYER_START_EVENT, SOUND_ENGINE_START_EVENT } from './audioEvents';
+import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function parseDuration(s: string): number {
@@ -93,6 +95,8 @@ function saveFavorites(favs: Set<string>) {
 }
 
 export function TrackPlayerProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, user, authFetch, requestVerification } = useAuth();
+  const { info } = useToast();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentAlbum, setCurrentAlbum] = useState<Album | null>(null);
   const [isPlaying,    setIsPlaying]    = useState(false);
@@ -128,11 +132,44 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
   const repeatRef        = useRef(repeat);
   const shuffleRef       = useRef(shuffle);
   const volumeRef        = useRef(volume);
+  const authRef          = useRef({ isAuthenticated: false, verified: false, authFetch });
   currentTrackRef.current = currentTrack;
   currentAlbumRef.current = currentAlbum;
   repeatRef.current       = repeat;
   shuffleRef.current      = shuffle;
   volumeRef.current       = volume;
+  authRef.current         = { isAuthenticated, verified: user?.verified === true, authFetch };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setFavorites(loadFavorites());
+      return;
+    }
+
+    let active = true;
+    authFetch('/api/library/favourites')
+      .then(async res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (!active || !Array.isArray(data?.favourites)) return;
+        const next = new Set<string>(data.favourites.map((fav: { track_id?: string }) => fav.track_id).filter(Boolean));
+        setFavorites(next);
+        saveFavorites(next);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [authFetch, isAuthenticated]);
+
+  function recordLibraryPlay(trackId: string) {
+    const auth = authRef.current;
+    if (!auth.isAuthenticated || !auth.verified) return;
+    auth.authFetch('/api/library/plays', {
+      method: 'POST',
+      body: JSON.stringify({ track_id: trackId, duration_played: 0 }),
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     return () => {
@@ -231,6 +268,7 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
     window.dispatchEvent(new CustomEvent(TRACK_PLAYER_START_EVENT));
 
     setCurrentTrack(track);
+    recordLibraryPlay(track.id);
     setCurrentAlbum(album);
     queueRef.current = queue;
     setQueue(queue);
@@ -520,6 +558,13 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function toggleFavorite(trackId: string) {
+    if (isAuthenticated && user?.verified !== true) {
+      requestVerification().catch(() => {});
+      info('Verify your email to save library favorites.');
+      return;
+    }
+
+    const wasFavorite = favorites.has(trackId);
     setFavorites(prev => {
       const next = new Set(prev);
       if (next.has(trackId)) next.delete(trackId);
@@ -527,6 +572,12 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
       saveFavorites(next);
       return next;
     });
+
+    if (isAuthenticated) {
+      authFetch(`/api/library/favourites/${encodeURIComponent(trackId)}`, {
+        method: wasFavorite ? 'DELETE' : 'POST',
+      }).catch(() => {});
+    }
   }
   function isFavorite(trackId: string) {
     return favorites.has(trackId);

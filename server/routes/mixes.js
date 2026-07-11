@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireVerified } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 
 // GET /api/mixes — list user's saved mixes
@@ -16,23 +16,23 @@ router.get('/', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/mixes — save a mix
-router.post('/', requireAuth, async (req, res, next) => {
+router.post('/', requireAuth, requireVerified, async (req, res, next) => {
   try {
-    const { name, settings, volumes } = req.body;
+    const { name, settings, volumes, layers } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Name is required.' });
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
     const mix = await pb.collection('user_mixes').create({
       user_id:  req.user.userId,
       name:     name.trim().slice(0, 80),
       settings: JSON.stringify(settings || {}),
-      volumes:  JSON.stringify(volumes  || {}),
+      volumes:  JSON.stringify(volumes || layers || {}),
     });
     res.status(201).json({ mix });
   } catch (err) { next(err); }
 });
 
 // DELETE /api/mixes/:id — delete a saved mix
-router.delete('/:id', requireAuth, async (req, res, next) => {
+router.delete('/:id', requireAuth, requireVerified, async (req, res, next) => {
   try {
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
     let mix;

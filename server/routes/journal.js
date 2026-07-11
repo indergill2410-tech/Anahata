@@ -7,7 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireVerified } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 
 const COLLECTION = 'journal_entries';
@@ -152,7 +152,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/journal - create a private entry. Multiple entries can share a day.
-router.post('/', async (req, res, next) => {
+router.post('/', requireVerified, async (req, res, next) => {
   try {
     if (!requireDb(res)) return;
 
@@ -168,7 +168,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // POST /api/journal/import - migrate guest localStorage entries after sign in
-router.post('/import', async (req, res, next) => {
+router.post('/import', requireVerified, async (req, res, next) => {
   try {
     if (!requireDb(res)) return;
 
@@ -210,7 +210,7 @@ router.get('/export', async (req, res, next) => {
 });
 
 // DELETE /api/journal - clear the authenticated user's journal entries
-router.delete('/', async (req, res, next) => {
+router.delete('/', requireVerified, async (req, res, next) => {
   try {
     if (!requireDb(res)) return;
 
@@ -231,7 +231,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // PUT /api/journal/:id
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', requireVerified, async (req, res, next) => {
   try {
     if (!requireDb(res)) return;
     const existing = await assertOwnEntry(req.params.id, req.user.userId);
@@ -255,7 +255,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // DELETE /api/journal/:id
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireVerified, async (req, res, next) => {
   try {
     if (!requireDb(res)) return;
     const existing = await assertOwnEntry(req.params.id, req.user.userId);

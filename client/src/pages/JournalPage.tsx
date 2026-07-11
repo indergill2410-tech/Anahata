@@ -302,7 +302,7 @@ function CalendarMonth({
   const days = buildCalendarDays(month);
 
   return (
-    <section style={{
+    <section data-effect="journal-calendar" style={{
       borderRadius: 28,
       padding: 16,
       background: 'linear-gradient(145deg, #FFFFFF, rgba(112,72,232,0.055))',
@@ -415,7 +415,7 @@ function CalendarMonth({
 }
 
 export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageProps) {
-  const { isAuthenticated, authFetch } = useAuth();
+  const { isAuthenticated, user, authFetch, requestVerification } = useAuth();
   const { success, error, info } = useToast();
   const engine = useSoundEngine();
   const [moodSuggestion, setMoodSuggestion] = useState<{ key: keyof typeof INTENTIONS; mood: number } | null>(null);
@@ -608,6 +608,13 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
       return;
     }
 
+    if (user?.verified !== true) {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
+      try { await requestVerification(); } catch { /* banner keeps the retry available */ }
+      info('Verify your email to save this journal entry privately.');
+      return;
+    }
+
     setSaving(true);
     try {
       const saved = currentEntry?.id
@@ -632,6 +639,11 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   async function handleImportLocal() {
     if (!unsyncedLocalEntries.length) return;
+    if (user?.verified !== true) {
+      try { await requestVerification(); } catch { /* banner keeps the retry available */ }
+      info('Verify your email before syncing device entries.');
+      return;
+    }
     setSyncing(true);
     try {
       const result = await api.importEntries(unsyncedLocalEntries.map(memoryEntryToPayload));
@@ -646,8 +658,8 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   const today = todayKey();
   const dateRail = Array.from({ length: 7 }, (_, idx) => offsetDateKey(idx - 6));
-  const saveLabel = saving ? 'Saving' : isAuthenticated ? currentEntry ? 'Update signal' : 'Save signal' : 'Create account to keep it';
-  const saveState = isAuthenticated ? currentEntry ? 'Opened signal' : 'New signal' : 'Private with an account';
+  const saveLabel = saving ? 'Saving' : !isAuthenticated ? 'Create account to keep it' : user?.verified !== true ? 'Verify email to save' : currentEntry ? 'Update signal' : 'Save signal';
+  const saveState = !isAuthenticated ? 'Private with an account' : user?.verified !== true ? 'Verification needed' : currentEntry ? 'Opened signal' : 'New signal';
   const assistantNudge = activeTab === 'dream'
     ? 'Start with the strongest image you remember. The rest can stay blurry.'
     : activeTab === 'daily'
@@ -661,7 +673,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   return (
     <div className="dashboard fade-in" style={{ gap: 16 }}>
-      <section style={{
+      <section data-effect="journal-hero" style={{
         position: 'relative',
         overflow: 'hidden',
         borderRadius: 30,
@@ -776,7 +788,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
         onSelectEntryType={(tab) => startNewEntry(tab)}
       />
 
-      <section style={{
+      <section data-effect="journal-editor" style={{
         position: 'relative',
         overflow: 'hidden',
         borderRadius: 30,
@@ -1001,7 +1013,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
         const intention = INTENTIONS[moodSuggestion.key];
         const moodMeta = MOODS.find(m => m.value === moodSuggestion.mood);
         return (
-          <section className="fade-in" style={{
+          <section className="fade-in" data-effect="journal-mood" style={{
             borderRadius: 24, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14,
             background: `linear-gradient(135deg, ${tone(moodMeta?.color || '#7048E8', '14')}, ${tone('#3B5BDB', '10')})`,
             border: `1px solid ${tone(moodMeta?.color || '#7048E8', '30')}`,
@@ -1031,7 +1043,7 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
         );
       })()}
 
-      <section style={{ borderRadius: 30, padding: 18, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: 13 }}>
+      <section data-effect="journal-history" style={{ borderRadius: 30, padding: 18, background: '#FFFFFF', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: 13 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div>
             <SectionLabel color={currentMeta.color}>Saved signals</SectionLabel>

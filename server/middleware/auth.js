@@ -23,6 +23,14 @@ function requireAuth(req, res, next) {
   }
 }
 
+function requireVerified(req, res, next) {
+  if (req.user?.verified === true) return next();
+  return res.status(403).json({
+    code: 'email_verification_required',
+    error: 'Verify your email to save private Anahata data.',
+  });
+}
+
 /**
  * optionalAuth — attaches user if token present, continues regardless
  */
@@ -36,4 +44,4 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, optionalAuth };
+module.exports = { requireAuth, requireVerified, optionalAuth };

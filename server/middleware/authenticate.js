@@ -3,9 +3,9 @@
  * Routes that still import '../middleware/authenticate' will work correctly.
  * New code should import from '../middleware/auth' directly.
  */
-const { requireAuth, optionalAuth } = require('./auth');
+const { requireAuth, requireVerified, optionalAuth } = require('./auth');
 
 // authenticate is an alias for requireAuth
 const authenticate = requireAuth;
 
-module.exports = { authenticate, requireAuth, optionalAuth };
+module.exports = { authenticate, requireAuth, requireVerified, optionalAuth };

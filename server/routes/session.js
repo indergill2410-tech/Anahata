@@ -8,7 +8,7 @@
 
 const express = require('express');
 const router  = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireVerified } = require('../middleware/auth');
 const pb = require('../services/pbClient');
 
 router.use(requireAuth);
@@ -26,7 +26,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/sessions
-router.post('/', async (req, res, next) => {
+router.post('/', requireVerified, async (req, res, next) => {
   try {
     const {
       heart_rate, hrv, spo2, stress_level,
@@ -98,7 +98,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // DELETE /api/sessions/:id
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireVerified, async (req, res, next) => {
   try {
     if (!pb) return res.status(503).json({ error: 'Database not configured.' });
     let session;
