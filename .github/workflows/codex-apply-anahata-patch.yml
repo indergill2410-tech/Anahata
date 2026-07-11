@@ -1,0 +1,33 @@
+name: Codex Apply Anahata Patch
+
+on:
+  push:
+    branches:
+      - "codex/anahata-final-patch-20260711"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helper branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/anahata-final-patch-20260711
+          fetch-depth: 0
+      - name: Apply patch to main
+        run: |
+          set -euo pipefail
+          cat .codex/anahata-final.patch.b64.part* | base64 -d > /tmp/anahata-final.patch
+          git config user.name "codex"
+          git config user.email "codex@openai.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          git apply --whitespace=nowarn --check /tmp/anahata-final.patch
+          git apply --whitespace=nowarn /tmp/anahata-final.patch
+          git status --short
+          git add -A
+          git commit -m "Complete Anahata universe UX and verification"
+          git push origin HEAD:main
