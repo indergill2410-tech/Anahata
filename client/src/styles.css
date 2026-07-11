@@ -1156,7 +1156,7 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 .fnav-wrap {
   position: fixed;
   bottom: 0; left: 0; right: 0;
-  z-index: 300;
+  z-index: 450;
   display: flex;
   justify-content: center;
   /* account for iOS safe area */
@@ -1167,7 +1167,7 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 }
 
 .fnav-pill {
-  pointer-events: all;
+  pointer-events: auto;
   background:
     linear-gradient(145deg, rgba(255,255,255,0.86), rgba(214,205,255,0.34)),
     linear-gradient(180deg, rgba(7,9,24,0.22), rgba(255,255,255,0.16));
@@ -1191,6 +1191,7 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   display: flex;
   align-items: center;
   gap: 4px;
+  pointer-events: auto;
 }
 
 /* sliding glow indicator */
@@ -1224,7 +1225,9 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   color: rgba(23,18,10,0.62);
   cursor: pointer;
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: auto;
+  touch-action: manipulation;
   transition: color 0.2s var(--ease), transform 0.18s var(--spring), text-shadow 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   transform: translateZ(18px);

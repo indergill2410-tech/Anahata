@@ -52,6 +52,8 @@ export default function BottomNav({ active, onChange }: Props) {
             return (
               <button
                 key={tab.id}
+                type="button"
+                data-tab={tab.id}
                 className={`fnav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => onChange(tab.id)}
                 aria-label={tab.id === 'profile' ? 'Your dashboard' : tab.label}
