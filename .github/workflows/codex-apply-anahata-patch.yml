@@ -20,14 +20,24 @@ jobs:
       - name: Apply patch to main
         run: |
           set -euo pipefail
-          cat .codex/anahata-final.patch.b64.part* | base64 -d > /tmp/anahata-final.patch
-          git config user.name "codex"
-          git config user.email "codex@openai.com"
-          git fetch origin main:refs/remotes/origin/main
-          git checkout -B main refs/remotes/origin/main
-          git apply --whitespace=nowarn --check /tmp/anahata-final.patch
-          git apply --whitespace=nowarn /tmp/anahata-final.patch
+          fail() { echo "::error title=Codex patch failed::$1"; exit 1; }
+          echo "::notice title=Codex patch::decode patch"
+          cat .codex/anahata-final.patch.b64.part* | base64 -d > /tmp/anahata-final.patch || fail "decode patch failed"
+          echo "::notice title=Codex patch::configure git"
+          git config user.name "codex" || fail "git config name failed"
+          git config user.email "codex@openai.com" || fail "git config email failed"
+          echo "::notice title=Codex patch::fetch main"
+          git fetch origin main:refs/remotes/origin/main || fail "fetch main failed"
+          echo "::notice title=Codex patch::checkout main"
+          git checkout -B main refs/remotes/origin/main || fail "checkout main failed"
+          echo "::notice title=Codex patch::check patch"
+          git apply --whitespace=nowarn --check /tmp/anahata-final.patch || fail "patch check failed"
+          echo "::notice title=Codex patch::apply patch"
+          git apply --whitespace=nowarn /tmp/anahata-final.patch || fail "patch apply failed"
           git status --short
-          git add -A
-          git commit -m "Complete Anahata universe UX and verification"
-          git push origin HEAD:main
+          echo "::notice title=Codex patch::stage files"
+          git add -A || fail "git add failed"
+          echo "::notice title=Codex patch::commit"
+          git commit -m "Complete Anahata universe UX and verification" || fail "git commit failed"
+          echo "::notice title=Codex patch::push main"
+          git push origin HEAD:main || fail "push main failed"
