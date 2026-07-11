@@ -21,23 +21,32 @@ jobs:
         run: |
           set -euo pipefail
           fail() { echo "::error title=Codex patch failed::$1"; exit 1; }
+          report_fail() {
+            local label="$1"
+            local details=""
+            if [ -f /tmp/codex-step.err ]; then
+              details=$(head -c 900 /tmp/codex-step.err | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            fi
+            echo "::error title=Codex patch failed::$label ${details}"
+            exit 1
+          }
           echo "::notice title=Codex patch::decode patch"
           cat .codex/anahata-final.patch.b64.part* | base64 -d > /tmp/anahata-final.patch || fail "decode patch failed"
           echo "::notice title=Codex patch::configure git"
           git config user.name "codex" || fail "git config name failed"
           git config user.email "codex@openai.com" || fail "git config email failed"
           echo "::notice title=Codex patch::fetch main"
-          git fetch origin main:refs/remotes/origin/main || fail "fetch main failed"
+          git fetch origin main:refs/remotes/origin/main 2>/tmp/codex-step.err || report_fail "fetch main failed"
           echo "::notice title=Codex patch::checkout main"
-          git checkout -B main refs/remotes/origin/main || fail "checkout main failed"
+          git checkout -B main refs/remotes/origin/main 2>/tmp/codex-step.err || report_fail "checkout main failed"
           echo "::notice title=Codex patch::check patch"
-          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn --check /tmp/anahata-final.patch || fail "patch check failed"
+          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn --check /tmp/anahata-final.patch 2>/tmp/codex-step.err || report_fail "patch check failed"
           echo "::notice title=Codex patch::apply patch"
-          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn /tmp/anahata-final.patch || fail "patch apply failed"
+          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn /tmp/anahata-final.patch 2>/tmp/codex-step.err || report_fail "patch apply failed"
           git status --short
           echo "::notice title=Codex patch::stage files"
-          git add -A || fail "git add failed"
+          git add -A 2>/tmp/codex-step.err || report_fail "git add failed"
           echo "::notice title=Codex patch::commit"
-          git commit -m "Complete Anahata universe UX and verification" || fail "git commit failed"
+          git commit -m "Complete Anahata universe UX and verification" 2>/tmp/codex-step.err || report_fail "git commit failed"
           echo "::notice title=Codex patch::push main"
-          git push origin HEAD:main || fail "push main failed"
+          git push origin HEAD:main 2>/tmp/codex-step.err || report_fail "push main failed"
