@@ -31,9 +31,9 @@ jobs:
           echo "::notice title=Codex patch::checkout main"
           git checkout -B main refs/remotes/origin/main || fail "checkout main failed"
           echo "::notice title=Codex patch::check patch"
-          git apply --whitespace=nowarn --check /tmp/anahata-final.patch || fail "patch check failed"
+          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn --check /tmp/anahata-final.patch || fail "patch check failed"
           echo "::notice title=Codex patch::apply patch"
-          git apply --whitespace=nowarn /tmp/anahata-final.patch || fail "patch apply failed"
+          git apply --ignore-space-change --ignore-whitespace --whitespace=nowarn /tmp/anahata-final.patch || fail "patch apply failed"
           git status --short
           echo "::notice title=Codex patch::stage files"
           git add -A || fail "git add failed"
