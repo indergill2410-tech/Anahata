@@ -32,6 +32,7 @@ jobs:
           }
           echo "::notice title=Codex patch::decode patch"
           cat .codex/anahata-final.patch.b64.part* | base64 -d > /tmp/anahata-final.patch || fail "decode patch failed"
+          perl -pi -e 's/\r$//' /tmp/anahata-final.patch || fail "normalize patch failed"
           echo "::notice title=Codex patch::configure git"
           git config user.name "codex" || fail "git config name failed"
           git config user.email "codex@openai.com" || fail "git config email failed"
