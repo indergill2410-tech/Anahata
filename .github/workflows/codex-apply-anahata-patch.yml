@@ -23,8 +23,8 @@ jobs:
           cat .codex/anahata-final.patch.b64.part* | base64 -d > /tmp/anahata-final.patch
           git config user.name "codex"
           git config user.email "codex@openai.com"
-          git fetch origin main
-          git checkout -B main origin/main
+          git fetch origin main:refs/remotes/origin/main
+          git checkout -B main refs/remotes/origin/main
           git apply --whitespace=nowarn --check /tmp/anahata-final.patch
           git apply --whitespace=nowarn /tmp/anahata-final.patch
           git status --short
