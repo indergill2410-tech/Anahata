@@ -2,6 +2,15 @@
 
 All notable changes to Anahata are documented here.
 
+## [Unreleased]
+
+### Fixed
+- Signup verification emails were never delivered because PocketBase had no
+  SMTP settings configured. `npm run setup:db` now provisions PocketBase mail
+  settings from `SMTP_*` env vars (and sends a test email to surface
+  misconfiguration early). The registration route also now logs, instead of
+  silently swallowing, any failure to send the verification email.
+
 ## [1.0.0] — 2026-05-29
 
 ### Added
