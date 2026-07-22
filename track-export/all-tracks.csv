@@ -1,0 +1,223 @@
+source,album,id,title,artist,duration,ytId,audioUrl,category,tags
+library,Raga Prahar,rp-01,Raga Bhairav,Pandit Hariprasad Chaurasia,38 min,wdBph1u9fck,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-01.mp3,,morning|raga
+library,Raga Prahar,rp-02,Raga Lalit,Ustad Vilayat Khan,42 min,OmJnJjAslLI,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-02.mp3,,morning|raga
+library,Raga Prahar,rp-03,Raga Ahir Bhairav,Hariprasad Chaurasia,35 min,9GlMrtTfSD0,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-03.mp3,,morning|raga
+library,Raga Prahar,rp-04,Raga Ramkali,Amjad Ali Khan,44 min,TTRD38MmHa8,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-04.mp3,,morning|raga
+library,Raga Prahar,rp-05,Raga Todi,Pandit Shivkumar Sharma,31 min,kiDC8zTc168,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-05.mp3,,morning|raga
+library,Raga Prahar,rp-06,Raga Jaunpuri,Kishori Amonkar,29 min,a9E1jeshQ5c,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-06.mp3,,morning|raga
+library,Raga Prahar,rp-07,Raga Asavari,Ustad Rashid Khan,36 min,xrhtPK5-RSM,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-07.mp3,,morning|raga
+library,Raga Prahar,rp-08,Raga Gunakali,Bismillah Khan,22 min,k7OOBCibcI0,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-08.mp3,,morning|raga
+library,Raga Prahar,rp-09,Raga Komal Rishabh Asavari,Ravi Shankar,33 min,ThcAD8R0YRk,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-09.mp3,,morning|raga
+library,Raga Prahar,rp-10,Raga Desi,Pandit Ravi Shankar,27 min,ynDVvoPKjAw,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rp-10.mp3,,morning|raga
+library,Raga Sandhya,rs-01,Raga Yaman,Ustad Rashid Khan,45 min,4eFzfbicz6k,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-01.mp3,,evening|raga
+library,Raga Sandhya,rs-02,Raga Bhupali,Pandit Ravi Shankar,34 min,7VaGBqBFag4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-02.mp3,,evening|raga
+library,Raga Sandhya,rs-03,Raga Marwa,Amjad Ali Khan,38 min,2yhTw_uYIRU,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-03.mp3,,evening|raga
+library,Raga Sandhya,rs-04,Raga Puriya Kalyan,Shivkumar Sharma,42 min,-VZeEIKdn7M,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-04.mp3,,evening|raga
+library,Raga Sandhya,rs-05,Raga Kedar,Hariprasad Chaurasia,36 min,XxF-FB0hijA,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-05.mp3,,evening|raga
+library,Raga Sandhya,rs-06,Raga Hameer,Vilayat Khan,29 min,E28eoBo0mkI,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-06.mp3,,evening|raga
+library,Raga Sandhya,rs-07,Raga Shuddh Kalyan,Pandit Jasraj,48 min,x3VnMFnF5QE,,,evening|raga
+library,Raga Sandhya,rs-08,Raga Bageshri,Kishori Amonkar,35 min,ejib8Tubv7Y,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-08.mp3,,evening|raga
+library,Raga Sandhya,rs-09,Raga Kamod,Ustad Zakir Hussain,27 min,uhyJrNxTxQ4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-09.mp3,,evening|raga
+library,Raga Sandhya,rs-10,Raga Bihag,Pandit Bhimsen Joshi,40 min,lEroLI7QX8w,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rs-10.mp3,,evening|raga
+library,Raga Ratri,rr-01,Raga Darbari Kanada,Ustad Rashid Khan,52 min,CdqjCt2DRQk,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-01.mp3,,night|raga
+library,Raga Ratri,rr-02,Raga Malkauns,Pandit Bhimsen Joshi,46 min,sneMFUOomv8,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-02.mp3,,night|raga
+library,Raga Ratri,rr-03,Raga Yaman Kalyan,Ravi Shankar,38 min,Dy3cnSKtgcA,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-03.mp3,,night|raga
+library,Raga Ratri,rr-04,Raga Charukeshi,Hariprasad Chaurasia,33 min,HPdg75gadgc,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-04.mp3,,night|raga
+library,Raga Ratri,rr-05,Raga Chandrakauns,Amjad Ali Khan,44 min,yJuRh_N2Pik,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-05.mp3,,night|raga
+library,Raga Ratri,rr-06,Raga Kafi,Ustad Vilayat Khan,31 min,Ir75SGvWfXQ,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-06.mp3,,night|raga
+library,Raga Ratri,rr-07,Raga Bageshri,Pandit Shivkumar Sharma,40 min,APP5mLY__zQ,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-07.mp3,,night|raga
+library,Raga Ratri,rr-08,Raga Bhatiyar,Pandit Jasraj,35 min,7hhX-Ru6YU4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-08.mp3,,night|raga
+library,Raga Ratri,rr-09,Raga Tilak Kamod,Rashid Khan,28 min,y_PjbArrUYo,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/rr-09.mp3,,night|raga
+library,Solfeggio Sacred Tones,sf-01,174Hz — Foundation & Pain Relief,Solfeggio Tones,30 min,mFTYggwY34M,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-01.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-02,285Hz — Tissue Regeneration,Solfeggio Tones,30 min,O275wnurMEQ,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-02.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-03,396Hz — Liberation from Fear,Solfeggio Tones,30 min,LU_lEl-n5Ec,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-03.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-04,417Hz — Undoing Situations,Solfeggio Tones,30 min,mX_UYl5kyoE,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-04.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-05,528Hz — Love Frequency,Solfeggio Tones,30 min,lLQ7lEhpfjc,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-05.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-06,639Hz — Relationship Harmony,Solfeggio Tones,30 min,NBIHLcNFnX4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-06.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-07,741Hz — Expression & Solutions,Solfeggio Tones,30 min,gIQaUEAOkUk,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-07.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-08,852Hz — Spiritual Return,Solfeggio Tones,30 min,RDCKZk-KsI4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-08.mp3,,solfeggio|healing
+library,Solfeggio Sacred Tones,sf-09,963Hz — Pineal Activation,Solfeggio Tones,30 min,JmKYU38wNFE,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/sf-09.mp3,,solfeggio|healing
+library,Binaural Depth,bn-01,Delta 0.5Hz — Deep Sleep,Binaural Depth,60 min,eOhhvWElyWs,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-01.mp3,,binaural|sleep
+library,Binaural Depth,bn-02,Delta 2Hz — Dreamless Rest,Binaural Depth,45 min,SCWtZihkAE8,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-02.mp3,,binaural|sleep
+library,Binaural Depth,bn-03,Theta 4Hz — Meditation,Binaural Depth,45 min,qQ_W1w9v-2Y,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-03.mp3,,binaural|meditation
+library,Binaural Depth,bn-04,Theta 6Hz — Creative Flow,Binaural Depth,40 min,aCF07BQ3znE,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-04.mp3,,binaural|focus
+library,Binaural Depth,bn-05,Alpha 8Hz — Relaxation,Binaural Depth,40 min,uh7rcb4obuQ,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-05.mp3,,binaural|relax
+library,Binaural Depth,bn-06,Alpha 10Hz — Calm Focus,Binaural Depth,45 min,vYf5NZrLbY4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-06.mp3,,binaural|focus
+library,Binaural Depth,bn-07,Beta 14Hz — Active Mind,Binaural Depth,30 min,HA6nSQawROM,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-07.mp3,,binaural|focus
+library,Binaural Depth,bn-08,Beta 20Hz — Alertness,Binaural Depth,30 min,5lN3X5qVoqQ,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-08.mp3,,binaural|focus
+library,Binaural Depth,bn-09,Gamma 40Hz — Peak Performance,Binaural Depth,30 min,AiGShfz6ddw,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-09.mp3,,binaural|focus
+library,Binaural Depth,bn-10,Gamma 100Hz — Hyper Focus,Binaural Depth,25 min,3TYarb_Q-Yc,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bn-10.mp3,,binaural|focus
+library,Western · Indian Fusion,fu-01,Passages,Ravi Shankar & Philip Glass,8 min,9ODkIhKL2fY,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-01.mp3,,fusion
+library,Western · Indian Fusion,fu-02,Joy,Shakti (John McLaughlin),9 min,VnW2g6qbbrA,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-02.mp3,,fusion
+library,Western · Indian Fusion,fu-03,Breathing Under Water,Anoushka Shankar,6 min,Z_HT-d8W1_M,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-03.mp3,,fusion
+library,Western · Indian Fusion,fu-04,Sangam,Zakir Hussain & Charles Lloyd,12 min,fSz4aUMYOcw,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-04.mp3,,fusion
+library,Western · Indian Fusion,fu-05,Crazy Saints,Trilok Gurtu,7 min,nj8W-ToId2E,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-05.mp3,,fusion
+library,Western · Indian Fusion,fu-06,Junun,Shye Ben Tzur & Jonny Greenwood,9 min,pQ9uZLOWlso,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-06.mp3,,fusion
+library,Western · Indian Fusion,fu-07,Table of Contents,Bela Fleck & Zakir Hussain,7 min,Cx8AaSvH4EQ,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-07.mp3,,fusion
+library,Western · Indian Fusion,fu-08,Nirvana,Ravi Shankar & Yehudi Menuhin,11 min,fJ5ZBkZGW9U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-08.mp3,,fusion
+library,Western · Indian Fusion,fu-09,East Meets West,Pandit Ronu Majumdar,8 min,90Iu8z0j0nI,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-09.mp3,,fusion
+library,Western · Indian Fusion,fu-10,Garden of Eden,Ustad Sultan Khan,10 min,EIGtMrQrd7g,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/fu-10.mp3,,fusion
+library,Bansuri Meditations,bm-01,Misra Khamaj,Hariprasad Chaurasia,38 min,Hed2c_dUmWk,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-01.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-02,Bhairavi Thumri,Ronu Majumdar,25 min,U4mKpoj_ZX8,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-02.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-03,Raga Bhimpalasi,Hariprasad Chaurasia,34 min,hbA8-n7FNnA,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-03.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-04,Raga Bageshri (Bansuri),Ronu Majumdar,29 min,H9hYlhAkLE0,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-04.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-05,Raga Shivranjani,Hariprasad Chaurasia,27 min,p0CK4J02ZRI,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-05.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-06,Morning Raga Meditation,Pravin Godkhindi,40 min,6P5XBqQvRZM,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-06.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-07,Raga Yaman (Bansuri),Ronu Majumdar,32 min,x6jTZfBZ9Og,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-07.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-08,Raga Kirwani,Hariprasad Chaurasia,28 min,kAqrppmbQ5U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-08.mp3,,bansuri|raga
+library,Bansuri Meditations,bm-09,Healing Flute,Steve Gold & Ronu Majumdar,45 min,mf9aCmqT5RE,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/bm-09.mp3,,bansuri|healing
+library,Tanpura & Drone World,td-01,Tanpura Sa — 60 min Drone,Drone World,60 min,47ED-zK3t7U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-01.mp3,,drone|tanpura
+library,Tanpura & Drone World,td-02,Tanpura Pa — 60 min Drone,Drone World,60 min,47ED-zK3t7U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-02.mp3,,drone|tanpura
+library,Tanpura & Drone World,td-03,Tanpura Ma — 60 min Drone,Drone World,60 min,47ED-zK3t7U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-03.mp3,,drone|tanpura
+library,Tanpura & Drone World,td-04,Tanpura Ni — 60 min Drone,Drone World,60 min,AaXezCmilPY,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-04.mp3,,drone|tanpura
+library,Tanpura & Drone World,td-05,C Drone — 432Hz,Drone World,60 min,47ED-zK3t7U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-05.mp3,,drone|432hz
+library,Tanpura & Drone World,td-06,D Drone — Healing,Drone World,60 min,gqNdvuPPaJ4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-06.mp3,,drone|healing
+library,Tanpura & Drone World,td-07,Om Drone — Deep Meditation,Drone World,60 min,VpDa7Q0jx5Q,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-07.mp3,,drone|meditation
+library,Tanpura & Drone World,td-08,Shruti Box A,Drone World,45 min,HwOmfHE0xFI,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-08.mp3,,drone|shruti
+library,Tanpura & Drone World,td-09,Swarmandal Drone,Drone World,45 min,xfI4xK93K-I,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/td-09.mp3,,drone
+library,Tibetan Bowl Sessions,tb-01,7 Chakra Bowls — Full Session,Tibetan Bowl Masters,60 min,EyrimDMod4I,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-01.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-02,Root Chakra 396Hz Bowl,Tibetan Bowl Masters,30 min,d7ZQpunacp0,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-02.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-03,Sacral Chakra 417Hz Bowl,Tibetan Bowl Masters,30 min,WnoxSeZsTyI,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-03.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-04,Solar Plexus 528Hz Bowl,Tibetan Bowl Masters,30 min,h6PPpikbMjo,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-04.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-05,Heart Chakra 639Hz Bowl,Tibetan Bowl Masters,30 min,XaPYrJt1l_4,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-05.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-06,Throat Chakra 741Hz Bowl,Tibetan Bowl Masters,30 min,niY96dH7U-c,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-06.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-07,Third Eye 852Hz Bowl,Tibetan Bowl Masters,30 min,5UmLBQkb9mo,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-07.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-08,Crown 963Hz Bowl,Tibetan Bowl Masters,30 min,ICPL5QLdB2U,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-08.mp3,,bowls|chakra
+library,Tibetan Bowl Sessions,tb-09,Tibetan Master Bowl Meditation,Tibetan Bowl Masters,45 min,TAESZsLJdVw,https://pub-bcc7d3e222c445c8bf0945c6441515ab.r2.dev/tb-09.mp3,,bowls
+library,432Hz Healing Series,hz-01,432Hz Sleep Music,432Hz Healing,3 hrs,kRsHvtRMkYc,,,432hz|sleep
+library,432Hz Healing Series,hz-02,432Hz Deep Meditation,432Hz Healing,1 hr,cca9v8AkUXU,,,432hz|meditation
+library,432Hz Healing Series,hz-03,432Hz Healing Music — Piano,432Hz Healing,1 hr,8XBpZAetcb8,,,432hz|healing
+library,432Hz Healing Series,hz-04,432Hz Nature Sounds,432Hz Healing,2 hrs,0fjo9ZwpepA,,,432hz|nature
+library,432Hz Healing Series,hz-05,432Hz Delta Waves,432Hz Healing,8 hrs,txQ6t4yPIM0,,,432hz|sleep
+library,432Hz Healing Series,hz-06,432Hz Theta Meditation,432Hz Healing,1 hr,2l_gWmjBiV0,,,432hz|meditation
+library,432Hz Healing Series,hz-07,432Hz Alpha Waves,432Hz Healing,1 hr,VUnN0jILbmQ,,,432hz|relax
+library,432Hz Healing Series,hz-08,432Hz Solfeggio Blend,432Hz Healing,1 hr,C9hMaqQFKXk,,,432hz|solfeggio
+library,432Hz Healing Series,hz-09,432Hz Positive Energy,432Hz Healing,1 hr,IU13sdrLQ-M,,,432hz|healing
+library,Nature + Raga Blends,nr-01,Raga Bhupali + Rain,Nature Raga Blends,35 min,1654bKyVwb4,,,nature|raga
+library,Nature + Raga Blends,nr-02,Raga Bhairav + Forest Dawn,Nature Raga Blends,40 min,GKrGyBWyn3M,,,nature|raga
+library,Nature + Raga Blends,nr-03,Raga Bageshri + Ocean,Nature Raga Blends,38 min,jLOrLqbvV88,,,nature|raga
+library,Nature + Raga Blends,nr-04,Bansuri + Rainforest,Nature Raga Blends,45 min,zQtfnPTlFFE,,,nature|bansuri
+library,Nature + Raga Blends,nr-05,Sitar + Himalayan Wind,Nature Raga Blends,32 min,KzqSXO6X66Y,,,nature|raga
+library,Nature + Raga Blends,nr-06,Sarod + River,Nature Raga Blends,36 min,y13pBvh0r5Y,,,nature|raga
+library,Nature + Raga Blends,nr-07,Flute + Waterfall,Nature Raga Blends,42 min,HOmjFCECnOU,,,nature|bansuri
+library,Nature + Raga Blends,nr-08,Raga Todi + Birds at Dawn,Nature Raga Blends,38 min,pSfoglIlsss,,,nature|raga
+library,Nature + Raga Blends,nr-09,Raga Malkauns + Midnight,Nature Raga Blends,50 min,0KB8bdObKS0,,,nature|raga
+library,Sarod & Sitar Masters,ss-01,Raga Yaman,Ustad Amjad Ali Khan,46 min,iWllVettpbA,,,sarod|raga
+library,Sarod & Sitar Masters,ss-02,Raga Darbari,Amjad Ali Khan,52 min,ld7cedSfTk0,,,sarod|raga
+library,Sarod & Sitar Masters,ss-03,Raga Bhairavi,Ravi Shankar (Sitar),38 min,n91Vhdrrkss,,,sitar|raga
+library,Sarod & Sitar Masters,ss-04,Raga Multani,Amjad Ali Khan,44 min,2TdJmkSfxAs,,,sarod|raga
+library,Sarod & Sitar Masters,ss-05,Raga Shree,Vilayat Khan,39 min,Ah9iD83a0Nk,,,sitar|raga
+library,Sarod & Sitar Masters,ss-06,Raga Jog,Ravi Shankar,33 min,aNKTWhcw5nI,,,sitar|raga
+library,Sarod & Sitar Masters,ss-07,Raga Lalit,Amjad Ali Khan,48 min,DofXpB0B47k,,,sarod|raga
+library,Sarod & Sitar Masters,ss-08,Raga Miyan Ki Malhar,Shahid Parvez,41 min,CByPTp2Rcgw,,,sitar|raga
+binaural,,delta-001,Deep Delta — 2Hz Pure Healing,,22 min,,/tracks/delta-001.mp3,Delta Waves,sleep|healing|deep
+binaural,,delta-002,Delta Tanpura Drone — 1Hz,,33 min,,/tracks/delta-002.mp3,Delta Waves,sleep|drone|bansuri
+binaural,,delta-003,Healing Rain — 3Hz Delta,,22 min,,/tracks/delta-003.mp3,Delta Waves,healing|rain|veena
+binaural,,delta-004,Midnight Sarod — 2.5Hz,,26 min,,/tracks/delta-004.mp3,Delta Waves,sarod|midnight|deep sleep
+binaural,,delta-005,Ocean Delta Waves — 1.5Hz,,30 min,,/tracks/delta-005.mp3,Delta Waves,ocean|sleep|nature
+binaural,,delta-006,Bhairavi Night — 3.5Hz Delta,,22 min,,/tracks/delta-006.mp3,Delta Waves,bhairavi|raga|sitar|night
+binaural,,delta-007,Earth Frequency — Schumann 7.83Hz Alt,,24 min,,/tracks/delta-007.mp3,Delta Waves,earth|grounding|healing
+binaural,,delta-008,Yogi's Rest — 2Hz Deep,,22 min,,/tracks/delta-008.mp3,Delta Waves,yoga|rest|harmonium
+binaural,,theta-001,Theta Bansuri — 6Hz Meditation,,22 min,,/tracks/theta-001.mp3,Theta Waves,meditation|bansuri|creativity
+binaural,,theta-002,Sitar Theta — 5Hz Dream State,,27 min,,/tracks/theta-002.mp3,Theta Waves,sitar|dream|theta
+binaural,,theta-003,Sankalpa — 7Hz Intention Setting,,22 min,,/tracks/theta-003.mp3,Theta Waves,intention|sankalpa|veena
+binaural,,theta-004,Nada Yoga — 6.5Hz Sound Healing,,33 min,,/tracks/theta-004.mp3,Theta Waves,nada|yoga|santoor|sound healing
+binaural,,theta-005,Ganga Flow — 5.5Hz,,22 min,,/tracks/theta-005.mp3,Theta Waves,ganga|flow|bansuri
+binaural,,theta-006,Dusk Raga — 7Hz Sandhya,,24 min,,/tracks/theta-006.mp3,Theta Waves,dusk|raga|sarod|sandhya
+binaural,,theta-007,Inner Vision — 6Hz Third Eye,,22 min,,/tracks/theta-007.mp3,Theta Waves,third eye|vision|852hz
+binaural,,theta-008,Shiva's Hour — 5Hz Deep Meditation,,33 min,,/tracks/theta-008.mp3,Theta Waves,shiva|meditation|shehnai
+binaural,,theta-009,Twilight Sitar — 4.5Hz,,22 min,,/tracks/theta-009.mp3,Theta Waves,twilight|sitar|creative
+binaural,,theta-010,Subconscious River — 7.5Hz,,22 min,,/tracks/theta-010.mp3,Theta Waves,subconscious|river|bansuri
+binaural,,alpha-001,Morning Alpha — 10Hz Clarity,,22 min,,/tracks/alpha-001.mp3,Alpha Waves,morning|focus|clarity
+binaural,,alpha-002,Stress Release — 8Hz Alpha,,22 min,,/tracks/alpha-002.mp3,Alpha Waves,stress|relief|santoor
+binaural,,alpha-003,Golden Hour — 12Hz Alpha,,24 min,,/tracks/alpha-003.mp3,Alpha Waves,golden|afternoon|sitar
+binaural,,alpha-004,Ananda — 10Hz Bliss State,,22 min,,/tracks/alpha-004.mp3,Alpha Waves,bliss|ananda|528hz
+binaural,,alpha-005,Heart Coherence — 9Hz,,22 min,,/tracks/alpha-005.mp3,Alpha Waves,heart|coherence|hrv
+binaural,,alpha-006,Forest Walk — 11Hz Nature Alpha,,22 min,,/tracks/alpha-006.mp3,Alpha Waves,forest|nature|bansuri
+binaural,,alpha-007,Raga Bhupali — 13Hz Calm,,22 min,,/tracks/alpha-007.mp3,Alpha Waves,bhupali|raga|calm
+binaural,,alpha-008,Pranayama Flow — 10Hz,,22 min,,/tracks/alpha-008.mp3,Alpha Waves,pranayama|breathing|yoga
+binaural,,alpha-009,Shanti — 8.5Hz Peace,,33 min,,/tracks/alpha-009.mp3,Alpha Waves,shanti|peace|432hz
+binaural,,alpha-010,Saraswati Flow — 12Hz Creativity,,22 min,,/tracks/alpha-010.mp3,Alpha Waves,saraswati|creativity|veena
+binaural,,beta-001,Deep Focus — 18Hz Beta,,15 min,,/tracks/beta-001.mp3,Beta Waves,focus|study|concentration
+binaural,,beta-002,Morning Motivation — 20Hz,,15 min,,/tracks/beta-002.mp3,Beta Waves,motivation|morning|shehnai
+binaural,,beta-003,Clarity Code — 22Hz Beta,,15 min,,/tracks/beta-003.mp3,Beta Waves,clarity|analytical|sitar
+binaural,,beta-004,Warrior Rhythm — 25Hz,,15 min,,/tracks/beta-004.mp3,Beta Waves,warrior|energy|mridangam
+binaural,,beta-005,Productivity Wave — 16Hz,,15 min,,/tracks/beta-005.mp3,Beta Waves,productivity|work|santoor
+binaural,,gamma-001,Transcendence — 40Hz Gamma,,15 min,,/tracks/gamma-001.mp3,Gamma Waves,transcendence|insight|40hz
+binaural,,gamma-002,Samadhi — 40Hz Pure Gamma,,22 min,,/tracks/gamma-002.mp3,Gamma Waves,samadhi|enlightenment|gamma
+binaural,,gamma-003,Cosmic Awareness — 36Hz,,15 min,,/tracks/gamma-003.mp3,Gamma Waves,cosmic|awareness|veena
+binaural,,indian-001,Raga Yaman — Sitar Vistar,,60 min,,/tracks/indian-001.mp3,Indian Classical,yaman|sitar|raga|evening
+binaural,,indian-002,Raga Bhairavi — Morning Bansuri,,40 min,,/tracks/indian-002.mp3,Indian Classical,bhairavi|bansuri|morning|farewell raga
+binaural,,indian-003,Raga Darbari — Late Night Sarod,,50 min,,/tracks/indian-003.mp3,Indian Classical,darbari|sarod|midnight|deep
+binaural,,indian-004,Tanpura Drone — Sa Ma,,60 min,,/tracks/indian-004.mp3,Indian Classical,drone|tanpura|sa|meditation
+binaural,,indian-005,Raga Marwa — Sunset Sitar,,45 min,,/tracks/indian-005.mp3,Indian Classical,marwa|sunset|sitar
+binaural,,indian-006,Veena Meditation — Raga Hamsadhwani,,33 min,,/tracks/indian-006.mp3,Indian Classical,hamsadhwani|veena|joyful
+binaural,,indian-007,Shehnai Benediction — Raga Bhairav,,35 min,,/tracks/indian-007.mp3,Indian Classical,bhairav|shehnai|dawn|benediction
+binaural,,indian-008,Santoor Raga Kirwani,,33 min,,/tracks/indian-008.mp3,Indian Classical,kirwani|santoor|blues
+binaural,,indian-009,Mridangam Solo — Rhythmic Meditation,,22 min,,/tracks/indian-009.mp3,Indian Classical,mridangam|rhythm|carnatic
+binaural,,indian-010,Harmonium Bhajan Drone,,30 min,,/tracks/indian-010.mp3,Indian Classical,bhajan|harmonium|devotional
+binaural,,fusion-001,Theta Bansuri Sunrise — 6Hz,,22 min,,/tracks/fusion-001.mp3,Binaural + Indian Fusion,sunrise|bansuri|theta|fusion
+binaural,,fusion-002,Sitar Alpha Dreams — 10Hz,,27 min,,/tracks/fusion-002.mp3,Binaural + Indian Fusion,sitar|alpha|dreams
+binaural,,fusion-003,Tanpura Delta Ocean — 2Hz,,33 min,,/tracks/fusion-003.mp3,Binaural + Indian Fusion,tanpura|delta|ocean|deep sleep
+binaural,,fusion-004,Santoor Theta Forest — 6.5Hz,,22 min,,/tracks/fusion-004.mp3,Binaural + Indian Fusion,santoor|forest|theta
+binaural,,fusion-005,Veena Alpha Glow — 11Hz,,22 min,,/tracks/fusion-005.mp3,Binaural + Indian Fusion,veena|alpha|glow
+binaural,,fusion-006,Raga Desh — Theta Rain 5Hz,,30 min,,/tracks/fusion-006.mp3,Binaural + Indian Fusion,desh|rain|theta|monsoon
+binaural,,fusion-007,Himalayan Delta — 3Hz Peaks,,40 min,,/tracks/fusion-007.mp3,Binaural + Indian Fusion,himalaya|delta|sarod|peaks
+binaural,,fusion-008,Shehnai Gamma Ascent — 40Hz,,22 min,,/tracks/fusion-008.mp3,Binaural + Indian Fusion,shehnai|gamma|transcendence
+binaural,,fusion-009,Bansuri Theta Night — 7Hz,,27 min,,/tracks/fusion-009.mp3,Binaural + Indian Fusion,bansuri|night|theta
+binaural,,fusion-010,Sitar Delta Sleep — 2.5Hz,,33 min,,/tracks/fusion-010.mp3,Binaural + Indian Fusion,sitar|delta|sleep
+binaural,,fusion-011,Tabla Theta Pulse — 6Hz,,22 min,,/tracks/fusion-011.mp3,Binaural + Indian Fusion,tabla|pulse|theta
+binaural,,fusion-012,Sacred Geometry — Alpha Phi 10Hz,,22 min,,/tracks/fusion-012.mp3,Binaural + Indian Fusion,sacred geometry|phi|432hz|santoor
+binaural,,fusion-013,Monsoon Alpha — 9Hz Rainfall,,30 min,,/tracks/fusion-013.mp3,Binaural + Indian Fusion,monsoon|alpha|rain|bansuri
+binaural,,fusion-014,Chakra Flow — Theta 5Hz Full Body,,33 min,,/tracks/fusion-014.mp3,Binaural + Indian Fusion,chakra|flow|theta|full body
+binaural,,fusion-015,Sufi Theta — 6Hz Whirling,,22 min,,/tracks/fusion-015.mp3,Binaural + Indian Fusion,sufi|whirling|theta|sarod
+binaural,,solfeg-001,396Hz — Liberation from Fear,,22 min,,/tracks/solfeg-001.mp3,Solfeggio Frequencies,396hz|fear|liberation|solfeggio
+binaural,,solfeg-002,417Hz — Transformation,,22 min,,/tracks/solfeg-002.mp3,Solfeggio Frequencies,417hz|transformation|change|solfeggio
+binaural,,solfeg-003,528Hz — DNA Repair • Miracle Tone,,33 min,,/tracks/solfeg-003.mp3,Solfeggio Frequencies,528hz|miracle|dna|repair|love
+binaural,,solfeg-004,639Hz — Heart Connection,,22 min,,/tracks/solfeg-004.mp3,Solfeggio Frequencies,639hz|heart|love|connection|solfeggio
+binaural,,solfeg-005,741Hz — Awakening Intuition,,22 min,,/tracks/solfeg-005.mp3,Solfeggio Frequencies,741hz|intuition|awakening|solfeggio
+binaural,,solfeg-006,852Hz — Third Eye Activation,,22 min,,/tracks/solfeg-006.mp3,Solfeggio Frequencies,852hz|third eye|activation|solfeggio
+binaural,,solfeg-007,963Hz — Divine Consciousness,,22 min,,/tracks/solfeg-007.mp3,Solfeggio Frequencies,963hz|divine|consciousness|gamma|solfeggio
+binaural,,solfeg-008,174Hz — Pain Relief & Foundation,,22 min,,/tracks/solfeg-008.mp3,Solfeggio Frequencies,174hz|pain|relief|healing|foundation
+binaural,,solfeg-009,285Hz — Tissue Regeneration,,22 min,,/tracks/solfeg-009.mp3,Solfeggio Frequencies,285hz|healing|regeneration|tissue
+binaural,,ext-016,Bhairavi Delta — Sitar 2Hz,,22 min,,/tracks/ext-016.mp3,Binaural + Indian Fusion,bhairavi|delta|sitar|2hz
+binaural,,ext-017,Yaman Delta — Bansuri 2.5Hz,,24 min,,/tracks/ext-017.mp3,Indian Classical,yaman|delta|bansuri|2.5hz
+binaural,,ext-018,Darbari Theta — Santoor 3Hz,,27 min,,/tracks/ext-018.mp3,Theta Waves,darbari|theta|santoor|3hz
+binaural,,ext-019,Bhupali Theta — Veena 4.5Hz,,30 min,,/tracks/ext-019.mp3,Alpha Waves,bhupali|theta|veena|4.5hz
+binaural,,ext-020,Bageshri Theta — Sarod 5Hz,,33 min,,/tracks/ext-020.mp3,Delta Waves,bageshri|theta|sarod|5hz
+binaural,,ext-021,Kirwani Theta — Shehnai 5.5Hz,,40 min,,/tracks/ext-021.mp3,Binaural + Indian Fusion,kirwani|theta|shehnai|5.5hz
+binaural,,ext-022,Marwa Alpha — Mridangam 6Hz,,50 min,,/tracks/ext-022.mp3,Indian Classical,marwa|alpha|mridangam|6hz
+binaural,,ext-023,Desh Alpha — Bansuri 6.5Hz,,22 min,,/tracks/ext-023.mp3,Theta Waves,desh|alpha|bansuri|6.5hz
+binaural,,ext-024,Puriya Alpha — Sitar 7Hz,,24 min,,/tracks/ext-024.mp3,Alpha Waves,puriya|alpha|sitar|7hz
+binaural,,ext-025,Todi Gamma — Bansuri 7.5Hz,,27 min,,/tracks/ext-025.mp3,Delta Waves,todi|gamma|bansuri|7.5hz
+binaural,,ext-026,Multani Delta — Santoor 8Hz,,30 min,,/tracks/ext-026.mp3,Binaural + Indian Fusion,multani|delta|santoor|8hz
+binaural,,ext-027,Kedar Delta — Veena 9Hz,,33 min,,/tracks/ext-027.mp3,Indian Classical,kedar|delta|veena|9hz
+binaural,,ext-028,Jog Theta — Sarod 10Hz,,40 min,,/tracks/ext-028.mp3,Theta Waves,jog|theta|sarod|10hz
+binaural,,ext-029,Bihag Theta — Shehnai 11Hz,,50 min,,/tracks/ext-029.mp3,Alpha Waves,bihag|theta|shehnai|11hz
+binaural,,ext-030,Charukeshi Theta — Mridangam 12Hz,,22 min,,/tracks/ext-030.mp3,Delta Waves,charukeshi|theta|mridangam|12hz
+binaural,,ext-031,Kafi Theta — Bansuri 40Hz,,24 min,,/tracks/ext-031.mp3,Binaural + Indian Fusion,kafi|theta|bansuri|40hz
+binaural,,ext-032,Bilawal Alpha — Sitar 2Hz,,27 min,,/tracks/ext-032.mp3,Indian Classical,bilawal|alpha|sitar|2hz
+binaural,,ext-033,Hindol Alpha — Bansuri 2.5Hz,,30 min,,/tracks/ext-033.mp3,Theta Waves,hindol|alpha|bansuri|2.5hz
+binaural,,ext-034,Lalit Alpha — Santoor 3Hz,,33 min,,/tracks/ext-034.mp3,Alpha Waves,lalit|alpha|santoor|3hz
+binaural,,ext-035,Shree Gamma — Veena 4.5Hz,,40 min,,/tracks/ext-035.mp3,Delta Waves,shree|gamma|veena|4.5hz
+binaural,,ext-036,Bhairavi Delta — Sarod 5Hz,,50 min,,/tracks/ext-036.mp3,Binaural + Indian Fusion,bhairavi|delta|sarod|5hz
+binaural,,ext-037,Yaman Delta — Shehnai 5.5Hz,,22 min,,/tracks/ext-037.mp3,Indian Classical,yaman|delta|shehnai|5.5hz
+binaural,,ext-038,Darbari Theta — Mridangam 6Hz,,24 min,,/tracks/ext-038.mp3,Theta Waves,darbari|theta|mridangam|6hz
+binaural,,ext-039,Bhupali Theta — Bansuri 6.5Hz,,27 min,,/tracks/ext-039.mp3,Alpha Waves,bhupali|theta|bansuri|6.5hz
+binaural,,ext-040,Bageshri Theta — Sitar 7Hz,,30 min,,/tracks/ext-040.mp3,Delta Waves,bageshri|theta|sitar|7hz
+binaural,,ext-041,Kirwani Theta — Bansuri 7.5Hz,,33 min,,/tracks/ext-041.mp3,Binaural + Indian Fusion,kirwani|theta|bansuri|7.5hz
+binaural,,ext-042,Marwa Alpha — Santoor 8Hz,,40 min,,/tracks/ext-042.mp3,Indian Classical,marwa|alpha|santoor|8hz
+binaural,,ext-043,Desh Alpha — Veena 9Hz,,50 min,,/tracks/ext-043.mp3,Theta Waves,desh|alpha|veena|9hz
+binaural,,ext-044,Puriya Alpha — Sarod 10Hz,,22 min,,/tracks/ext-044.mp3,Alpha Waves,puriya|alpha|sarod|10hz
+binaural,,ext-045,Todi Gamma — Shehnai 11Hz,,24 min,,/tracks/ext-045.mp3,Delta Waves,todi|gamma|shehnai|11hz
+binaural,,ext-046,Multani Delta — Mridangam 12Hz,,27 min,,/tracks/ext-046.mp3,Binaural + Indian Fusion,multani|delta|mridangam|12hz
+binaural,,ext-047,Kedar Delta — Bansuri 40Hz,,30 min,,/tracks/ext-047.mp3,Indian Classical,kedar|delta|bansuri|40hz
+binaural,,ext-048,Jog Theta — Sitar 2Hz,,33 min,,/tracks/ext-048.mp3,Theta Waves,jog|theta|sitar|2hz
+binaural,,ext-049,Bihag Theta — Bansuri 2.5Hz,,40 min,,/tracks/ext-049.mp3,Alpha Waves,bihag|theta|bansuri|2.5hz
+binaural,,ext-050,Charukeshi Theta — Santoor 3Hz,,50 min,,/tracks/ext-050.mp3,Delta Waves,charukeshi|theta|santoor|3hz
+binaural,,ext-051,Kafi Theta — Veena 4.5Hz,,22 min,,/tracks/ext-051.mp3,Binaural + Indian Fusion,kafi|theta|veena|4.5hz
+binaural,,ext-052,Bilawal Alpha — Sarod 5Hz,,24 min,,/tracks/ext-052.mp3,Indian Classical,bilawal|alpha|sarod|5hz
+binaural,,ext-053,Hindol Alpha — Shehnai 5.5Hz,,27 min,,/tracks/ext-053.mp3,Theta Waves,hindol|alpha|shehnai|5.5hz
+binaural,,ext-054,Lalit Alpha — Mridangam 6Hz,,30 min,,/tracks/ext-054.mp3,Alpha Waves,lalit|alpha|mridangam|6hz
+binaural,,ext-055,Shree Gamma — Bansuri 6.5Hz,,33 min,,/tracks/ext-055.mp3,Delta Waves,shree|gamma|bansuri|6.5hz
+binaural,,ext-056,Bhairavi Delta — Sitar 7Hz,,40 min,,/tracks/ext-056.mp3,Binaural + Indian Fusion,bhairavi|delta|sitar|7hz
