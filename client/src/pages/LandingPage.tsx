@@ -439,6 +439,11 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
         alignItems: 'center', justifyContent: 'center',
         padding: '48px 24px 80px', position: 'relative', textAlign: 'center',
         overflow: 'hidden',
+        background: `
+          radial-gradient(ellipse at 50% 8%, rgba(112,72,232,0.5), transparent 46%),
+          radial-gradient(ellipse at 86% 28%, rgba(59,91,219,0.28), transparent 42%),
+          radial-gradient(ellipse at 12% 80%, rgba(12,166,120,0.2), transparent 44%),
+          linear-gradient(180deg, #090B1E 0%, #141A33 50%, #1E1338 100%)`,
       }}>
         {/* Parallax ambient blobs */}
         <div style={{
@@ -506,7 +511,7 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
           fontSize: 'clamp(28px, 7vw, 44px)',
           fontWeight: 700, lineHeight: 1.1,
           letterSpacing: '-0.03em',
-          color: '#17120A', margin: '0 0 8px',
+          color: 'var(--on-dark-1)', margin: '0 0 8px',
           opacity: entered ? 1 : 0,
           transform: entered ? 'translateY(0)' : 'translateY(24px)',
           transition: 'all 0.9s ease 0.45s',
@@ -527,7 +532,7 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
         </h1>
 
         <p style={{
-          fontSize: 14, color: '#8C7D6C', lineHeight: 1.7,
+          fontSize: 14, color: 'var(--on-dark-2)', lineHeight: 1.7,
           maxWidth: 300, margin: '0 0 36px',
           opacity: entered ? 1 : 0,
           transform: entered ? 'translateY(0)' : 'translateY(20px)',
@@ -560,12 +565,12 @@ export default function LandingPage({ onEnter }: LandingPageProps) {
         {/* Scroll hint */}
         <div style={{
           position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)',
-          fontSize: 10, letterSpacing: '0.16em', color: '#C2B5A3',
+          fontSize: 10, letterSpacing: '0.16em', color: 'var(--on-dark-3)',
           opacity: heroOpacity * (entered ? 1 : 0),
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
           pointerEvents: 'none',
         }}>
-          <div style={{ width: 1, height: 28, background: 'linear-gradient(to bottom, transparent, #C2B5A3)', marginBottom: 4 }} />
+          <div style={{ width: 1, height: 28, background: 'linear-gradient(to bottom, transparent, rgba(251,249,244,0.5))', marginBottom: 4 }} />
           <span>SCROLL</span>
         </div>
       </section>
