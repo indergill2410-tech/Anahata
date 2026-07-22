@@ -67,6 +67,36 @@
   --ease:   cubic-bezier(0.16,1,0.3,1);
   --dur: 220ms;
   --r-sm:4px; --r-md:10px; --r-lg:16px; --r-xl:20px; --r-full:9999px;
+
+  /* ── Redesign foundation (v2) ──────────────────────────────
+     Signature gradients, a layered elevation scale, and an
+     "on-dark" text set for content sitting over the cosmic
+     nebula regions. Names are new (additive) so existing
+     component CSS is untouched. */
+  --grad-brand:  linear-gradient(135deg, var(--violet), var(--blue));
+  --grad-aurora: linear-gradient(135deg, #7048E8 0%, #5B6EE8 45%, #3B5BDB 100%);
+  --grad-dawn:   linear-gradient(135deg, #F59F00, #E64980);
+  --grad-calm:   linear-gradient(135deg, #0CA678, #3B5BDB);
+
+  /* Layered elevation — softer, deeper, more premium than a single shadow. */
+  --elev-1: 0 1px 2px rgba(23,18,10,0.05), 0 4px 12px rgba(23,18,10,0.05);
+  --elev-2: 0 2px 6px rgba(23,18,10,0.06), 0 12px 30px rgba(23,18,10,0.08);
+  --elev-3: 0 6px 16px rgba(23,18,10,0.08), 0 24px 60px rgba(23,18,10,0.12);
+  --elev-brand: 0 8px 20px rgba(112,72,232,0.28), 0 2px 6px rgba(59,91,219,0.2);
+  --sheen: inset 0 1px 0 rgba(255,255,255,0.85);
+
+  /* Glass surface recipe (light content cards). */
+  --glass-bg: rgba(255,255,255,0.62);
+  --glass-border: rgba(255,255,255,0.7);
+  --glass-blur: blur(26px) saturate(1.4);
+
+  /* Text tokens for content painted over the dark cosmic gradient. */
+  --on-dark-1: #FBF9F4;
+  --on-dark-2: rgba(251,249,244,0.82);
+  --on-dark-3: rgba(251,249,244,0.6);
+
+  /* Focus ring for keyboard accessibility. */
+  --focus-ring: 0 0 0 3px rgba(112,72,232,0.35);
 }
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -100,7 +130,7 @@ body{
     radial-gradient(ellipse at 82% 10%, rgba(255,178,94,0.28), transparent 28%),
     radial-gradient(ellipse at 52% 34%, rgba(112,72,232,0.34), transparent 36%),
     radial-gradient(ellipse at 20% 58%, rgba(12,166,120,0.22), transparent 32%),
-    linear-gradient(180deg,#07091B 0%,#11172B 42%,#25133D 68%,#F4F0E8 100%);
+    linear-gradient(180deg,#07091B 0%,#11172B 42%,#25133D 68%,#160B2E 100%);
   perspective:1200px;
   transform-style:preserve-3d;
 }
@@ -129,31 +159,31 @@ body{
   background:
     radial-gradient(ellipse at 50% 4%, rgba(98,162,255,0.36), transparent 32%),
     radial-gradient(ellipse at 18% 82%, rgba(12,166,120,0.22), transparent 35%),
-    linear-gradient(180deg,#050817 0%,#111B35 48%,#241446 74%,#F4F0E8 100%);
+    linear-gradient(180deg,#050817 0%,#111B35 48%,#241446 74%,#160B2E 100%);
 }
 .page-studio{
   background:
     radial-gradient(ellipse at 50% 0%, rgba(112,72,232,0.42), transparent 34%),
     radial-gradient(ellipse at 88% 72%, rgba(245,159,0,0.22), transparent 30%),
-    linear-gradient(180deg,#07071A 0%,#17122F 48%,#2D1643 72%,#F4F0E8 100%);
+    linear-gradient(180deg,#07071A 0%,#17122F 48%,#2D1643 72%,#160B2E 100%);
 }
 .page-journal{
   background:
     radial-gradient(ellipse at 18% 10%, rgba(99,102,241,0.36), transparent 32%),
     radial-gradient(ellipse at 82% 38%, rgba(12,166,120,0.18), transparent 30%),
-    linear-gradient(180deg,#070A1E 0%,#151C36 45%,#2A1742 72%,#F4F0E8 100%);
+    linear-gradient(180deg,#070A1E 0%,#151C36 45%,#2A1742 72%,#160B2E 100%);
 }
 .page-library{
   background:
     radial-gradient(ellipse at 50% 3%, rgba(255,190,104,0.32), transparent 32%),
     radial-gradient(ellipse at 14% 70%, rgba(91,141,239,0.22), transparent 34%),
-    linear-gradient(180deg,#080A18 0%,#17162A 47%,#301A34 72%,#F4F0E8 100%);
+    linear-gradient(180deg,#080A18 0%,#17162A 47%,#301A34 72%,#160B2E 100%);
 }
 .page-profile{
   background:
     radial-gradient(ellipse at 78% 0%, rgba(12,166,120,0.28), transparent 32%),
     radial-gradient(ellipse at 20% 42%, rgba(112,72,232,0.32), transparent 34%),
-    linear-gradient(180deg,#050817 0%,#111B2C 45%,#1B2440 70%,#F4F0E8 100%);
+    linear-gradient(180deg,#050817 0%,#111B2C 45%,#1B2440 70%,#160B2E 100%);
 }
 
 .dashboard{
@@ -330,54 +360,6 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   color:var(--blue);letter-spacing:0.14em;
 }
 
-.verification-notice{
-  width:min(calc(100% - 24px),480px);
-  margin:10px auto 0;
-  padding:12px;
-  border-radius:22px;
-  border:1px solid rgba(255,255,255,0.42);
-  background:
-    linear-gradient(145deg, rgba(255,255,255,0.86), rgba(214,205,255,0.34)),
-    radial-gradient(circle at 90% 10%, rgba(12,166,120,0.16), transparent 32%);
-  box-shadow:0 16px 38px rgba(7,9,24,0.18), inset 0 1px 0 rgba(255,255,255,0.84);
-  display:grid;
-  grid-template-columns:34px minmax(0,1fr);
-  gap:10px;
-  align-items:center;
-  transform:translateZ(34px);
-}
-.verification-notice.compact{
-  padding:10px 12px;
-}
-.verification-orb{
-  width:30px;height:30px;border-radius:50%;
-  background:radial-gradient(circle at 35% 28%, #FFFFFF, #7048E8 52%, #3B5BDB 80%);
-  box-shadow:0 0 24px rgba(112,72,232,0.34), inset 0 1px 6px rgba(255,255,255,0.45);
-}
-.verification-copy{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.verification-copy strong{
-  font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:900;color:var(--ink1);
-}
-.verification-copy span{font-size:11px;font-weight:800;color:var(--ink3);line-height:1.45;}
-.verification-actions{
-  grid-column:1 / -1;
-  display:flex;
-  gap:8px;
-}
-.verification-actions button{
-  flex:1;
-  min-height:36px;
-  border-radius:14px;
-  border:1px solid rgba(112,72,232,0.18);
-  background:rgba(255,255,255,0.72);
-  color:#7048E8;
-  font-size:11px;
-  font-weight:900;
-  font-family:'Space Grotesk',sans-serif;
-  box-shadow:0 8px 18px rgba(112,72,232,0.1);
-}
-.verification-actions button:disabled{opacity:0.55;cursor:wait;}
-
 .navbar{
   position:fixed;bottom:0;left:0;right:0;
   background:rgba(247,244,238,0.97);
@@ -487,8 +469,8 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 .intention-btn span:first-child{font-size:20px;}
 .intention-btn:hover{border-color:rgba(23,18,10,0.14);transform:translateY(-2px);}
 .intention-btn.active{
-  border-color:rgba(112,72,232,0.4);background:var(--violet);color:#fff;
-  box-shadow:0 4px 16px rgba(112,72,232,0.3);transform:translateY(-2px);
+  border-color:rgba(112,72,232,0.5);background:var(--grad-aurora);color:#fff;
+  box-shadow:var(--elev-brand);transform:translateY(-2px);
 }
 
 .ai-assistant{
@@ -1282,10 +1264,15 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 /* Consistent card upgrade — more breathing room */
 .studio-card,
 .card {
-  border-radius: 20px !important;
+  border-radius: 22px !important;
   padding: 20px !important;
-  box-shadow: 0 2px 16px rgba(23,18,10,0.06), inset 0 1px 0 rgba(255,255,255,0.8) !important;
-  border: 1px solid rgba(23,18,10,0.06) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 42%),
+    var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  box-shadow: var(--elev-2), var(--sheen) !important;
+  border: 1px solid var(--glass-border) !important;
 }
 
 .section-title {
@@ -1320,16 +1307,32 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   padding: 24px 24px 40px !important;
 }
 
-/* Buttons — rounder with more weight */
+/* Buttons — rounder with more weight; primary rides the signature aurora. */
 .btn-primary {
   border-radius: 14px !important;
   padding: 14px 28px !important;
   font-size: 14px !important;
   letter-spacing: 0.02em !important;
+  background: var(--grad-aurora) !important;
+  box-shadow: var(--elev-brand) !important;
 }
+.btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.btn-primary:active { transform: scale(0.97); }
 .btn-secondary {
   border-radius: 12px !important;
   padding: 12px 20px !important;
+}
+
+/* Visible keyboard focus across interactive elements (accessibility). */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring) !important;
 }
 
 

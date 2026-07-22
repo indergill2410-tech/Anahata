@@ -55,34 +55,36 @@ describe('auth verification gates', () => {
     expect(verifyToken(res.body.token).verified).toBe(true);
   });
 
-  test('requests and confirms email verification', async () => {
-    mockCollection.requestVerification.mockResolvedValue(true);
-    mockCollection.confirmVerification.mockResolvedValue(true);
+  test('removes the email-verification endpoints', async () => {
     const token = signToken({ userId: 'user_123', email: 'test@example.com', name: 'Test', verified: false });
 
     await request(buildApp())
       .post('/api/auth/verification/request')
       .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-    expect(mockCollection.requestVerification).toHaveBeenCalledWith('test@example.com');
+      .expect(404);
 
     await request(buildApp())
       .post('/api/auth/verification/confirm')
       .send({ token: 'verify-token' })
-      .expect(200);
-    expect(mockCollection.confirmVerification).toHaveBeenCalledWith('verify-token');
+      .expect(404);
+
+    expect(mockCollection.requestVerification).not.toHaveBeenCalled();
+    expect(mockCollection.confirmVerification).not.toHaveBeenCalled();
   });
 
-  test('blocks private journal writes for unverified users', async () => {
+  test('allows private journal writes without email verification', async () => {
+    mockCollection.create.mockResolvedValue({
+      id: 'entry_1', entry_type: 'note', entry_date: '2026-06-08', text: 'A private signal.',
+    });
     const token = signToken({ userId: 'user_123', email: 'test@example.com', name: 'Test', verified: false });
 
     const res = await request(buildApp())
       .post('/api/journal')
       .set('Authorization', `Bearer ${token}`)
       .send({ entry_type: 'note', entry_date: '2026-06-08', text: 'A private signal.' })
-      .expect(403);
+      .expect(201);
 
-    expect(res.body.code).toBe('email_verification_required');
-    expect(mockCollection.create).not.toHaveBeenCalled();
+    expect(res.body.entry).toMatchObject({ id: 'entry_1' });
+    expect(mockCollection.create).toHaveBeenCalled();
   });
 });

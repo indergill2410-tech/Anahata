@@ -4,19 +4,24 @@ import { useTrackPlayer } from '../context/TrackPlayerContext';
 import RagaExplorer from '../components/RagaExplorer';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
+// Cosmic theme: transparent page (the .page-library nebula shows through) with
+// dark-glass surfaces and light ink, so the Library joins the immersive
+// universe. bg1/bg2 are translucent-white glass over the dark cosmos; the ink
+// scale is inverted to light. Keeping the same token names means the whole
+// component (orbital view, album cards, track rows, player) inverts together.
 const T = {
-  bg:       '#FAF7F2',
-  bg1:      '#FFFFFF',
-  bg2:      '#F0EBE3',
-  ink1:     '#1C1410',
-  ink2:     '#4A3828',
-  ink3:     '#8B6F5E',
-  ink4:     '#C4AFA4',
-  amber:    '#D97706',
-  amberLo:  'rgba(217,119,6,0.12)',
-  amberMid: 'rgba(217,119,6,0.25)',
-  shadow:   '0 2px 16px rgba(28,20,16,0.08)',
-  shadowLg: '0 12px 48px rgba(28,20,16,0.13)',
+  bg:       'transparent',
+  bg1:      'rgba(255,255,255,0.09)',
+  bg2:      'rgba(255,255,255,0.16)',
+  ink1:     '#FBF9F4',
+  ink2:     'rgba(251,249,244,0.82)',
+  ink3:     'rgba(251,249,244,0.6)',
+  ink4:     'rgba(251,249,244,0.42)',
+  amber:    '#FFB84D',
+  amberLo:  'rgba(255,184,77,0.16)',
+  amberMid: 'rgba(255,184,77,0.34)',
+  shadow:   '0 4px 18px rgba(7,9,24,0.35)',
+  shadowLg: '0 18px 52px rgba(7,9,24,0.5)',
 };
 
 // ─── OrbSphere (CSS-only, no canvas) ─────────────────────────────────────────

@@ -68,20 +68,9 @@ router.post('/register', authLimiter, async (req, res, next) => {
       emailVisibility: true
     });
 
-    try {
-      await pb.collection('users').requestVerification(email);
-    } catch (verifyErr) {
-      // Registration must still succeed even if the verification email can't be
-      // sent, but we log it so a misconfigured mailer is diagnosable instead of
-      // silently swallowed. The most common cause is PocketBase having no SMTP
-      // settings configured — see pb-migrations/setup-collections.js.
-      console.error(
-        `[auth] Verification email could not be sent to ${email}. ` +
-        'Check that PocketBase SMTP settings are configured. Cause:',
-        verifyErr?.message || verifyErr
-      );
-    }
-
+    // Email verification has been removed — accounts are usable immediately
+    // after signup. The `verified` field is retained (dormant) on the user
+    // record and JWT in case enforcement is ever reintroduced.
     res.status(201).json(sessionFor(user));
   } catch (err) {
     // PocketBase returns 400 with data.email when email already exists
@@ -129,33 +118,6 @@ router.get('/me', requireAuth, async (req, res, next) => {
     const record = await pb.collection('users').getOne(req.user.userId);
     res.json(sessionFor(record));
   } catch (err) { next(err); }
-});
-
-// POST /api/auth/verification/request
-router.post('/verification/request', requireAuth, async (req, res, next) => {
-  try {
-    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
-    const email = req.user.email;
-    if (!email) return res.status(400).json({ error: 'Email is required.' });
-    await pb.collection('users').requestVerification(email);
-    res.json({ message: 'Verification email sent.' });
-  } catch (err) { next(err); }
-});
-
-// POST /api/auth/verification/confirm
-router.post('/verification/confirm', async (req, res, next) => {
-  try {
-    if (!pb) return res.status(503).json({ error: 'Database not configured.' });
-    const token = String(req.body?.token || '').trim();
-    if (!token) return res.status(400).json({ error: 'Verification token is required.' });
-    await pb.collection('users').confirmVerification(token);
-    res.json({ message: 'Email verified.' });
-  } catch (err) {
-    if (err.status === 400 || err.status === 404) {
-      return res.status(400).json({ error: 'Verification link is invalid or expired.' });
-    }
-    next(err);
-  }
 });
 
 // POST /api/auth/logout — client should discard token; this endpoint confirms

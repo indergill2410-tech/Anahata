@@ -23,12 +23,16 @@ function requireAuth(req, res, next) {
   }
 }
 
+/**
+ * requireVerified — retained as a pass-through.
+ *
+ * Email verification has been removed, so this no longer blocks anyone; any
+ * authenticated user may write. It stays in the middleware chain (and exported)
+ * so routes and tests need no changes, and enforcement can be reinstated here
+ * alone if the dormant `verified` field is ever put back to use.
+ */
 function requireVerified(req, res, next) {
-  if (req.user?.verified === true) return next();
-  return res.status(403).json({
-    code: 'email_verification_required',
-    error: 'Verify your email to save private Anahata data.',
-  });
+  return next();
 }
 
 /**

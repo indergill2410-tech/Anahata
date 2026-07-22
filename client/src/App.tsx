@@ -10,7 +10,6 @@ import LandingPage from './pages/LandingPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 import MobileInstallPrompt from './components/MobileInstallPrompt';
-import VerificationNotice from './components/VerificationNotice';
 
 const AIMixDialog = lazy(() => import('./components/AIMixDialog'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
@@ -44,22 +43,27 @@ function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
   const label = tab === 'profile' ? 'your private practice space' : 'your session history';
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      flex:1, padding:'48px 24px', textAlign:'center', gap:16 }}>
-      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(112,72,232,0.1)', border: '1px solid rgba(112,72,232,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--violet)' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-        </svg>
+      flex:1, padding:'40px 24px' }}>
+      <div className="card fade-in" style={{ display:'flex', flexDirection:'column', alignItems:'center',
+        textAlign:'center', gap:16, padding:'32px 24px', width:'100%', maxWidth:360 }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--grad-aurora)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          boxShadow: 'var(--elev-brand)' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          </svg>
+        </div>
+        <h2 className="type-h2" style={{ margin:0 }}>
+          Sign in to view {label}
+        </h2>
+        <p className="type-caption" style={{ margin:0, maxWidth:280 }}>
+          Create a free account or sign in to keep journals, sessions, and personal guidance safely together.
+        </p>
+        <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
+          Sign in / Register
+        </button>
       </div>
-      <h2 className="type-h2" style={{ margin:0 }}>
-        Sign in to view {label}
-      </h2>
-      <p className="type-caption" style={{ margin:0, maxWidth:280 }}>
-        Create a free account or sign in to keep journals, sessions, and personal guidance safely together.
-      </p>
-      <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
-        Sign in / Register
-      </button>
     </div>
   );
 }
@@ -77,7 +81,7 @@ function AIFloatButton({ onClick }: { onClick: () => void }) {
 }
 
 function Inner() {
-  const { isAuthenticated, loading, needsVerification } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const engine = useSoundEngine();
   const contentRef = React.useRef<HTMLDivElement>(null);
   const requestedTab = React.useMemo(readRequestedTab, []);
@@ -143,11 +147,12 @@ function Inner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)', flexDirection:'column', gap:16 }}>
-        <div className="type-h1" style={{ color:'var(--blue)', letterSpacing:'0.14em' }}>
+      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:18,
+        background:'radial-gradient(ellipse at 50% 30%, rgba(112,72,232,0.4), transparent 55%), linear-gradient(180deg, #090B1E, #1A1338)' }}>
+        <div className="type-h1" style={{ color:'var(--on-dark-1)', letterSpacing:'0.24em' }}>
           ANAHATA
         </div>
-        <div className="spinner" style={{ width:24, height:24 }} />
+        <div className="spinner" style={{ width:24, height:24, borderTopColor:'#fff', borderColor:'rgba(255,255,255,0.25)' }} />
       </div>
     );
   }
@@ -189,7 +194,6 @@ function Inner() {
     <>
       <div className={`page page-${tab}`}>
         <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
-        {needsVerification && <VerificationNotice compact />}
         <ErrorBoundary>
           <AnimatePresence mode="wait">
             <motion.div
