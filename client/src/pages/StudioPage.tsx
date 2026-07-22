@@ -129,8 +129,8 @@ function GenOrb({ color, size = 96 }: { color: string; size?: number }) {
 
 export default function StudioPage() {
   const engine = useSoundEngine();
-  const { isAuthenticated, token, user, requestVerification } = useAuth();
-  const { success, error, info } = useToast();
+  const { isAuthenticated, token } = useAuth();
+  const { success, error } = useToast();
 
   const [mode,         setMode]         = useState<Mode>('generate');
   const [generating,   setGenerating]   = useState(false);
@@ -231,12 +231,6 @@ export default function StudioPage() {
   // ── Save / Load ─────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!mixName.trim()) return;
-    if (user?.verified !== true) {
-      try { await requestVerification(); } catch { /* global banner keeps the retry available */ }
-      info('Verify your email to save studio mixes.');
-      setShowSave(false);
-      return;
-    }
     setSaving(true);
     try {
       const res = await fetch('/api/mixes', {
@@ -272,11 +266,6 @@ export default function StudioPage() {
   };
 
   const handleDeleteMix = async (id: string) => {
-    if (user?.verified !== true) {
-      try { await requestVerification(); } catch { /* global banner keeps the retry available */ }
-      info('Verify your email before deleting saved mixes.');
-      return;
-    }
     await fetch(`/api/mixes/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setSavedMixes(m => m.filter(x => x.id !== id));
   };

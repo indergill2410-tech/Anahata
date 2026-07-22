@@ -415,7 +415,7 @@ function CalendarMonth({
 }
 
 export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageProps) {
-  const { isAuthenticated, user, authFetch, requestVerification } = useAuth();
+  const { isAuthenticated, authFetch } = useAuth();
   const { success, error, info } = useToast();
   const engine = useSoundEngine();
   const [moodSuggestion, setMoodSuggestion] = useState<{ key: keyof typeof INTENTIONS; mood: number } | null>(null);
@@ -608,13 +608,6 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
       return;
     }
 
-    if (user?.verified !== true) {
-      localStorage.setItem(PENDING_KEY, JSON.stringify(payload));
-      try { await requestVerification(); } catch { /* banner keeps the retry available */ }
-      info('Verify your email to save this journal entry privately.');
-      return;
-    }
-
     setSaving(true);
     try {
       const saved = currentEntry?.id
@@ -639,11 +632,6 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   async function handleImportLocal() {
     if (!unsyncedLocalEntries.length) return;
-    if (user?.verified !== true) {
-      try { await requestVerification(); } catch { /* banner keeps the retry available */ }
-      info('Verify your email before syncing device entries.');
-      return;
-    }
     setSyncing(true);
     try {
       const result = await api.importEntries(unsyncedLocalEntries.map(memoryEntryToPayload));
@@ -658,8 +646,8 @@ export default function JournalPage({ onRequireAuth, onTabChange }: JournalPageP
 
   const today = todayKey();
   const dateRail = Array.from({ length: 7 }, (_, idx) => offsetDateKey(idx - 6));
-  const saveLabel = saving ? 'Saving' : !isAuthenticated ? 'Create account to keep it' : user?.verified !== true ? 'Verify email to save' : currentEntry ? 'Update signal' : 'Save signal';
-  const saveState = !isAuthenticated ? 'Private with an account' : user?.verified !== true ? 'Verification needed' : currentEntry ? 'Opened signal' : 'New signal';
+  const saveLabel = saving ? 'Saving' : !isAuthenticated ? 'Create account to keep it' : currentEntry ? 'Update signal' : 'Save signal';
+  const saveState = !isAuthenticated ? 'Private with an account' : currentEntry ? 'Opened signal' : 'New signal';
   const assistantNudge = activeTab === 'dream'
     ? 'Start with the strongest image you remember. The rest can stay blurry.'
     : activeTab === 'daily'

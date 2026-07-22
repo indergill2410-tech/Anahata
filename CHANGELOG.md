@@ -4,12 +4,15 @@ All notable changes to Anahata are documented here.
 
 ## [Unreleased]
 
-### Fixed
-- Signup verification emails were never delivered because PocketBase had no
-  SMTP settings configured. `npm run setup:db` now provisions PocketBase mail
-  settings from `SMTP_*` env vars (and sends a test email to surface
-  misconfiguration early). The registration route also now logs, instead of
-  silently swallowing, any failure to send the verification email.
+### Removed
+- Email verification has been removed entirely. Signup no longer sends a
+  verification email, and accounts are fully usable immediately — private saves
+  (journal, sessions, mixes, favourites, biometric personalization, profile
+  settings) no longer require a "verify your email" step. The `/api/auth/
+  verification/*` endpoints and the `VerificationNotice` UI are gone. The
+  `verified` field is retained but dormant on the user record/JWT, and
+  `requireVerified` is now a pass-through so enforcement can be reinstated in one
+  place if ever needed.
 
 ## [1.0.0] — 2026-05-29
 

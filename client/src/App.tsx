@@ -10,7 +10,6 @@ import LandingPage from './pages/LandingPage';
 import BottomNav from './components/BottomNav';
 import TopBar from './components/TopBar';
 import MobileInstallPrompt from './components/MobileInstallPrompt';
-import VerificationNotice from './components/VerificationNotice';
 
 const AIMixDialog = lazy(() => import('./components/AIMixDialog'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
@@ -77,7 +76,7 @@ function AIFloatButton({ onClick }: { onClick: () => void }) {
 }
 
 function Inner() {
-  const { isAuthenticated, loading, needsVerification } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const engine = useSoundEngine();
   const contentRef = React.useRef<HTMLDivElement>(null);
   const requestedTab = React.useMemo(readRequestedTab, []);
@@ -189,7 +188,6 @@ function Inner() {
     <>
       <div className={`page page-${tab}`}>
         <TopBar tab={tab} onSignIn={openAuth} onBack={tab !== 'journey' ? handleBack : undefined} />
-        {needsVerification && <VerificationNotice compact />}
         <ErrorBoundary>
           <AnimatePresence mode="wait">
             <motion.div

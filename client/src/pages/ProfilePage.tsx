@@ -166,7 +166,7 @@ function RhythmRow({ color, label, meta, body }: { color: string; label: string;
 }
 
 export default function ProfilePage() {
-  const { user, logout, authFetch, requestVerification } = useAuth();
+  const { user, logout, authFetch } = useAuth();
   const { success, error, info } = useToast();
   const dashboard = useUserDashboard();
   const journalApi = useMemo(() => createJournalApi(authFetch), [authFetch]);
@@ -198,16 +198,7 @@ export default function ProfilePage() {
     return () => { active = false; };
   }, [authFetch, user?.id]);
 
-  async function ensureVerified(message: string) {
-    if (user?.verified === true) return true;
-    try { await requestVerification(); } catch { /* global banner keeps retry available */ }
-    info(message);
-    return false;
-  }
-
   async function setPref(key: PrefKey, val: boolean) {
-    if (!(await ensureVerified('Verify your email to save personal settings.'))) return;
-
     const next = { ...prefs, [key]: val };
     try {
       const res = await authFetch('/api/profile/preferences', {
@@ -249,8 +240,6 @@ export default function ProfilePage() {
   }
 
   async function handleClearJournal() {
-    if (!(await ensureVerified('Verify your email before clearing private journal data.'))) return;
-
     const ok = window.confirm('This clears your private journal entries from this account and this device. This cannot be undone. Continue?');
     if (!ok) {
       info('Nothing changed.');

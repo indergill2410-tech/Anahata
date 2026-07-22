@@ -2,7 +2,6 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Track, Album } from '../data/libraryData';
 import { TRACK_PLAYER_START_EVENT, SOUND_ENGINE_START_EVENT } from './audioEvents';
 import { useAuth } from './AuthContext';
-import { useToast } from './ToastContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function parseDuration(s: string): number {
@@ -95,8 +94,7 @@ function saveFavorites(favs: Set<string>) {
 }
 
 export function TrackPlayerProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, user, authFetch, requestVerification } = useAuth();
-  const { info } = useToast();
+  const { isAuthenticated, authFetch } = useAuth();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentAlbum, setCurrentAlbum] = useState<Album | null>(null);
   const [isPlaying,    setIsPlaying]    = useState(false);
@@ -132,13 +130,13 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
   const repeatRef        = useRef(repeat);
   const shuffleRef       = useRef(shuffle);
   const volumeRef        = useRef(volume);
-  const authRef          = useRef({ isAuthenticated: false, verified: false, authFetch });
+  const authRef          = useRef({ isAuthenticated: false, authFetch });
   currentTrackRef.current = currentTrack;
   currentAlbumRef.current = currentAlbum;
   repeatRef.current       = repeat;
   shuffleRef.current      = shuffle;
   volumeRef.current       = volume;
-  authRef.current         = { isAuthenticated, verified: user?.verified === true, authFetch };
+  authRef.current         = { isAuthenticated, authFetch };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -164,7 +162,7 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
 
   function recordLibraryPlay(trackId: string) {
     const auth = authRef.current;
-    if (!auth.isAuthenticated || !auth.verified) return;
+    if (!auth.isAuthenticated) return;
     auth.authFetch('/api/library/plays', {
       method: 'POST',
       body: JSON.stringify({ track_id: trackId, duration_played: 0 }),
@@ -558,12 +556,6 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function toggleFavorite(trackId: string) {
-    if (isAuthenticated && user?.verified !== true) {
-      requestVerification().catch(() => {});
-      info('Verify your email to save library favorites.');
-      return;
-    }
-
     const wasFavorite = favorites.has(trackId);
     setFavorites(prev => {
       const next = new Set(prev);

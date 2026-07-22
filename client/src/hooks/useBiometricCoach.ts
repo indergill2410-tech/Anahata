@@ -62,7 +62,7 @@ export function useBiometricCoach({
   enabled = true,
   saveIntervalMs = 15000,
 }: UseBiometricCoachOptions) {
-  const { isAuthenticated, user, authFetch, requestVerification } = useAuth();
+  const { isAuthenticated, authFetch } = useAuth();
   const api = useMemo(() => createBiometricApi(authFetch), [authFetch]);
   const [samples, setSamples] = useState<BiometricSample[]>([]);
   const [lastSample, setLastSample] = useState<BiometricSample | null>(null);
@@ -134,11 +134,6 @@ export function useBiometricCoach({
 
   const saveSample = useCallback(async (payload: BiometricSamplePayload) => {
     if (!isAuthenticated || inFlightRef.current) return null;
-    if (user?.verified !== true) {
-      requestVerification().catch(() => {});
-      setError('Verify your email to save body-signal personalization.');
-      return null;
-    }
     if (payload.source === 'watch' && !readBiometricDataConsent()) {
       setError('Allow body-signal sharing before saving watch readings.');
       return null;
@@ -159,7 +154,7 @@ export function useBiometricCoach({
     } finally {
       inFlightRef.current = false;
     }
-  }, [api, isAuthenticated, requestVerification, user?.verified]);
+  }, [api, isAuthenticated]);
 
   const captureNow = useCallback(async () => {
     const payload = makePayload();
