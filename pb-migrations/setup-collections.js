@@ -27,12 +27,91 @@ if (!PB_EMAIL || !PB_PASS) {
 const USER_RELATION = { collectionId: '_pb_users_auth_', cascadeDelete: true, maxSelect: 1 };
 const USER_RELATION_KEEP_SESSIONS = { collectionId: '_pb_users_auth_', cascadeDelete: false, maxSelect: 1 };
 
+/**
+ * Configure PocketBase mail (SMTP) settings so verification / password-reset
+ * emails are actually delivered.
+ *
+ * Without this, PocketBase falls back to a local `sendmail` binary that does
+ * not exist in the deployment container, so `requestVerification()` succeeds on
+ * the API but the email is never sent — the exact "no verification email on
+ * signup" symptom.
+ *
+ * Driven by env vars so no secrets live in the repo. If SMTP_HOST is unset the
+ * step is skipped with a clear warning (useful for pure local dev).
+ */
+async function configureMail(pb) {
+  console.log('\nConfiguring mail (SMTP) settings ...');
+
+  const host = process.env.SMTP_HOST;
+  if (!host) {
+    console.warn(
+      '  SMTP_HOST not set — skipping mail configuration.\n' +
+      '  Verification/password-reset emails will NOT be delivered until you set\n' +
+      '  SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD (and optionally\n' +
+      '  SMTP_SENDER_ADDRESS / SMTP_SENDER_NAME / APP_URL) and re-run this script.'
+    );
+    return;
+  }
+
+  const port = Number(process.env.SMTP_PORT || 587);
+  const username = process.env.SMTP_USERNAME || '';
+  const password = process.env.SMTP_PASSWORD || '';
+  // Port 465 uses implicit TLS; 587/25 use STARTTLS (tls=false lets PocketBase
+  // upgrade the connection). Override with SMTP_TLS=true/false if needed.
+  const tls = process.env.SMTP_TLS != null
+    ? /^true$/i.test(process.env.SMTP_TLS)
+    : port === 465;
+
+  const senderAddress =
+    process.env.SMTP_SENDER_ADDRESS || username || 'no-reply@anahata.app';
+  const senderName = process.env.SMTP_SENDER_NAME || 'Anahata';
+  const appUrl =
+    process.env.APP_URL || process.env.PUBLIC_APP_URL || PB_URL;
+
+  await pb.settings.update({
+    meta: {
+      appName: 'Anahata',
+      appUrl,
+      senderName,
+      senderAddress,
+    },
+    smtp: {
+      enabled: true,
+      host,
+      port,
+      username,
+      password,
+      tls,
+      authMethod: process.env.SMTP_AUTH_METHOD || '',
+      localName: process.env.SMTP_LOCAL_NAME || '',
+    },
+  });
+
+  console.log(
+    `  SMTP enabled: ${host}:${port} (tls=${tls}), sender "${senderName} <${senderAddress}>".`
+  );
+
+  // Best-effort delivery check so misconfiguration surfaces now, not at signup.
+  try {
+    await pb.settings.testEmail(senderAddress, 'verification');
+    console.log(`  Sent a test verification email to ${senderAddress}.`);
+  } catch (err) {
+    console.warn(
+      '  WARNING: SMTP settings saved but the test email failed. ' +
+      'Double-check host/port/credentials. Cause:',
+      err?.message || err
+    );
+  }
+}
+
 async function run() {
   const pb = new PocketBase(PB_URL);
 
   console.log(`Connecting to PocketBase at ${PB_URL} ...`);
   await pb.admins.authWithPassword(PB_EMAIL, PB_PASS);
   console.log('Authenticated as admin.');
+
+  await configureMail(pb);
 
   console.log('\nUpdating users collection ...');
   const usersCol = await pb.collections.getOne('users');

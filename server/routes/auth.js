@@ -70,8 +70,16 @@ router.post('/register', authLimiter, async (req, res, next) => {
 
     try {
       await pb.collection('users').requestVerification(email);
-    } catch {
-      // SMTP may not be configured in local/dev environments. Registration should still succeed.
+    } catch (verifyErr) {
+      // Registration must still succeed even if the verification email can't be
+      // sent, but we log it so a misconfigured mailer is diagnosable instead of
+      // silently swallowed. The most common cause is PocketBase having no SMTP
+      // settings configured — see pb-migrations/setup-collections.js.
+      console.error(
+        `[auth] Verification email could not be sent to ${email}. ` +
+        'Check that PocketBase SMTP settings are configured. Cause:',
+        verifyErr?.message || verifyErr
+      );
     }
 
     res.status(201).json(sessionFor(user));
