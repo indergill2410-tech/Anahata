@@ -86,20 +86,25 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: `radial-gradient(circle at 50% 6%, ${tone(current.color, '18')}, transparent 36%), var(--bg)`,
+      background: `
+        radial-gradient(ellipse at 50% 2%, ${tone(current.color, '99')}, transparent 42%),
+        radial-gradient(ellipse at 86% 74%, rgba(59,91,219,0.22), transparent 40%),
+        radial-gradient(ellipse at 10% 88%, rgba(12,166,120,0.16), transparent 42%),
+        linear-gradient(180deg, #090B1E 0%, #141A33 52%, #1E1438 100%)`,
+      transition: 'background 0.4s var(--ease)',
       padding: 24,
     }}>
       <section style={{ width: '100%', maxWidth: 390, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 22 }}>
         <SetupOrb color={current.color} step={step} />
 
         <div>
-          <div style={{ fontSize: 10, fontWeight: 900, color: current.color, textTransform: 'uppercase', fontFamily: "'Space Grotesk', sans-serif" }}>
+          <div style={{ fontSize: 10, fontWeight: 900, color: '#fff', opacity: 0.9, textTransform: 'uppercase', fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.02em' }}>
             {current.eyebrow}
           </div>
-          <h1 style={{ margin: '7px 0 0', fontFamily: "'Space Grotesk', sans-serif", fontSize: 29, lineHeight: 1.05, fontWeight: 900, color: 'var(--ink1)', letterSpacing: 0 }}>
+          <h1 style={{ margin: '7px 0 0', fontFamily: "'Space Grotesk', sans-serif", fontSize: 29, lineHeight: 1.05, fontWeight: 900, color: 'var(--on-dark-1)', letterSpacing: 0 }}>
             {current.title}
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7, margin: '11px auto 0', maxWidth: 330 }}>
+          <p style={{ fontSize: 13, color: 'var(--on-dark-2)', lineHeight: 1.7, margin: '11px auto 0', maxWidth: 330 }}>
             {current.body}
           </p>
         </div>
@@ -115,7 +120,7 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
               width: i === step ? 30 : 8,
               height: 8,
               borderRadius: 999,
-              background: i === step ? current.color : 'rgba(23,18,10,0.12)',
+              background: i === step ? current.color : 'rgba(255,255,255,0.22)',
               transition: 'all 0.28s var(--ease)',
             }} />
           ))}
@@ -130,7 +135,7 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
           {!isLast && (
             <button onClick={finish} style={{
               fontSize: 12,
-              color: 'var(--ink3)',
+              color: 'var(--on-dark-3)',
               background: 'none',
               border: 'none',
               cursor: 'pointer',

@@ -147,11 +147,12 @@ function Inner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)', flexDirection:'column', gap:16 }}>
-        <div className="type-h1" style={{ color:'var(--blue)', letterSpacing:'0.14em' }}>
+      <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:18,
+        background:'radial-gradient(ellipse at 50% 30%, rgba(112,72,232,0.4), transparent 55%), linear-gradient(180deg, #090B1E, #1A1338)' }}>
+        <div className="type-h1" style={{ color:'var(--on-dark-1)', letterSpacing:'0.24em' }}>
           ANAHATA
         </div>
-        <div className="spinner" style={{ width:24, height:24 }} />
+        <div className="spinner" style={{ width:24, height:24, borderTopColor:'#fff', borderColor:'rgba(255,255,255,0.25)' }} />
       </div>
     );
   }
