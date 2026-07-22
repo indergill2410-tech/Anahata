@@ -4,6 +4,15 @@ All notable changes to Anahata are documented here.
 
 ## [Unreleased]
 
+### Changed
+- Visual refresh (foundation + shared shell), keeping the Cosmic Ivory identity:
+  a new design-token layer (signature aurora gradients, a layered elevation
+  scale, a glass-surface recipe, and an "on-dark" text set for content over the
+  cosmic backgrounds), deeper glassmorphic cards, primary buttons on the
+  signature violet→blue aurora, and visible keyboard focus rings for
+  accessibility. Fixed low-contrast dark-on-dark text on the signed-out
+  Dashboard prompt by placing it on a readable glass card.
+
 ### Removed
 - Email verification has been removed entirely. Signup no longer sends a
   verification email, and accounts are fully usable immediately — private saves

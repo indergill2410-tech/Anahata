@@ -67,6 +67,36 @@
   --ease:   cubic-bezier(0.16,1,0.3,1);
   --dur: 220ms;
   --r-sm:4px; --r-md:10px; --r-lg:16px; --r-xl:20px; --r-full:9999px;
+
+  /* ── Redesign foundation (v2) ──────────────────────────────
+     Signature gradients, a layered elevation scale, and an
+     "on-dark" text set for content sitting over the cosmic
+     nebula regions. Names are new (additive) so existing
+     component CSS is untouched. */
+  --grad-brand:  linear-gradient(135deg, var(--violet), var(--blue));
+  --grad-aurora: linear-gradient(135deg, #7048E8 0%, #5B6EE8 45%, #3B5BDB 100%);
+  --grad-dawn:   linear-gradient(135deg, #F59F00, #E64980);
+  --grad-calm:   linear-gradient(135deg, #0CA678, #3B5BDB);
+
+  /* Layered elevation — softer, deeper, more premium than a single shadow. */
+  --elev-1: 0 1px 2px rgba(23,18,10,0.05), 0 4px 12px rgba(23,18,10,0.05);
+  --elev-2: 0 2px 6px rgba(23,18,10,0.06), 0 12px 30px rgba(23,18,10,0.08);
+  --elev-3: 0 6px 16px rgba(23,18,10,0.08), 0 24px 60px rgba(23,18,10,0.12);
+  --elev-brand: 0 8px 20px rgba(112,72,232,0.28), 0 2px 6px rgba(59,91,219,0.2);
+  --sheen: inset 0 1px 0 rgba(255,255,255,0.85);
+
+  /* Glass surface recipe (light content cards). */
+  --glass-bg: rgba(255,255,255,0.62);
+  --glass-border: rgba(255,255,255,0.7);
+  --glass-blur: blur(26px) saturate(1.4);
+
+  /* Text tokens for content painted over the dark cosmic gradient. */
+  --on-dark-1: #FBF9F4;
+  --on-dark-2: rgba(251,249,244,0.82);
+  --on-dark-3: rgba(251,249,244,0.6);
+
+  /* Focus ring for keyboard accessibility. */
+  --focus-ring: 0 0 0 3px rgba(112,72,232,0.35);
 }
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -1234,10 +1264,15 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 /* Consistent card upgrade — more breathing room */
 .studio-card,
 .card {
-  border-radius: 20px !important;
+  border-radius: 22px !important;
   padding: 20px !important;
-  box-shadow: 0 2px 16px rgba(23,18,10,0.06), inset 0 1px 0 rgba(255,255,255,0.8) !important;
-  border: 1px solid rgba(23,18,10,0.06) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0) 42%),
+    var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  box-shadow: var(--elev-2), var(--sheen) !important;
+  border: 1px solid var(--glass-border) !important;
 }
 
 .section-title {
@@ -1272,16 +1307,32 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   padding: 24px 24px 40px !important;
 }
 
-/* Buttons — rounder with more weight */
+/* Buttons — rounder with more weight; primary rides the signature aurora. */
 .btn-primary {
   border-radius: 14px !important;
   padding: 14px 28px !important;
   font-size: 14px !important;
   letter-spacing: 0.02em !important;
+  background: var(--grad-aurora) !important;
+  box-shadow: var(--elev-brand) !important;
 }
+.btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.btn-primary:active { transform: scale(0.97); }
 .btn-secondary {
   border-radius: 12px !important;
   padding: 12px 20px !important;
+}
+
+/* Visible keyboard focus across interactive elements (accessibility). */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring) !important;
 }
 
 

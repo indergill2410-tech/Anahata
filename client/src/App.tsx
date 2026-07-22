@@ -43,22 +43,27 @@ function AuthPrompt({ onSignIn, tab }: { onSignIn: () => void; tab: string }) {
   const label = tab === 'profile' ? 'your private practice space' : 'your session history';
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      flex:1, padding:'48px 24px', textAlign:'center', gap:16 }}>
-      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(112,72,232,0.1)', border: '1px solid rgba(112,72,232,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--violet)' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="5" y="11" width="14" height="10" rx="2" />
-          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-        </svg>
+      flex:1, padding:'40px 24px' }}>
+      <div className="card fade-in" style={{ display:'flex', flexDirection:'column', alignItems:'center',
+        textAlign:'center', gap:16, padding:'32px 24px', width:'100%', maxWidth:360 }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--grad-aurora)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          boxShadow: 'var(--elev-brand)' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          </svg>
+        </div>
+        <h2 className="type-h2" style={{ margin:0 }}>
+          Sign in to view {label}
+        </h2>
+        <p className="type-caption" style={{ margin:0, maxWidth:280 }}>
+          Create a free account or sign in to keep journals, sessions, and personal guidance safely together.
+        </p>
+        <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
+          Sign in / Register
+        </button>
       </div>
-      <h2 className="type-h2" style={{ margin:0 }}>
-        Sign in to view {label}
-      </h2>
-      <p className="type-caption" style={{ margin:0, maxWidth:280 }}>
-        Create a free account or sign in to keep journals, sessions, and personal guidance safely together.
-      </p>
-      <button onClick={onSignIn} className="btn-primary" style={{ marginTop:8 }}>
-        Sign in / Register
-      </button>
     </div>
   );
 }
