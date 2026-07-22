@@ -130,7 +130,7 @@ body{
     radial-gradient(ellipse at 82% 10%, rgba(255,178,94,0.28), transparent 28%),
     radial-gradient(ellipse at 52% 34%, rgba(112,72,232,0.34), transparent 36%),
     radial-gradient(ellipse at 20% 58%, rgba(12,166,120,0.22), transparent 32%),
-    linear-gradient(180deg,#07091B 0%,#11172B 42%,#25133D 68%,#F4F0E8 100%);
+    linear-gradient(180deg,#07091B 0%,#11172B 42%,#25133D 68%,#160B2E 100%);
   perspective:1200px;
   transform-style:preserve-3d;
 }
@@ -159,31 +159,31 @@ body{
   background:
     radial-gradient(ellipse at 50% 4%, rgba(98,162,255,0.36), transparent 32%),
     radial-gradient(ellipse at 18% 82%, rgba(12,166,120,0.22), transparent 35%),
-    linear-gradient(180deg,#050817 0%,#111B35 48%,#241446 74%,#F4F0E8 100%);
+    linear-gradient(180deg,#050817 0%,#111B35 48%,#241446 74%,#160B2E 100%);
 }
 .page-studio{
   background:
     radial-gradient(ellipse at 50% 0%, rgba(112,72,232,0.42), transparent 34%),
     radial-gradient(ellipse at 88% 72%, rgba(245,159,0,0.22), transparent 30%),
-    linear-gradient(180deg,#07071A 0%,#17122F 48%,#2D1643 72%,#F4F0E8 100%);
+    linear-gradient(180deg,#07071A 0%,#17122F 48%,#2D1643 72%,#160B2E 100%);
 }
 .page-journal{
   background:
     radial-gradient(ellipse at 18% 10%, rgba(99,102,241,0.36), transparent 32%),
     radial-gradient(ellipse at 82% 38%, rgba(12,166,120,0.18), transparent 30%),
-    linear-gradient(180deg,#070A1E 0%,#151C36 45%,#2A1742 72%,#F4F0E8 100%);
+    linear-gradient(180deg,#070A1E 0%,#151C36 45%,#2A1742 72%,#160B2E 100%);
 }
 .page-library{
   background:
     radial-gradient(ellipse at 50% 3%, rgba(255,190,104,0.32), transparent 32%),
     radial-gradient(ellipse at 14% 70%, rgba(91,141,239,0.22), transparent 34%),
-    linear-gradient(180deg,#080A18 0%,#17162A 47%,#301A34 72%,#F4F0E8 100%);
+    linear-gradient(180deg,#080A18 0%,#17162A 47%,#301A34 72%,#160B2E 100%);
 }
 .page-profile{
   background:
     radial-gradient(ellipse at 78% 0%, rgba(12,166,120,0.28), transparent 32%),
     radial-gradient(ellipse at 20% 42%, rgba(112,72,232,0.32), transparent 34%),
-    linear-gradient(180deg,#050817 0%,#111B2C 45%,#1B2440 70%,#F4F0E8 100%);
+    linear-gradient(180deg,#050817 0%,#111B2C 45%,#1B2440 70%,#160B2E 100%);
 }
 
 .dashboard{
