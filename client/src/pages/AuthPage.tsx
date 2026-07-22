@@ -172,16 +172,22 @@ export default function AuthPage({ onBack }: AuthPageProps) {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: `radial-gradient(circle at 50% 12%, ${tone(accent, '18')}, transparent 36%), var(--bg)`,
+      background: `
+        radial-gradient(ellipse at 50% 0%, ${tone(accent, '80')}, transparent 44%),
+        radial-gradient(ellipse at 88% 16%, rgba(59,91,219,0.3), transparent 40%),
+        radial-gradient(ellipse at 8% 84%, rgba(12,166,120,0.2), transparent 42%),
+        linear-gradient(180deg, #090B1E 0%, #141A33 44%, #2A1742 70%, #F4F0E8 100%)`,
       padding: 22,
     }}>
       <main style={{ width: '100%', maxWidth: 410, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {onBack && (
           <button onClick={onBack} style={{
             alignSelf: 'flex-start',
-            border: '1px solid var(--border)',
-            color: 'var(--ink2)',
-            background: '#FFFFFF',
+            border: '1px solid rgba(255,255,255,0.18)',
+            color: 'var(--on-dark-1)',
+            background: 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
             fontSize: 12,
             padding: '9px 13px',
             borderRadius: 999,
@@ -189,15 +195,14 @@ export default function AuthPage({ onBack }: AuthPageProps) {
             alignItems: 'center',
             gap: 7,
             fontWeight: 900,
-            boxShadow: '0 4px 14px rgba(23,18,10,0.05)',
           }}>
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
             Continue without signing in
           </button>
         )}
 
-        <section style={{ position: 'relative', overflow: 'hidden', borderRadius: 30, padding: 20, background: '#17120A', color: '#FFFFFF', boxShadow: '0 18px 54px rgba(23,18,10,0.22)' }}>
-          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 82% 8%, ${tone(accent, '42')}, transparent 34%), radial-gradient(circle at 5% 90%, rgba(12,166,120,0.18), transparent 30%)`, pointerEvents: 'none' }} />
+        <section style={{ position: 'relative', overflow: 'hidden', borderRadius: 30, padding: 20, background: 'linear-gradient(150deg, #1B1630, #0E0B1C)', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 22px 60px rgba(7,9,24,0.5), inset 0 1px 0 rgba(255,255,255,0.14)' }}>
+          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 82% 8%, ${tone(accent, '55')}, transparent 38%), radial-gradient(circle at 5% 90%, rgba(12,166,120,0.22), transparent 32%)`, pointerEvents: 'none' }} />
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
             <AuthOrb mode={mode} />
             <div style={{ minWidth: 0 }}>
