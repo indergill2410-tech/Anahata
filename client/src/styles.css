@@ -131,8 +131,6 @@ body{
     radial-gradient(ellipse at 52% 34%, rgba(112,72,232,0.34), transparent 36%),
     radial-gradient(ellipse at 20% 58%, rgba(12,166,120,0.22), transparent 32%),
     linear-gradient(180deg,#07091B 0%,#11172B 42%,#25133D 68%,#160B2E 100%);
-  perspective:1200px;
-  transform-style:preserve-3d;
 }
 .page::before{
   content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
@@ -189,13 +187,11 @@ body{
 .dashboard{
   max-width:480px;margin:0 auto;padding:16px 16px 140px;
   display:flex;flex-direction:column;gap:14px;width:100%;position:relative;z-index:1;
-  transform:translateZ(24px);
 }
 
 .dashboard > section,
 .dashboard > .card {
   position: relative;
-  transform-style: preserve-3d;
 }
 
 .dashboard > section > *,
@@ -207,7 +203,6 @@ body{
 section[data-effect] {
   position:relative;
   overflow:hidden;
-  transform-style:preserve-3d;
 }
 section[data-effect] > * {
   position:relative;
@@ -269,7 +264,6 @@ section[data-effect="profile-memory"]::after {
 .ck-page,
 .library-page {
   position:relative;
-  transform-style:preserve-3d;
 }
 .journey-root::before {
   content:"";position:fixed;left:50%;top:96px;width:min(88vw,560px);height:min(88vw,560px);
@@ -1145,7 +1139,6 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
   padding-top: 18px;
   pointer-events: none;
-  perspective: 900px;
 }
 
 .fnav-pill {
@@ -1164,8 +1157,6 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
     inset 0 -18px 42px rgba(59,91,219,0.08);
   padding: 8px 10px;
   width: min(calc(100vw - 32px), 420px);
-  transform: rotateX(7deg) translateZ(24px);
-  transform-style: preserve-3d;
 }
 
 .fnav-inner {
