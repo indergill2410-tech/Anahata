@@ -469,8 +469,8 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 .intention-btn span:first-child{font-size:20px;}
 .intention-btn:hover{border-color:rgba(23,18,10,0.14);transform:translateY(-2px);}
 .intention-btn.active{
-  border-color:rgba(112,72,232,0.4);background:var(--violet);color:#fff;
-  box-shadow:0 4px 16px rgba(112,72,232,0.3);transform:translateY(-2px);
+  border-color:rgba(112,72,232,0.5);background:var(--grad-aurora);color:#fff;
+  box-shadow:var(--elev-brand);transform:translateY(-2px);
 }
 
 .ai-assistant{

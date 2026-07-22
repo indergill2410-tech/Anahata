@@ -235,12 +235,12 @@ export default function JourneyPage() {
             <button key={key} onClick={() => engine.applyIntention(key)}
               style={{
                 padding:'8px 16px', borderRadius:'var(--r-full)', fontSize:11, fontFamily:'inherit',
-                border:`1px solid ${engine.intention===key ? 'rgba(112,72,232,0.4)' : 'var(--border)'}`,
-                background: engine.intention===key ? 'var(--violet)' : 'var(--bg1)',
+                border:`1px solid ${engine.intention===key ? 'rgba(112,72,232,0.5)' : 'var(--border)'}`,
+                background: engine.intention===key ? 'var(--grad-aurora)' : 'var(--bg1)',
                 color: engine.intention===key ? '#fff' : 'var(--ink2)',
                 cursor:'pointer', transition:'all 0.2s var(--spring)', fontWeight:700,
                 letterSpacing:'0.04em',
-                boxShadow: engine.intention===key ? '0 4px 16px rgba(112,72,232,0.3)' : 'var(--shadow)',
+                boxShadow: engine.intention===key ? 'var(--elev-brand)' : 'var(--shadow)',
               }}
             >
               {p.emoji} {p.label}
