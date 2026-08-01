@@ -91,7 +91,7 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytErr
   const remaining = Math.max(0, totalSec - elapsed);
 
   return (
-    <div style={{ position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
+    <div style={{ position: 'fixed', bottom: 'var(--nav-h)', left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
       <div style={{
         background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)',
         borderRadius: 22, border: `1.5px solid ${album.color}30`,

@@ -5,6 +5,7 @@ import AnahataOrb, { OrbId } from '../components/AnahataOrb';
 import BreathingGuide, { type BreathingPattern } from '../components/BreathingGuide';
 import NowPlayingBar from '../components/NowPlayingBar';
 import { useSoundEngine, useElapsed, INTENTIONS } from '../context/SoundEngineContext';
+import { useTrackPlayer } from '../context/TrackPlayerContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useBluetooth } from '../hooks/useBluetooth';
 import { useSimulator } from '../hooks/useSimulator';
@@ -33,6 +34,7 @@ type BreathSession = { mode: 'start' | 'coach'; cycles: number; pattern?: Breath
 export default function JourneyPage() {
   const engine  = useSoundEngine();
   const elapsed = useElapsed();
+  const { currentTrack: libraryTrackActive } = useTrackPlayer();
   const ws     = useWebSocket();
   const ble    = useBluetooth();
   const sim    = useSimulator();
@@ -371,15 +373,21 @@ export default function JourneyPage() {
         </div>
       </div>
 
-      <NowPlayingBar
-        isPlaying={engine.isPlaying}
-        intention={engine.intention}
-        elapsed={elapsed}
-        brainwave={engine.brainwave}
-        bpm={engine.bpm}
-        analyser={engine.analyser}
-        onTogglePlay={engine.togglePlay}
-      />
+      {/* A library track playing takes the speaker over (see the auto-duck
+          listener in TrackPlayerContext/SoundEngineContext) but only pauses
+          this engine rather than resetting it, so without this guard both
+          "now playing" bars would render stacked at the same position. */}
+      {!libraryTrackActive && (
+        <NowPlayingBar
+          isPlaying={engine.isPlaying}
+          intention={engine.intention}
+          elapsed={elapsed}
+          brainwave={engine.brainwave}
+          bpm={engine.bpm}
+          analyser={engine.analyser}
+          onTogglePlay={engine.togglePlay}
+        />
+      )}
     </div>
   );
 }
