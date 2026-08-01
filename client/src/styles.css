@@ -6,6 +6,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
+  /* Real height of the floating bottom nav, published by BottomNav via
+     ResizeObserver. The fallback matters before JS measures it and on any
+     screen the nav fails to mount on — every stacked bottom overlay below
+     reads this instead of a guessed pixel offset. */
+  --nav-h: 100px;
   --bg:   #F7F4EE;
   --bg1:  #FFFFFF;
   --bg2:  #EEE9E0;
@@ -380,7 +385,7 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 .nav-item.active .nav-dot{opacity:1;}
 
 .now-playing-bar{
-  position:fixed;bottom:62px;left:0;right:0;
+  position:fixed;bottom:var(--nav-h);left:0;right:0;
   background:rgba(255,255,255,0.97);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-top:1px solid var(--border);
@@ -678,7 +683,7 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 .glow-pulse{animation:glowPulse 2s ease-in-out infinite;}
 
 .ai-float-btn{
-  position:fixed;right:20px;bottom:80px;width:52px;height:52px;
+  position:fixed;right:20px;bottom:calc(var(--nav-h) + 14px);width:52px;height:52px;
   border-radius:50%;border:none;
   background:linear-gradient(135deg,var(--violet),var(--blue));
   color:#fff;display:flex;align-items:center;justify-content:center;
@@ -692,7 +697,7 @@ input::placeholder,textarea::placeholder{color:var(--ink4);}
 
 .mobile-install-card{
   position:fixed;left:14px;right:14px;
-  bottom:calc(env(safe-area-inset-bottom,0px) + 92px);
+  bottom:calc(var(--nav-h) + 10px);
   z-index:185;display:none;align-items:center;gap:10px;
   padding:10px 10px 10px 12px;border-radius:22px;
   background:rgba(255,255,255,0.94);border:1px solid rgba(23,18,10,0.08);
@@ -2320,7 +2325,7 @@ a:focus-visible {
   .install-control-orb{width:42px;height:42px;}
   .install-control-action{grid-column:2;justify-self:start;margin-top:2px;}
   .mobile-install-card{display:flex;}
-  .mobile-install-card ~ .ai-float-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 156px);}
+  .mobile-install-card ~ .ai-float-btn{bottom:calc(var(--nav-h) + 90px);}
 }
 
 @media (max-width: 360px) {

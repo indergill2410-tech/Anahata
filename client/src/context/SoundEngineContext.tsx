@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect, ReactNode } from 'react';
 import { PhraseEngine } from '../utils/PhraseEngine';
 import { TRACK_PLAYER_START_EVENT, SOUND_ENGINE_START_EVENT } from './audioEvents';
+import { useToast } from './ToastContext';
 
 // ── Intention presets ────────────────────────────────────────────────────────
 export const INTENTIONS = {
@@ -429,6 +430,7 @@ const SoundEngineContext = createContext<SoundEngineContextType | null>(null);
 const ElapsedContext = createContext(0);
 
 export function SoundEngineProvider({ children }: { children: ReactNode }) {
+  const { error: toastError } = useToast();
   const [isPlaying,    setIsPlaying]    = useState(false);
   const [layers,       setLayers]       = useState(DEFAULT_LAYERS);
   const [settings,     setSettings]     = useState(DEFAULT_SETTINGS);
@@ -535,7 +537,16 @@ export function SoundEngineProvider({ children }: { children: ReactNode }) {
     if (timerRef.current !== null) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     window.dispatchEvent(new CustomEvent(SOUND_ENGINE_START_EVENT));
-  }, [masterVol, masterReverb, buildLayer]);
+
+    // A freshly created AudioContext commonly starts 'suspended' under mobile
+    // autoplay policy - without an explicit resume() the layers above build
+    // and report isPlaying=true while producing no sound at all.
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {
+        toastError('Audio is blocked. Tap play again to start sound.');
+      });
+    }
+  }, [masterVol, masterReverb, buildLayer, toastError]);
 
   // ── Stop ────────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {

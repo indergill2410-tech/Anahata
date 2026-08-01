@@ -12,6 +12,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function BottomNav({ active, onChange }: Props) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
@@ -39,8 +40,24 @@ export default function BottomNav({ active, onChange }: Props) {
     };
   }, [active]);
 
+  // Publish the nav's real rendered height as a CSS var so every stacked
+  // bottom overlay (mini player, now-playing bar, AI button, install
+  // prompt) can position off of it instead of guessing a pixel offset that
+  // drifts from the actual safe-area-dependent height per device.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const setNavHeight = () => {
+      document.documentElement.style.setProperty('--nav-h', `${wrap.offsetHeight}px`);
+    };
+    setNavHeight();
+    const ro = new ResizeObserver(setNavHeight);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div className="fnav-wrap">
+    <div className="fnav-wrap" ref={wrapRef}>
       <div className="fnav-pill" ref={pillRef}>
         <div ref={navRef} className="fnav-inner">
           <div

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Track, Album } from '../data/libraryData';
 import { TRACK_PLAYER_START_EVENT, SOUND_ENGINE_START_EVENT } from './audioEvents';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function parseDuration(s: string): number {
@@ -95,6 +96,7 @@ function saveFavorites(favs: Set<string>) {
 
 export function TrackPlayerProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, authFetch } = useAuth();
+  const { error: toastError } = useToast();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [currentAlbum, setCurrentAlbum] = useState<Album | null>(null);
   const [isPlaying,    setIsPlaying]    = useState(false);
@@ -483,7 +485,13 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
 
   function togglePlay() {
     if (isNativeAudioRef.current && audioRef.current) {
-      isPlaying ? audioRef.current.pause() : audioRef.current.play().catch(() => {});
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(() => {
+          setYtError('Playback was blocked. Tap play again to start.');
+        });
+      }
     } else if (ytRef.current) {
       isPlaying ? ytRef.current.pauseVideo() : ytRef.current.playVideo();
     }
@@ -614,6 +622,14 @@ export function TrackPlayerProvider({ children }: { children: ReactNode }) {
       }, 1000);
     }, fadeStartMs);
   }
+
+  // Playback failures were previously only stored in `ytError` state with no
+  // UI ever reading it, so a broken track just looked like nothing happened.
+  // Surface every new failure as a toast regardless of which screen is open.
+  useEffect(() => {
+    if (ytError) toastError(ytError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ytError]);
 
   // ── Auto-duck: pause real playback if the generative engine starts, so
   // the two audio systems never fight for the speaker at once ──────────────

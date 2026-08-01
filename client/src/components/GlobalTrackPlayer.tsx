@@ -55,18 +55,20 @@ export default function GlobalTrackPlayer() {
   const p = useTrackPlayer();
   if (!p.currentTrack || !p.currentAlbum) return null;
 
+  const retry = () => p.playTrack(p.currentTrack!, p.currentAlbum!, p.queue);
+
   return (
     <>
       <MiniPlayer
         track={p.currentTrack} album={p.currentAlbum} isPlaying={p.isPlaying} loading={p.loading}
-        progress={p.progress} elapsed={p.elapsed}
+        progress={p.progress} elapsed={p.elapsed} ytError={p.ytError}
         onPlay={p.togglePlay} onPrev={p.playPrev} onNext={p.playNext} onExpand={() => p.setIsExpanded(true)}
       />
       {p.isExpanded && (
         <FullPlayer
           track={p.currentTrack} album={p.currentAlbum} isPlaying={p.isPlaying} loading={p.loading}
           progress={p.progress} elapsed={p.elapsed} volume={p.volume} shuffle={p.shuffle} repeat={p.repeat}
-          sleepTimerMinutes={p.sleepTimerMinutes}
+          sleepTimerMinutes={p.sleepTimerMinutes} ytError={p.ytError}
           queue={p.queue} isFavorite={p.isFavorite(p.currentTrack.id)}
           onPlay={p.togglePlay} onPrev={p.playPrev} onNext={p.playNext} onSeek={p.handleSeek}
           onVolume={p.handleVolume} onShuffle={() => p.handleShuffle(p.currentAlbum!)}
@@ -74,6 +76,7 @@ export default function GlobalTrackPlayer() {
           onSleepTimer={p.setSleepTimer}
           onToggleFavorite={() => p.toggleFavorite(p.currentTrack!.id)}
           onPlayFromQueue={p.playFromQueue}
+          onRetry={retry}
         />
       )}
     </>
@@ -81,14 +84,14 @@ export default function GlobalTrackPlayer() {
 }
 
 // ─── Mini Player ─────────────────────────────────────────────────────────────
-function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPlay, onPrev, onNext, onExpand }:
-  { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
+function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, ytError, onPlay, onPrev, onNext, onExpand }:
+  { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number; ytError: string | null;
     onPlay(): void; onPrev(): void; onNext(): void; onExpand(): void }) {
   const totalSec  = parseDuration(track.duration);
   const remaining = Math.max(0, totalSec - elapsed);
 
   return (
-    <div style={{ position: 'fixed', bottom: 80, left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
+    <div style={{ position: 'fixed', bottom: 'var(--nav-h)', left: 0, right: 0, zIndex: 90, padding: '0 12px' }}>
       <div style={{
         background: 'rgba(250,247,242,0.96)', backdropFilter: 'blur(28px)',
         borderRadius: 22, border: `1.5px solid ${album.color}30`,
@@ -106,8 +109,8 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPla
             <OrbSphere color={album.color} accent={album.accent} size={40} glow={isPlaying} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.ink1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-              <div style={{ fontSize: 11, color: T.ink3, marginTop: 1 }}>
-                {loading ? 'Loading…' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
+              <div style={{ fontSize: 11, color: ytError ? '#DC2626' : T.ink3, marginTop: 1, fontWeight: ytError ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {ytError ? ytError : loading ? 'Loading…' : `${formatSecs(elapsed)} · −${formatSecs(remaining)}`}
               </div>
             </div>
           </button>
@@ -128,16 +131,16 @@ function MiniPlayer({ track, album, isPlaying, loading, progress, elapsed, onPla
 
 // ─── Full Player ─────────────────────────────────────────────────────────────
 function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volume, shuffle, repeat,
-  sleepTimerMinutes, queue, isFavorite,
+  sleepTimerMinutes, ytError, queue, isFavorite,
   onPlay, onPrev, onNext, onSeek, onVolume, onShuffle, onRepeat, onCollapse, onSleepTimer,
-  onToggleFavorite, onPlayFromQueue }:
+  onToggleFavorite, onPlayFromQueue, onRetry }:
   { track: Track; album: Album; isPlaying: boolean; loading: boolean; progress: number; elapsed: number;
-    volume: number; shuffle: boolean; repeat: boolean; sleepTimerMinutes: number | null;
+    volume: number; shuffle: boolean; repeat: boolean; sleepTimerMinutes: number | null; ytError: string | null;
     queue: Track[]; isFavorite: boolean;
     onPlay(): void; onPrev(): void; onNext(): void; onSeek(p: number): void;
     onVolume(v: number): void; onShuffle(): void; onRepeat(): void; onCollapse(): void;
     onSleepTimer(minutes: number | null): void;
-    onToggleFavorite(): void; onPlayFromQueue(track: Track): void }) {
+    onToggleFavorite(): void; onPlayFromQueue(track: Track): void; onRetry(): void }) {
 
   const [showSleepMenu, setShowSleepMenu] = React.useState(false);
   const [showQueue, setShowQueue] = React.useState(false);
@@ -244,9 +247,17 @@ function FullPlayer({ track, album, isPlaying, loading, progress, elapsed, volum
             }}>
               <OrbSphere color={album.color} accent={album.accent} size={220} glow pulse={isPlaying && !loading} />
             </div>
-            {loading && (
+            {loading && !ytError && (
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: 13, color: T.ink3, fontWeight: 600, letterSpacing: '0.08em', background: 'rgba(250,247,242,0.85)', padding: '6px 14px', borderRadius: 20 }}>
                 Loading…
+              </div>
+            )}
+            {ytError && (
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 220, textAlign: 'center', background: 'rgba(250,247,242,0.95)', padding: '14px 16px', borderRadius: 16, boxShadow: T.shadow }}>
+                <div style={{ fontSize: 12, color: '#DC2626', fontWeight: 700, marginBottom: 8 }}>{ytError}</div>
+                <button onClick={onRetry} style={{ fontSize: 12, fontWeight: 700, color: T.amber, background: T.amberLo, border: 'none', borderRadius: 10, padding: '6px 14px', cursor: 'pointer' }}>
+                  Try again
+                </button>
               </div>
             )}
             <WaveVisualizer color={album.color} active={isPlaying && !loading} />
